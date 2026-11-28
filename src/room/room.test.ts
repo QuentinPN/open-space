@@ -1324,10 +1324,11 @@ describe('cozy rooms', () => {
   it("seats nobody where their head would hide another one's, in a project room or in the break room", () => {
     // a chibi seated is 50 pixels tall in the office (chibi.ts), drawn at PERSON_SCALE in the cozy rooms
     const seatedHeight = 50 * PERSON_SCALE;
-    for (const places of [[...DESKS.map(deskPlace), ...COUCH_PLACES], LOUNGE_PLACES]) {
+    // in the break room, a name tag is wider than a head: the sofas' three people sit further apart than at the desks
+    for (const [places, spacing] of [[[...DESKS.map(deskPlace), ...COUCH_PLACES], PERSON_SPACING], [LOUNGE_PLACES, PERSON_SPACING + 4]] as const) {
       const feet = places.map(feetOf);
       for (const [index, a] of feet.entries()) for (const b of feet.slice(index + 1)) {
-        assert.ok(Math.abs(a.x - b.x) >= PERSON_SPACING || Math.abs(a.y - b.y) >= seatedHeight, `${JSON.stringify(a)} and ${JSON.stringify(b)}`);
+        assert.ok(Math.abs(a.x - b.x) >= spacing || Math.abs(a.y - b.y) >= seatedHeight, `${JSON.stringify(a)} and ${JSON.stringify(b)}`);
       }
     }
   });

@@ -6,12 +6,12 @@ import { around, cozyDepth, onCouchAt, type Couch, type Footprint, type Place } 
 
 /** The sofa under the window, along the left wall, and the one along the right wall: three places each. */
 export const LOUNGE_COUCHES: readonly Couch[] = [
-  { u: 0, v: 24, depth: 18, length: 68 },
-  { u: 30, v: 0, depth: 18, length: 68, alongU: true },
+  { u: 0, v: 24, depth: 18, length: 92 },
+  { u: 24, v: 0, depth: 18, length: 78, alongU: true },
 ];
 
-/** Where on a sofa its three people sit, along it from its far end: one on each cushion. */
-const SOFA_SEATS = [14, 32, 50] as const;
+/** Where on a sofa its three people sit, along it from its far end: the middle of each of its cushions (decor.ts paintCouch). */
+const sofaSeats = ({ length }: Couch) => [0, 1, 2].map((cushion) => 7 + (Math.floor((length - 12) / 3) * (2 * cushion + 1)) / 2);
 const SOFA_LIFT = 9;
 
 const sofaPlace = (couch: Couch, along: number): Place => {
@@ -27,6 +27,7 @@ export const LOUNGE_BEANBAGS = [
 const BEANBAG_LIFT = 5;
 
 const [left, right] = LOUNGE_COUCHES;
+const [leftSeats, rightSeats] = LOUNGE_COUCHES.map(sofaSeats);
 const [nearDoor, nearTea] = LOUNGE_BEANBAGS.map(({ u, v, direction }): Place => ({ u, v, direction, lift: BEANBAG_LIFT }));
 
 /**
@@ -34,9 +35,9 @@ const [nearDoor, nearTea] = LOUNGE_BEANBAGS.map(({ u, v, direction }): Place => 
  * the sofas' middles last, so the first people to come to rest do not sit elbow to elbow.
  */
 export const LOUNGE_PLACES: readonly Place[] = [
-  sofaPlace(left, SOFA_SEATS[0]), sofaPlace(right, SOFA_SEATS[2]), nearDoor,
-  sofaPlace(left, SOFA_SEATS[2]), sofaPlace(right, SOFA_SEATS[0]), nearTea,
-  sofaPlace(left, SOFA_SEATS[1]), sofaPlace(right, SOFA_SEATS[1]),
+  sofaPlace(left, leftSeats[0]), sofaPlace(right, rightSeats[2]), nearDoor,
+  sofaPlace(left, leftSeats[2]), sofaPlace(right, rightSeats[0]), nearTea,
+  sofaPlace(left, leftSeats[1]), sofaPlace(right, rightSeats[1]),
 ];
 
 /** Someone at a place of the break room is drawn in its depth order: in front of their sofa, behind its front arm. */
