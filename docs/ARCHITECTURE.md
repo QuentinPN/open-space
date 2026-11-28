@@ -152,7 +152,7 @@ Elles sont disponibles en `-p` avec `--permission-prompt-tool stdio` (vérifié 
 - **Icônes** : Lucide (`lucide-react`, version épinglée), toutes passées par `src/command/Icons.tsx` (même taille, même trait).
 - **Panneaux** : les couleurs, typographies et espacements sont dans `src/design/tokens.css` (un seul thème, sombre ; le tableau garde une surface claire, comme un vrai), la mise en forme dans `src/design/components.css`. Les composants `src/command/*.tsx` ne portent que des `className` et des `data-*`. Un nouvel habillage se fait donc entièrement en CSS.
 - **Refonte de structure** : la disposition, les textes et les sections vivent dans les composants. Changer la structure demande de réécrire `src/command/*.tsx`. La frontière propre est `src/state/` + `src/net/`.
-- **Salle** : exception assumée aux tokens. Toutes ses couleurs sont dans `src/design/room-palette.ts` (pièce, meubles, lumière, bulles) et `src/design/people-palette.ts` (personnages, pastilles de l'éditeur) ; `src/room/room.css` les lit par des variables `--room-*` posées par `RoomView`. Elle ne suit pas le thème clair/sombre.
+- **Salle** : exception assumée aux tokens. Toutes ses couleurs sont dans `src/design/room-palette.ts` (pièce, meubles, lumière, bulles) et `src/design/people-palette.ts` (personnages, pastilles de l'éditeur) ; le mode Cozy y ajoute `COZY_PALETTE`, `COZY_HOME_PALETTE` et `COZY_AMBIANCE_PALETTE` ; `src/room/room.css` les lit par des variables `--room-*` posées par `RoomView`. Elle ne suit pas le thème clair/sombre.
 
 ## Salle (`src/room/`)
 
@@ -166,7 +166,7 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 | `paths.ts` | trajets case par case en huit directions, autour des meubles et sans couper leurs coins |
 | `seats.ts` | attribution stable des places, dans l'ordre du plan ; la place de l'utilisateur est réservée |
 | `cast.ts` | sessions → personnages, par pièce. Bureau : priorité « à toi », puis au travail, puis en attente. Salle de repos : les sessions mises au repos et les fermées (sauf une erreur pas encore vue, qui reste au bureau). « +N » déroule celles sans place. Les sous-agents ne s'assoient pas : leurs têtes, rondes, s'affichent dans l'étiquette de leur session (trois au plus, puis « +N ») ; ce qu'ils écrivent reste dans leur onglet, sans bulle |
-| `scene.ts` | la simulation (entrées, sorties, marche, clic), sans DOM ; l'utilisateur est assis au bureau du boss (son écran s'allume), s'en va quand on clique le sol, et s'assoit là où on clique une place (`playerSpots` : son bureau, le canapé du coin lecture ; dans la salle de repos, n'importe quel canapé) ; cliquer quelqu'un ouvre sa session sans le faire bouger |
+| `scene.ts` | la simulation (entrées, sorties, marche, clic), sans DOM, générique sur le sol (`Scene<F>`, aussi celui du mode Cozy) ; l'utilisateur est assis au bureau du boss (son écran s'allume), s'en va quand on clique le sol, et s'assoit là où on clique une place (`playerSpots` : son bureau, le canapé du coin lecture ; dans la salle de repos, n'importe quel canapé) ; cliquer quelqu'un ouvre sa session sans le faire bouger |
 | `pet.ts` | l'animal, choisi dans Équipe (onglet Animal) ou au premier lancement (`Preferences.pet`, `shared/pets.ts`) : un chat (motif uni, tigré, tricolore ou smoking), un chien (7 races : forme, oreilles, queue, marques, collier), un droïde (3 modèles, dessinés dans `droid-art.ts`), un canard en plastique, un capybara, un axolotl, Rocky de *Projet Dernière Chance*, Clawd, puis renard, panda roux, lapin, hérisson, hibou, perroquet, pingouin, tortue, crabe, poulpe, luciole géante, chat fantôme, maneki-neko, chien robot, petit alien, dragon de poche, slime et mini-golem (dessinés dans `pet-species.ts`), ou aucun ; une seule couleur au choix (et les yeux d'un chat), qui part de celle du motif, de la race ou de l'espèce (`furOf`). Il se promène, s'assoit, fait sa toilette (le chien halète, Rocky bricole), dort, et parle à sa façon (`petWords`) ; cliqué, il s'arrête, parle, et des cœurs s'envolent. Il va de salle en salle : voir Animal, plus bas. Les premiers pelages nommés d'après leur couleur deviennent un chat uni de cette couleur (`parsePet`) |
 | `cast.ts` (automates) | les automates au travail ont leur salle à eux, la salle des serveurs (`RoomKind` `automata`), jamais un poste de session (voir « Automates ») |
 | `server-room.ts`, `server-furniture.ts`, `robot.ts`, `themes/servers.ts`, `themes/servers-sky.ts` | la salle des serveurs : l'orbe, les cordes de lumière et leurs paquets (logique pure), les baies, capsules et l'orbe en pixel art, les automates en robots, son habillage quel que soit le thème (voir « Automates ») |
@@ -184,6 +184,9 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 | `festivals.ts`, `halloween.ts`, `wall-art.ts` | ce que chaque fête peint aux murs, différent dans le bureau et la salle de repos (bannières en police 3 × 5, fanions, guirlandes, lanternes…), l'image de la télé de la salle de repos, les confettis au sol, les lumières de la nuit et ce qui bouge (ampoules, bougies, neige et feux d'artifice aux fenêtres, notes, cœurs, jets d'eau) |
 | `outfits.ts` | les tenues de fête par-dessus le look : bonnet, chapeau pointu, couronne (les « invités » du jour, voir `festivalDay` : à l'Épiphanie l'utilisateur et un membre de l'équipe tiré pour l'année, à un anniversaire celui ou celle dont c'est l'anniversaire ; les autres ont un chapeau pointu), oreilles de lapin, béret, casque, lunettes de soleil, maillot, pistolet à eau (l'utilisateur à Songkran). `chibi.ts` pose les chapeaux sur le haut de chaque coiffure (`HAIR_TOP`) ; le sprite a 8 rangées de plus en haut pour eux (`HAT_ROWS`) |
 | `costumes.ts`, `wardrobe.ts`, `wardrobe-head.ts` | les pièces dessinées par-dessus le corps nu ou un pantalon simple : costumes de Naruto et One Piece, puis la garde-robe de déguisements (`WARDROBE_*` de `shared/look.ts` : coiffures, yeux, hauts, bas, chaussures, chapeaux, accessoires). Elles prennent la couleur du look quand ça a du sens, sinon la leur (`WARDROBE_COLORS`, `FIXED_COLOUR`) ; un accessoire porté dans le dos se voit dans l'éditeur de dos (`BodyPart` `back`) |
+| `frame-loop.ts`, `looks.ts`, `useRoomFrame.ts`, `useCarry.ts` | ce que la salle classique et le mode Cozy partagent : la boucle à 15 images/s (`runFrames`), le look d'un membre (`crewLook`), la caméra de la salle (Alt + glisser, molette, double-clic), le portage d'une session vers un autre siège |
+| `chibi-hd.ts`, `hd/*.ts`, `pet-hd.ts`, `pet-hd/*.ts` | les gens et les animaux en HD du mode Cozy, derrière la même `SpriteSource` (voir « Mode Cozy ») |
+| `cozy/` | le mode Cozy : une petite pièce par projet, l'appartement, la salle de repos, les ambiances (voir « Mode Cozy ») |
 
 - **Le tableau** (`whiteboard.ts`, dessiné dans `pixel-furniture.ts`) : ce qu'il montre est choisi par `boardContent` (logique pure, testée) : des notes griffonnées un jour ordinaire, « HBD <PRÉNOM> !! » et des ballons à un anniversaire, des dessins pour les autres fêtes. Au survol il s'entoure de blanc comme l'écran du bureau, ce qui est devant le cache ; cliqué, il ouvre `BoardDialog.tsx`, habillé comme lui en pixel art (cadre alu, surface claire, auget avec feutres et brosse : `BoardTray.tsx`, couleurs `--board-*` de `tokens.css`, titres des notes en Kalam, police de marqueur sous licence OFL livrée par `@fontsource/kalam`) : un onglet par note, rendue en Markdown (`Prose`), modifiable dans un champ de texte, enregistrée 800 ms après la dernière frappe, en quittant le champ et à la fermeture. Le dossier est relu toutes les 4 s : une note changée sur le disque est rechargée si rien n'attend d'être enregistré ; sinon l'enregistrement est refusé (`conflict`) et la note rechargée, avec un mot. Un « i » en haut à droite, comme la page vide, explique le tableau et comment les sessions y écrivent (une ligne de `CLAUDE.md`). Messages `notes`, `readNote`, `writeNote` ; réponses `notes` et `note`.
 - **L'objet des mods** (`src/room/metrics.ts`, dessiné dans `pixel-furniture.ts`) : toujours là au bureau et en salle de repos. `METRICS_OBJECT` choisit l'objet ; survol, contour caché derrière ce qui est devant et badge « ! » (du nouveau dans un mod fermé, `modsNews`) marchent pour chacun. Cliqué, il ouvre le panneau des mods.
@@ -224,6 +227,96 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 - **Sessions qui se parlent** (vérifié sur 2.1.302, `server/fixtures/peer-message.jsonl`) : `--name` est le nom sous lequel les autres sessions de la machine voient celle-ci (`ListAgents`, `to` de `SendMessage`), accents et espaces compris, à la reprise aussi ; c'est aussi le titre de la conversation dans le `/resume` de Claude Code (« Reprendre » montre « Prénom · première demande »). Un message reçu lance un tour sans ligne `user` dans le flux : il n'arrive qu'à la fin, dans `result.origin` (`kind: "peer"`, `name`, `body`). Le normaliseur en fait un événement `peer`, que le fil remonte en tête du tour. L'`init` donne `messaging_socket_path`, qui permet de nommer une session répondue à sa socket (`uds:/tmp/cc-socks/<pid>.sock`). Une session dont le processus est relâché n'est pas joignable.
 - **« @ » dans le champ** (`src/command/CommandField.tsx`, `shared/mentions.ts`, `shared/file-mentions.ts`) : « @ » propose d'abord les autres sessions, par prénom ou tag (le serveur les présente à Claude et réveille celles qui dorment, `Sessions.introduceMentioned` ; leur nom est marqué en couleur dans le champ), puis les fichiers et dossiers du dossier de la session (son worktree pour une session isolée), ou, dans le lanceur, ceux du dossier choisi avant que la session existe. D'abord le chemin tapé en entier, puis les noms qui commencent par le texte dans le dossier tapé (`src/co`), puis ailleurs, puis les chemins qui le contiennent, sans casse ni accents ; 8 lignes au plus en tout, chacune avec l'icône fichier ou dossier, le nom et le dossier où il est. Compléter écrit `@src/app.ts ` ; un dossier finit par `/` sans espace, pour proposer ensuite ce qu'il contient ; un chemin avec une espace part entre guillemets, comme Claude Code l'écrit (`@"docs/mes notes.md"`, le curseur avant le guillemet fermant pour un dossier). La page envoie `findPaths` 120 ms après la dernière frappe, ne garde que la réponse à sa dernière question et la reclasse pour ce qui est tapé en attendant la suivante (`src/command/usePathMentions.ts`). Le serveur (`server/file-mentions.ts`) prend `git ls-files --cached --others --exclude-standard`, lancé dans le dossier (rien au-dessus, `.gitignore` suivi, les dossiers tirés des chemins), sinon parcourt le dossier en largeur (50 000 entrées et 1 s au plus, sans suivre les liens) ; `.git`, `node_modules` et quelques caches ne sont jamais proposés, même oubliés par `.gitignore` ; la liste sert 5 s aux frappes suivantes ; la réponse n'a que des chemins qui existent et restent dans le dossier en realpath (git garde un fichier supprimé pas encore commité, un lien peut mener dehors). Un chemin n'est jamais pris pour une session du même nom : `findMentions` ignore un nom suivi de `/` ou d'un point puis d'un nom (`@src/app.ts`, `@README.md`). Ce que Claude Code en fait (vérifié en 2.1.325, `claude -p --input-format stream-json --model haiku`) : il joint lui-même au message ce que le chemin nomme, le texte d'un fichier ou la liste d'un dossier, guillemets compris, sans appel à Read et en un seul tour (« What is the code word in @note.txt? » répond le mot du fichier, `num_turns: 1`) ; ces pièces jointes (`attachment` de type `file` ou `directory`) sont dans le transcript, pas dans le flux stream-json.
 - **Métiers** (`shared/jobs.ts`) : une session lancée sans prénom va à un membre libre dont le métier correspond aux mots-clés de la première demande (`Crew.freeNameFor`), sinon au hasard. Le métier n'entre pas dans le prompt.
+
+## Mode Cozy (`src/room/cozy/`)
+
+`Preferences.roomStyle` (`'classic'` par défaut, `'cozy'`, Réglages > « Style de la salle ») remplace le bureau unique par une petite pièce isométrique par projet, autour de l'appartement de l'utilisateur. Un `settings.json` d'avant reste valable : tous les champs cozy sont facultatifs et ont une valeur par défaut (`server/settings.ts`). Le mode Classique n'est pas touché : le cozy vit dans ses modules et réutilise le reste. Les sessions, la file « à toi », les bulles, les looks et les fêtes sont les mêmes ; la salle des serveurs et ses automates restent la pièce classique (vue `automata`).
+
+| Réglage | Rôle |
+|---|---|
+| `roomStyle` | `classic` ou `cozy` (`ROOM_STYLES`) |
+| `homeTheme` | l'appartement de l'utilisateur : `studio` (défaut), `loft`, `chalet`, `japonais` (`HOME_THEMES`) ; la ligne « Chez toi » des Réglages n'apparaît qu'en cozy |
+| `cozyAmbianceMode`, `cozyAmbiance`, `projectAmbiances` | l'ambiance des pièces de projet, voir plus bas |
+| `pinnedProjects` | dossiers épinglés (absolus, sans doublon, 50 au plus) que la vue « Récents » garde en vue |
+
+### Vues et bascule
+
+`App.tsx` rend `<CozyView key="cozy" />` à la place de `RoomView` quand `roomStyle` est `cozy` et que la vue n'est pas `automata`. `CozyView.tsx` (boucle d'images, clics, bulles HTML, plaques) porte quatre vues d'un même canvas :
+
+- **Vue d'ensemble** : les pièces en nid d'abeilles (`overviewLayout`, `fitOverview` pour tenir à côté de la carte d'état), l'appartement au milieu. Un clic sur une personne ouvre sa session, ailleurs sur une pièce il l'ouvre en grand. Un filtre « Actifs » ou « Récents + épinglés » (`cozy:show`) choisit les projets montrés (`shownProjects`, `recentFolders`).
+- **Une pièce en grand** (zoom) : 4 bureaux (`DESK_COUNT`), les suivantes dans « +N » ; sans session, la pièce est éteinte (pénombre, lune). Le filtre de projets de l'en-tête zoome sa pièce ; Échap ou « Toutes les pièces » revient à la vue d'ensemble.
+- **Salle de repos** (`LOUNGE_ID`) : toutes les sessions mises au repos ou fermées, tous projets confondus (même règle que `cast.ts`, `roomSessions` `lounge`), 8 places (`lounge.ts`), le reste dans « +N ». La vue `repos` (onglet de l'en-tête, ⌘K) l'ouvre en grand, `salle` revient aux pièces ; la porte du mur gauche de chaque pièce fait la navette, l'utilisateur y marche.
+- **Chez toi** (`HOME_ID`) : l'utilisateur à son ordinateur, son animal, un appel visio sur l'écran (`callers` : les sessions des bureaux, celles au travail d'abord). Un clic sur l'ordinateur ouvre un terminal, sur l'écran de chiffres le panneau des mods, sur une horloge l'heure (`things.ts`).
+
+### Plan des fichiers
+
+| Fichier | Rôle | Nature |
+|---|---|---|
+| `CozyView.tsx` | vue, bascule, clics, survol, bulles, caméra, portage | React |
+| `geometry.ts` | iso, contour d'une pièce, bureaux, canapé, places, vue d'ensemble, `roomAt`, `figureAt` | pur |
+| `rooms.ts` | quelles pièces et qui y est : `shownProjects`, `recentFolders`, `cozyRooms` (réutilise `planRoom`), `roomNames`, `callers`, clé des places (`cozySeatsKey`) | pur |
+| `people.ts` | qui s'assoit où et à quelle hauteur (`SpriteSource.height`), pose assis, frappe ou sieste | pur |
+| `floor.ts` | le sol que l'on marche (`CozyFloor`, grille 16 × 16, empreintes des meubles), places, porte, endroits où s'asseoir | pur |
+| `visits.ts` | les visiteurs (`visitors.ts`) menés aux points de l'ambiance | pur |
+| `things.ts` | ce qu'un point touche : personne, animal, ordinateur, tableau, porte, horloge | pur |
+| `home-pet.ts`, `pet.ts` | la vie de l'animal chez l'utilisateur (`stepPet` de la salle classique), puis son dessin HD | pur ; dessin |
+| `time.ts`, `light.ts`, `clock.ts`, `festive.ts` | l'heure en trois humeurs (jour, crépuscule, nuit) et les clés de cache, la lumière cuite dans le décor, l'horloge, la décoration de la fête du jour | pur ; dessin |
+| `pixels.ts` | la grille de pixels (`PixelGrid`), boîtes et faces isométriques, contours | dessin |
+| `decor.ts`, `lounge-art.ts`, `paint.ts` | le décor d'une pièce (couche arrière en cache, pièces triées par profondeur), la salle de repos, une image (écrans, gens, étiquettes) | dessin |
+| `ambiance/index.ts` | le contrat `AmbianceDesign`, le registre `AMBIANCES`, `ambianceFor`, `pickAmbiance` | pur |
+| `ambiance/<id>.ts` | une ambiance (10 : `office`, `cafe`, `space`, `tokyo`, `dungeon`, `beach`, `pirate`, `forest`, `cellar`, `atelier`) | dessin |
+| `home/index.ts` | les appartements : sièges, clics, appel | pur |
+| `home/kit.ts`, `home/art.ts`, `home/<thème>.ts` | leur boîte à outils, leur lumière et leurs images en cache, le dessin de chacun | dessin |
+| `../chibi-hd.ts`, `../hd/*.ts`, `../pet-hd.ts`, `../pet-hd/*.ts` | les gens et les animaux en HD | dessin (grilles pures) |
+
+Les couleurs sont dans `src/design/room-palette.ts` (`COZY_PALETTE`, `COZY_HOME_PALETTE`, `COZY_AMBIANCE_PALETTE`, un fichier par ambiance dans `src/design/cozy-ambiances/`) : aucune couleur littérale ailleurs. Les styles de la vue sont les `.cp-cozy*` de `room.css`.
+
+### Réutilisé de la salle classique, et propre au cozy
+
+- **Réutilisé** : `cast.ts` (`roomSessions`, `planRoom`, `unseatedSessions`), `scene.ts` (générique : `Scene<F extends SceneFloor>` avec une `SceneView`, `CLASSIC_VIEW` garde les chiffres de la salle, `COZY_VIEW` a les siens), `paths.ts` (`aisleRoute`), `visitors.ts` (`Visits` et le rythme de `officeLife`, qui prend un `VisitFloor`), `pet.ts` (`stepPet`, `PetFloor`, `PetErrand`), `shared/festivals.ts` et `useFestival` (avec « Essayer une fête »), `outfits.ts`, `frame-loop.ts` (`runFrames`), `looks.ts` (`crewLook`), `useRoomFrame.ts` (la caméra : Alt + glisser, molette, double-clic), `useCarry.ts` (le portage d'une session vers un autre siège), `labels.ts` et `paintNameTags` de `draw.ts` (les étiquettes), `SpeechBubble`, `lightingAt` (ciel et heure).
+- **Propre au cozy** : la géométrie et le sol, le décor en cache, l'éclairage cuit, les ambiances et les appartements, les gens et animaux en HD, la salle de repos à 8 places, la décoration des fêtes, les portes entre pièces.
+
+### Gens et animaux en HD
+
+Les gens font environ 24 × 36 pixels d'art, dessinés un pixel d'art par pixel de pièce (`chibi-hd.ts`, un module par famille de traits dans `hd/`) : de face ou de dos (l'autre côté est le miroir), debout, en marche, assis, en train de taper. `hdSprites(lookFor, outfitFor)` rend une `SpriteSource` comme `chibiSprites` : places, étiquettes, bulles et clics lisent la taille des sprites, rien n'est écrit en dur. Le même `Look` sert aux deux modes : chaque trait et chaque tenue de fête est redessiné en HD, et un look enregistré reste valable (un nouveau trait est facultatif avec un défaut, `LATER_TRAITS` de `shared/look.ts`). L'éditeur de personnage (`CrewDialog.tsx`) montre le rendu du mode actif (`HD_PIECES`, `hdPreviewRow`). Les animaux (`pet-hd.ts`, `pet-hd/*.ts`) couvrent les mêmes espèces, races et couleurs que la salle classique, marchent sur deux images et sont heureux quand on les caresse ; le droïde ne dort pas. Chaque pose est dessinée une fois sur une grille (pure, testée) puis gardée sur son canvas.
+
+### Ambiances des pièces de projet
+
+Une ambiance est un `AmbianceDesign` (`ambiance/index.ts`) : bureaux (`desks`, `deskStyle`), canapé et ses 2 places, porte, tableau, horloge, empreintes au sol, coin de la fête, points de visite (café, eau, fenêtre, livres, 2 places de fête), lumière (lampe, `glow`, `sky`) et les peintres du sol, des murs et de la fenêtre. Le code partagé dessine, assoit, fait marcher et trouve les clics à partir de ce seul objet. Trois modes (`cozyAmbianceMode`) :
+
+| Mode | Ambiance d'une pièce |
+|---|---|
+| `same` (défaut) | `cozyAmbiance` partout |
+| `random` | une ambiance du registre choisie par un hash FNV-1a du dossier : toujours la même pour un dossier |
+| `manual` | `projectAmbiances[dossier]` s'il y en a une, sinon `cozyAmbiance` |
+
+Un id inconnu ou pas encore dessiné retombe sur le bureau (`registeredAmbiance`). Le hash se prend modulo le nombre d'ambiances enregistrées : en ajouter une peut changer celle de certains dossiers en `random`. Le bouton palette de la plaque d'une pièce en choisit une (`pickAmbiance`) : il passe en `manual` ; depuis `same` les autres pièces gardent l'ambiance commune, depuis `random` celles qui sont montrées sont figées sur ce qu'elles avaient.
+
+**Ajouter une ambiance** :
+
+1. Son id est dans `COZY_AMBIANCES` (`shared/protocol.ts`), avec ses libellés fr et en.
+2. Ses couleurs sont dans `COZY_AMBIANCE_PALETTE.<id>` (`src/design/cozy-ambiances/<id>.ts`) ; une couleur de `light.sky` n'est jamais assombrie, la réserver à la vue.
+3. `ambiance/<id>.ts` exporte un `AmbianceDesign` : étaler `office` pour garder sa disposition et surcharger les peintres (`space.ts`), ou donner ses positions et empreintes (`cafe.ts`).
+4. L'enregistrer dans `AMBIANCES`. Les listes des Réglages et de la plaque la proposent seules ; `room.test.ts` boucle sur chaque ambiance enregistrée (places atteintes depuis la porte, porte dégagée, têtes espacées, places de visite libres et atteintes, porte, tableau et horloge cliquables et dans la pièce).
+
+### Chez toi
+
+Les quatre thèmes (`home/studio.ts`, `loft.ts`, `chalet.ts`, `japonais.ts`) sont des `HomeDesign` (`home/kit.ts`) : bureau, écran, sièges où l'utilisateur peut s'asseoir, lit ou tapis de l'animal, écran de chiffres, horloge, lumière cuite. Un thème absent ou inconnu est le studio (`homeThemeOf`). Chaque appartement a sa lumière (le chalet plus sombre : l'utilisateur et l'animal suivent la lumière de leur place) et les gens passent derrière ou devant les meubles (`frontOf`, `overhead`).
+
+### Clés gardées dans le navigateur
+
+Toutes sous `poste:` du `localStorage` (`src/lib/preferences.ts`) : `cozy:show` (`active` ou `recent`), `cozy:seats:<dossier>` et `cozy:seats:lounge` (les sièges où l'utilisateur a posé les sessions ; `savedSeats` écarte les entrées invalides, `keepSeats` garde une personne par siège) et `roomFrames` (clés `cozy` pour la vue d'ensemble et `cozy:<dossier>` pour une pièce en grand, `sanitizeRoomFrames`). Le style, le thème, les ambiances et les épinglés sont dans `OFFICE_DIR/settings.json`.
+
+### Performance
+
+- Le décor de chaque pièce (murs, sol, meubles, lumière) est dessiné une fois sur un canvas hors écran, par genre de pièce, ambiance et état allumé ou éteint, puis réutilisé : seuls les gens, les écrans, les étiquettes et les animations sont redessinés à chaque image. Les meubles qui peuvent passer devant quelqu'un (dossier de chaise, bureau vu de dos, bras du canapé) sont des pièces à part, triées par profondeur avec les gens (`cozyDepth`).
+- Le cache est reconstruit quand la clé de scène change (`sceneKey` : humeur de l'heure et fête, `time.ts`) ; une pièce, une ambiance, un appartement ou un animal différents ont leur propre entrée. Une horloge ne repeint ses aiguilles que quand la minute change.
+- 15 images/s et rien quand l'onglet est caché (`runFrames`, comme la salle classique) ; pas de flou animé.
+- Les étiquettes sont dessinées à au plus `TAG_SCREEN_SCALE` pixels CSS par pixel d'étiquette, quelle que soit la taille de la pièce.
+
+### Tests
+
+Logique pure, sans DOM, dans `src/room/room.test.ts` : « cozy rooms » (pièces, capacité et « +N », salle de repos, filtres), « the cozy home », « cozy pixel art » (faces des boîtes), « the cozy rooms, like the classic one » (heure, fêtes, visites), « the cozy rooms' life, pet and clocks », « the cozy rooms' doors, boards, numbers and pet », « the user's pet at home », « walking the cozy rooms, like the classic one » (marche, places, portage, sièges gardés) et « the ambiance of a cozy project room » (le contrat de chaque ambiance, le choix et le hash). Puis `src/room/chibi-hd.test.ts` et `src/room/pet-hd.test.ts` (les dessins HD), `server/settings.test.ts` (les champs cozy, un fichier d'avant lu avec leurs défauts) et `src/state/settings-index.test.ts` (la recherche des Réglages).
 
 ## Automates
 
