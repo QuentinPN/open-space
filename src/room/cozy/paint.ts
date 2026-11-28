@@ -21,7 +21,7 @@ import { iso, type Figure } from './geometry.ts';
 import { paintHome } from './home/art.ts';
 import { drawPetSprite, petPixels, petPose, petTop, petZzzAt, type CozyPet } from './pet.ts';
 import { homeThemeOf, metricsBadgeSpot, type CallFace } from './home/index.ts';
-import { loungeArt } from './lounge-art.ts';
+import { loungeArt, paintArcade } from './lounge-art.ts';
 import { PERSON_SCALE, type PlacedSitter } from './people.ts';
 import { outlineOf } from './pixels.ts';
 import type { CozyRoom } from './rooms.ts';
@@ -128,10 +128,11 @@ function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { r
     design.motion.paint(art.motion.layers, frame, art.motion.scene);
   }
   context.drawImage(clockHands(clock, options.hour), 0, 0);
-  // the white line around its things under the pointer: its clock, its door, its board
+  // the white line around its things under the pointer: its clock, its door, its board, the arcade
   if (hovered === 'clock') context.drawImage(clockOutline(clock), 0, 0);
   if (hovered === 'door') context.drawImage(outlineOf(lounge ? paintDoor : design.paintDoor), 0, 0);
   if (hovered === 'board') context.drawImage(outlineOf(design.paintBoard), 0, 0);
+  if (hovered === 'arcade') context.drawImage(outlineOf(paintArcade), 0, 0);
   // the screens of the back desks, towards us: code going by while their session works
   for (const { sitter } of sitters) {
     if (sitter.desk?.kind !== 'back') continue;
