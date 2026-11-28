@@ -123,9 +123,6 @@ const onCouch = (u: number, v: number) => u >= COUCH.u && u <= COUCH.u + COUCH.d
 export const personDepth = (u: number, v: number, seated: boolean) =>
   seated && onCouch(u, v) ? Math.max(cozyDepth(u, v), COUCH_DEPTH + 1) : cozyDepth(u, v);
 
-/** Where the pet sleeps, on the rug. */
-export const CAT_SPOT = { u: 50, v: 98 } as const;
-
 /** Someone's feet in the room's box: the place on the floor, raised by the seat. */
 export const feetOf = (place: Place): Point => iso(place.u, place.v, place.lift);
 

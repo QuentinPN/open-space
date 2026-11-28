@@ -4,7 +4,6 @@
 import { COZY_HOME_PALETTE as H } from '../../../design/room-palette.ts';
 import { paintPlanks, shadeAlongWalls } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso } from '../geometry.ts';
-import { paintPet } from '../pet.ts';
 import { box, fillLeftFace, fillRightFace, fillTop, fillWall, patchOnRightFace, tint, wallPatch, wallPixel, type PixelGrid } from '../pixels.ts';
 import {
   art, ceilingAt, chairBack, chairSeat, coloursOf, desk, hash, lamp, masked, monitor, monstera, ob, paintScreen, screenOf, steam, walls, webcam, type HomeDesign,
@@ -15,8 +14,8 @@ const SEAT = { u: 92, v: 28, z: 11 } as const;
 const SCREEN = screenOf(74, 110, 11, 17, 20);
 const DISC = iso(7.5, 38, 31);
 const MUG = iso(70, 15, 22);
-/** The pet asleep on the kilim, at the couch's end, in front of the coffee table. */
-const PET = iso(31, 113);
+/** The pet's bed: the kilim, at the couch's end, in front of the coffee table. */
+const PET = { u: 31, v: 113, z: 0 } as const;
 /** The bulbs hanging from the ceiling: (u, v) and how high. */
 const HANGING = [[32, 98, 58], [44, 92, 50], [56, 88, 58]] as const;
 
@@ -42,7 +41,7 @@ export const loft: HomeDesign = {
   festiveSpot: { u: 122, v: 60 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: { screen: [H.screen] },
-  petSpot: PET,
+  petBed: PET,
   furniture: [
     around(12, 13, 6, 40), { u0: 5, u1: 67, v0: 0, v1: 5, height: 8 }, { u0: 0, u1: 15, v0: 17, v1: 61, height: 40 }, { u0: 68, u1: 120, v0: 2, v1: 22, height: 40 },
     { u0: 0, u1: 8, v0: 74, v1: 122, height: 26 }, { u0: 4, u1: 20, v0: 74, v1: 81, height: 16 }, { u0: 7, u1: 20, v0: 80, v1: 116, height: 13 }, { u0: 4, u1: 20, v0: 115, v1: 122, height: 16 },
@@ -51,7 +50,7 @@ export const loft: HomeDesign = {
   // the sofa's two cushions
   spots: [{ u: 14, v: 90, direction: 'down-right', lift: 13 }, { u: 14, v: 107, direction: 'down-right', lift: 13 }],
   computer: paintComputer,
-  back(grid, pet) {
+  back(grid) {
     paintPlanks(grid, { tones: L.planks, seam: L.plankSeam, joint: L.plankJoint, width: 5, length: 60, alongV: true });
     shadeAlongWalls(grid);
     // the kilim
@@ -146,7 +145,6 @@ export const loft: HomeDesign = {
     const B = L.tableBooks, T = L.tablePlant;
     art(grid, (layer) => { const { x, y } = iso(38, 94, 10); layer.rect(x - 5, y - 3, 10, 3, B.teal); layer.rect(x - 4, y - 5, 8, 2, B.yellow); layer.rect(x - 4, y - 1, 8, 1, B.shade); });
     art(grid, (layer) => { const { x, y } = iso(48, 100, 10); layer.rect(x - 2, y - 4, 5, 4, T.pot); layer.ellipse(x + 0.5, y - 6, 2.6, 2, T.leaves); layer.set(x - 1, y - 8, T.light); });
-    if (pet) paintPet(grid, pet, PET.x, PET.y);
     // the desk: an oak top on black steel
     desk(grid, 68, 120, 2, 22, 17, L.oak, L.black);
     paintComputer(grid);

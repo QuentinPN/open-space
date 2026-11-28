@@ -8,8 +8,6 @@ import type { Lighting, Outside } from '../light.ts';
 import type { CozyTime } from '../time.ts';
 import type { WallClock } from '../clock.ts';
 import { PixelGrid, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, wallPatch, wallPixel, type PixelTarget, type Tones, type Wall } from '../pixels.ts';
-import type { PetPixels } from '../pet.ts';
-import type { Point } from '../../geometry.ts';
 
 export const OUTLINE = C.outline;
 export const newGrid = () => new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
@@ -62,10 +60,13 @@ export interface HomeDesign {
   glow: readonly string[];
   /** the colours of the back layer each animation is drawn over, by name */
   masks: Readonly<Record<string, readonly string[]>>;
-  /** where the user's pet sleeps, or rests for a droid (its paws, in the room's pixels) */
-  petSpot: Point;
-  /** the floor, the walls and everything behind the user; `pet`: the user's pet (pet.ts), drawn at `petSpot`, or none */
-  back(grid: PixelGrid, pet: PetPixels | null): void;
+  /**
+   * Where the user's pet sleeps, or rests for a droid, between its walks round the home (home-pet.ts): on the floor at
+   * (u, v), `z` pixels up (its bed, a cushion).
+   */
+  petBed: HomeSeat;
+  /** the floor, the walls and everything behind the user */
+  back(grid: PixelGrid): void;
   /** the user's computer alone, as `back` draws it: outlined under the pointer, as a click there opens a terminal */
   computer(grid: PixelGrid): void;
   /** what stands on its floor, as the user walks round it and is hidden behind it (cozy/floor.ts); its desk's chair is a seat */

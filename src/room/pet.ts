@@ -15,8 +15,12 @@ import type { Passage } from './pet-trip.ts';
 import { BEAM_MS, beamProgress } from './portal.ts';
 import { ART_SCALE, artCanvas, outline, tones, type Tones } from './pixel-art.ts';
 
-/** What the pet reads of the floor of the room it is in. */
-export type PetFloor = Pick<Floor, 'isFreeTile' | 'inside' | 'door' | 'portal' | 'portalFront' | 'route' | 'pathToDoor' | 'pathIntoPortal'> & { readonly layout: Pick<Layout, 'seats'> };
+/**
+ * What the pet reads of the floor of the room it is in; `extent`: its size in tiles, the classic room's when not told
+ * (a cozy room's is square).
+ */
+export type PetFloor = Pick<Floor, 'isFreeTile' | 'inside' | 'door' | 'portal' | 'portalFront' | 'route' | 'pathToDoor' | 'pathIntoPortal'>
+  & { readonly layout: Pick<Layout, 'seats'>; readonly extent?: { width: number; depth: number } };
 
 export type PetActivity = 'walk' | 'sit' | 'wash' | 'sleep';
 /** On its way in or out: out of the teleporter's ring, walking to a way out, in the beam going out, or gone. */
@@ -42,17 +46,26 @@ export interface Pet extends Mover {
   exit: Passage | null;
   /** when its beam started (going out through the teleporter) */
   beamAt: number;
+  /** what it does once its walk is over, when its errand told it (PetErrand); else it picks */
+  planned?: PetActivity;
 }
+
+/**
+ * Where the pet goes next and what it does at the end of the way, in a room with more to it than free tiles (a cozy
+ * home: its bed, the user). The classic room has none: somewhere free, then whatever it likes.
+ */
+export type PetErrand = (pet: Pet, random: () => number) => { path: Point[]; doing: PetActivity };
 
 /** Tiles per second: a pet strolls. */
 const PET_SPEED = 1.5;
 const SPEECH_MS = 1800;
 
 /** A free tile somewhere in the room (not a seat), to stroll to. */
-function somewhereFree(floor: PetFloor, random: () => number): Point {
+export function somewhereFree(floor: PetFloor, random: () => number): Point {
   const seats = new Set(floor.layout.seats.map((seat) => `${Math.floor(seat.x)},${Math.floor(seat.y)}`));
+  const { width, depth } = floor.extent ?? ROOM;
   for (let attempt = 0; attempt < 40; attempt++) {
-    const x = Math.floor(random() * ROOM.width), y = Math.floor(random() * ROOM.depth);
+    const x = Math.floor(random() * width), y = Math.floor(random() * depth);
     if (floor.isFreeTile(x, y) && !seats.has(`${x},${y}`) && x > 0) return tileCenter({ x, y });
   }
   return floor.inside;
@@ -100,9 +113,10 @@ export function cuddle(pet: Pet) {
 
 /**
  * Steps the pet. Once its stay is over it heads for a way out of the room (`exits`), and goes: by the door, it is gone
- * once there; by the teleporter, in a beam. Returns the passage it left by, once, or null.
+ * once there; by the teleporter, in a beam. Returns the passage it left by, once, or null. `errand`: where it goes
+ * next, when its room tells (a cozy home); else somewhere free.
  */
-export function stepPet(pet: Pet, ms: number, floor: PetFloor, exits: readonly Passage[] = [], random: () => number = Math.random): Passage | null {
+export function stepPet(pet: Pet, ms: number, floor: PetFloor, exits: readonly Passage[] = [], random: () => number = Math.random, errand?: PetErrand): Passage | null {
   pet.time += ms;
   pet.hearts = pet.hearts.filter((born) => pet.time - born < HEART_MS);
   const walk = () => advanceAlong(pet, PET_SPEED * ms / 1000) || !pet.path.length;
@@ -125,7 +139,8 @@ export function stepPet(pet: Pet, ms: number, floor: PetFloor, exits: readonly P
   if (pet.activity === 'walk') {
     if (walk()) {
       const roll = random();
-      pet.activity = roll < 0.55 ? 'sit' : roll < 0.8 ? 'wash' : 'sleep';
+      pet.activity = pet.planned ?? (roll < 0.55 ? 'sit' : roll < 0.8 ? 'wash' : 'sleep');
+      delete pet.planned;
       pet.until = pet.time + (pet.activity === 'sleep' ? 14000 + random() * 16000 : 3000 + random() * 6000);
     }
   } else if (pet.time >= pet.until) {
@@ -134,7 +149,12 @@ export function stepPet(pet: Pet, ms: number, floor: PetFloor, exits: readonly P
     if (pet.time >= pet.leaveAt && usable.length) {
       const exit = usable[Math.min(usable.length - 1, Math.floor(random() * usable.length))];
       Object.assign(pet, { passing: 'exiting', exit, path: exit === 'door' ? floor.pathToDoor(pet.position) : floor.pathIntoPortal(pet.position) });
-    } else pet.path = floor.route(pet.position, somewhereFree(floor, random));
+    } else {
+      const next = errand?.(pet, random);
+      pet.path = next ? next.path : floor.route(pet.position, somewhereFree(floor, random));
+      if (next) pet.planned = next.doing;
+      else delete pet.planned;
+    }
   }
   if (pet.activity !== 'sleep' && pet.time >= pet.nextSpeech) {
     speak(pet, random);
@@ -405,14 +425,19 @@ export function petSprite(choice: Animal, activity: PetActivity, frame: 0 | 1, l
   return sprite;
 }
 
+/** Which of its two drawings the pet shows at `time` (the room's clock): its legs while it walks, else its tail. */
+export const petFrame = (pet: Pick<Pet, 'activity'>, time: number): 0 | 1 => (Math.floor(time / (pet.activity === 'walk' ? 160 : 900)) % 2 ? 1 : 0);
+/** Whether a pet heading this way on the floor faces left on the screen; `back`: away from us. */
+export const facesLeft = (heading: Point) => heading.x - heading.y < 0;
+export const facesBack = (heading: Point) => heading.x + heading.y < 0;
+
 /** Draws the pet with its paws at (x, y) in room pixels. `time`: the room's clock, for the walking and the tail. */
 export function drawPet(context: CanvasRenderingContext2D, pet: Pet, choice: Drawn, x: number, y: number, time: number) {
   if (choice.kind === 'droid') {
-    drawDroid(context, droidOf(choice), x, y, { moving: pet.activity === 'walk', back: pet.heading.x + pet.heading.y < 0, left: pet.heading.x - pet.heading.y < 0, time });
+    drawDroid(context, droidOf(choice), x, y, { moving: pet.activity === 'walk', back: facesBack(pet.heading), left: facesLeft(pet.heading), time });
     return;
   }
-  const frame: 0 | 1 = Math.floor(time / (pet.activity === 'walk' ? 160 : 900)) % 2 ? 1 : 0;
-  const sprite = petSprite(choice, pet.activity, frame, pet.heading.x - pet.heading.y < 0);
+  const sprite = petSprite(choice, pet.activity, petFrame(pet, time), facesLeft(pet.heading));
   context.drawImage(sprite, Math.round(x - PET_FEET.x * ART_SCALE), Math.round(y - PET_FEET.y * ART_SCALE), sprite.width * ART_SCALE, sprite.height * ART_SCALE);
 }
 

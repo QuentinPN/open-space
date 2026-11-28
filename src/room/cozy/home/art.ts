@@ -1,19 +1,17 @@
 // The user's home drawn (src/room/cozy/home/): its back layer, lit, and what stands in front of the user, each drawn
-// once per theme, pet, mood of the hour and festival on a canvas of its own; each frame, its animations over them (the
-// screens, the fire, the snow...), its clock's hands, the pet's Z's, and a white line around the computer or the clock
-// under the pointer.
+// once per theme, mood of the hour and festival on a canvas of its own; each frame, its animations over them (the
+// screens, the fire, the snow...), its clock's hands, a white line around the computer or the clock under the pointer,
+// and the user and their pet, each behind what stands in front of them.
 import type { Festival } from '../../../../shared/festivals.ts';
 import type { HomeTheme } from '../../../../shared/protocol.ts';
 import { COZY_HOME_PALETTE } from '../../../design/room-palette.ts';
 import { clockHands, clockOutline, paintClockFace } from '../clock.ts';
-import { paintZzzAt } from '../decor.ts';
 import { FESTIVE_GLOW, paintFestiveFloor, paintFestiveWalls } from '../festive.ts';
-import { insideConvex } from '../../geometry.ts';
+import { insideConvex, type Point } from '../../geometry.ts';
 import { festiveFootprints, hides } from '../floor.ts';
-import { ROOM_BOX, footprintOutline, iso, type Footprint } from '../geometry.ts';
+import { ROOM_BOX, cozyDepth, footprintOutline, iso, type Footprint } from '../geometry.ts';
 import { SKY_GLOW, homeLightAt, lightingOf, outsideAt } from '../light.ts';
 import { outlineOf, type PixelGrid } from '../pixels.ts';
-import { petKey, petPixels, petZzzAt, type CozyPet } from '../pet.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from '../time.ts';
 import { HOME_DESIGNS, metricsPainter } from './index.ts';
 import { METRICS_GLOW, chairBackOf, newGrid, paintMetricsScreen, type CallFace } from './kit.ts';
@@ -33,6 +31,8 @@ interface HomeArt {
   masks: Record<string, Uint8Array>;
   /** how bright the light is where the user sits (1: daylight): the user is drawn through it, like the rest of the room */
   userLight: number;
+  /** how bright the light is at a point of the room's pixels: the pet is drawn through it where it is */
+  brightness: (point: Point) => number;
 }
 
 function toCanvas(grid: PixelGrid, light: (colour: string, x: number, y: number) => string): HTMLCanvasElement {
@@ -95,10 +95,10 @@ function cutOuts(back: PixelGrid, furniture: readonly Footprint[]): (u: number, 
   };
 }
 
-function build(theme: HomeTheme, pet: CozyPet | null, time: CozyTime, festival: Festival | null): HomeArt {
+function build(theme: HomeTheme, time: CozyTime, festival: Festival | null): HomeArt {
   const design = HOME_DESIGNS[theme];
   const back = newGrid();
-  design.back(back, pet && petPixels(pet));
+  design.back(back);
   paintClockFace(back, design.clock);
   paintMetricsScreen(back, design.metrics);
   if (festival) {
@@ -116,47 +116,50 @@ function build(theme: HomeTheme, pet: CozyPet | null, time: CozyTime, festival: 
   const front = newGrid(), overhead = newGrid();
   design.front?.(front);
   design.overhead?.(overhead);
-  // the probe's white seen around the user's head, its channels averaged over a few pixels (the light's bands are dithered)
-  const head = iso(design.seat.u, design.seat.v, design.seat.z + 20);
-  let sum = 0;
-  for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) {
-    const value = Number.parseInt(light(COZY_HOME_PALETTE.lightProbe, head.x + dx, head.y + dy).slice(1), 16);
-    sum += (((value >> 16) & 255) + ((value >> 8) & 255) + (value & 255)) / 3 / 255;
-  }
+  // the probe's white seen at a point, its channels averaged over a few pixels (the light's bands are dithered)
+  const brightness = ({ x, y }: Point) => {
+    let sum = 0;
+    for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) {
+      const value = Number.parseInt(light(COZY_HOME_PALETTE.lightProbe, Math.round(x) + dx, Math.round(y) + dy).slice(1), 16);
+      sum += (((value >> 16) & 255) + ((value >> 8) & 255) + (value & 255)) / 3 / 255;
+    }
+    return Math.min(1, sum / 16);
+  };
   const backCanvas = toCanvas(back, light);
   return {
     back: backCanvas, front: toCanvas(front, light), overhead: toCanvas(overhead, light), masks,
     frontOf: cutOuts(back, [...design.furniture, ...festiveFootprints(festival, design.festiveSpot)]),
-    userLight: Math.min(1, sum / 16),
+    // around the user's head
+    userLight: brightness(iso(design.seat.u, design.seat.v, design.seat.z + 20)), brightness,
   };
 }
 
 const built = sceneCache<HomeArt>();
-/**
- * A home with the pet asleep or awake drawn the first time it is asked for, kept until the mood of the hour or the
- * festival changes (time.ts sceneKey).
- */
-const artOf = (theme: HomeTheme, pet: CozyPet | null, hour: number, festival: Festival | null) =>
-  built(sceneKey(hour, festival), `${theme}:${petKey(pet)}`, () => build(theme, pet, cozyTimeOf(hour), festival));
+/** A home drawn the first time it is asked for, kept until the mood of the hour or the festival changes (time.ts sceneKey). */
+const artOf = (theme: HomeTheme, hour: number, festival: Festival | null) =>
+  built(sceneKey(hour, festival), theme, () => build(theme, cozyTimeOf(hour), festival));
 
 /** What is outlined under the pointer in a home: the user's computer (a click opens a terminal), its numbers screen (the mods) or its clock (the time). */
 export type HomeThing = 'computer' | 'metrics' | 'clock';
 
 /**
- * What a frame of the home reads beyond its theme: the user's pet or none, the hour (its light, its clock), the
- * festival, the call on its screen, what is under the pointer.
+ * What a frame of the home reads beyond its theme: the hour (its light, its clock), the festival, the call on its
+ * screen, what is under the pointer.
  */
-export interface HomeFrame { pet: CozyPet | null; frame: number; hour: number; festival: Festival | null; faces: readonly CallFace[]; hovered: HomeThing | null }
-
-/** The user at home: where they stand or sit on the floor, and how they are drawn there. */
-export interface HomeUser { u: number; v: number; paint: () => void }
+export interface HomeFrame { frame: number; hour: number; festival: Festival | null; faces: readonly CallFace[]; hovered: HomeThing | null }
 
 /**
- * The home on the room's canvas (its transform set by the caller), the user in it: in front of their desk's chair once
- * they walk in front of it, behind the furniture that stands in front of them.
+ * Someone at home, the user or their pet: where they stand or sit on the floor, how they are drawn there, and where the
+ * light falling on them is read (in the room's pixels; null: the user's seat).
  */
-export function paintHome(context: CanvasRenderingContext2D, theme: HomeTheme, { pet, frame, hour, festival, faces, hovered }: HomeFrame, user: HomeUser | null) {
-  const design = HOME_DESIGNS[theme], art = artOf(theme, pet, hour, festival);
+export interface HomeFigure { u: number; v: number; paint: () => void; lightAt: Point | null }
+
+/**
+ * The home on the room's canvas (its transform set by the caller), the user and their pet in it, the one further back
+ * first: in front of the desk's chair once in front of it, each behind the furniture that stands in front of them.
+ */
+export function paintHome(context: CanvasRenderingContext2D, theme: HomeTheme, { frame, hour, festival, faces, hovered }: HomeFrame, figures: readonly HomeFigure[]) {
+  const design = HOME_DESIGNS[theme], art = artOf(theme, hour, festival);
   context.drawImage(art.back, 0, 0);
   context.drawImage(clockHands(design.clock, hour), 0, 0);
   if (hovered === 'clock') context.drawImage(clockOutline(design.clock), 0, 0);
@@ -164,20 +167,21 @@ export function paintHome(context: CanvasRenderingContext2D, theme: HomeTheme, {
   // the line around the computer goes behind the user, who sits in front of it
   if (hovered === 'computer') context.drawImage(outlineOf(design.computer), 0, 0);
   if (hovered === 'metrics') context.drawImage(outlineOf(metricsPainter(theme)), 0, 0);
-  const behindChair = user !== null && hides(chairBackOf(design.seat), user.u, user.v);
-  if (!behindChair) context.drawImage(art.front, 0, 0);
-  if (user) {
-    // where the canvas has no filters (an older Safari), the user is drawn as they are
+  const draw = (figure: HomeFigure) => {
+    const light = figure.lightAt ? art.brightness(figure.lightAt) : art.userLight;
+    // where the canvas has no filters (an older Safari), they are drawn as they are
     context.save();
-    if (art.userLight < 0.97) context.filter = `brightness(${art.userLight.toFixed(2)})`;
-    user.paint();
+    if (light < 0.97) context.filter = `brightness(${light.toFixed(2)})`;
+    figure.paint();
     context.restore();
-    const hiding = art.frontOf(user.u, user.v);
+    const hiding = art.frontOf(figure.u, figure.v);
     if (hiding) context.drawImage(hiding, 0, 0);
-  }
-  if (behindChair) context.drawImage(art.front, 0, 0);
+  };
+  const ordered = [...figures].sort((a, b) => cozyDepth(a.u, a.v) - cozyDepth(b.u, b.v)), chair = chairBackOf(design.seat);
+  const behindChair = ordered.filter(({ u, v }) => hides(chair, u, v));
+  behindChair.forEach(draw);
+  context.drawImage(art.front, 0, 0);
+  for (const figure of ordered) if (!behindChair.includes(figure)) draw(figure);
   context.drawImage(art.overhead, 0, 0);
   design.animateFront?.(context, frame);
-  const zzz = pet && petZzzAt(pet, petPixels(pet), design.petSpot.x, design.petSpot.y);
-  if (zzz) paintZzzAt(context, ...zzz, frame);
 }

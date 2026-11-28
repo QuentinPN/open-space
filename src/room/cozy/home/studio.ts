@@ -3,7 +3,6 @@
 // bag, fairy lights along the walls, the city at sunset through the window.
 import { COZY_HOME_PALETTE as H, COZY_PALETTE as C, hueColour } from '../../../design/room-palette.ts';
 import { paintPlanks, shadeAlongWalls } from '../decor.ts';
-import { paintPet, type PetPixels } from '../pet.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso } from '../geometry.ts';
 import { box, fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from '../pixels.ts';
 import {
@@ -14,7 +13,7 @@ const S = H.studio, G = S.glow;
 const SEAT = { u: 68, v: 28, z: 11 } as const;
 const SCREENS = [screenOf(46, 69, 11, 17, 18), screenOf(71, 94, 11, 17, 18)] as const;
 /** Where the pet sleeps, on the quilt. */
-const CAT = iso(42, 90, 14);
+const CAT = { u: 42, v: 90, z: 14 } as const;
 /** The garland along the top of both walls, sagging between its hooks every 30 units; a bulb every 6. */
 const garlandAt = (a: number) => Math.round(WALL_HEIGHT - 3 - 5 * Math.sin(Math.PI * (((a - 2) % 30) / 30)));
 const BULBS = (['left', 'right'] as const).flatMap((wall) => Array.from({ length: ROOM - 4 }, (_, index) => index + 2).filter((a) => a % 6 === 3).map((a) => wallPoint(wall, a, garlandAt(a) - 1)));
@@ -52,7 +51,7 @@ function paintWindow(grid: PixelGrid) {
   art(grid, (layer) => box(layer, 0, 6, 19, 61, 26, 3, W.sill, W.sillEdge));
 }
 
-function paintBed(grid: PixelGrid, pet: PetPixels | null) {
+function paintBed(grid: PixelGrid) {
   const B = S.bed, Q = S.quilt;
   ob(grid, 0, 4, 70, 106, 0, 26, B.wood, B.woodEdge);
   ob(grid, 4, 52, 70, 106, 0, 7, B.wood);
@@ -65,7 +64,6 @@ function paintBed(grid: PixelGrid, pet: PetPixels | null) {
   fillTop(grid, 19, 22, 69, 107, 14, () => Q.fold);
   fillLeftFace(grid, 107, 19, 53, 5, 14, (a, z) => ((a - 19) % 8 === 0 || z === 9 ? Q.seamLeft : tint(patch((a - 19) >> 3, 5), 0.9)));
   fillRightFace(grid, 53, 69, 107, 5, 14, (a, z) => ((a - 69) % 8 === 0 || z === 9 ? Q.seamRight : tint(patch(5, (a - 69) >> 3), 0.8)));
-  if (pet) paintPet(grid, pet, CAT.x, CAT.y);
 }
 
 /** Its two screens and the webcam on them. */
@@ -114,7 +112,7 @@ export const studio: HomeDesign = {
   festiveSpot: { u: 118, v: 30 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: { screen: [H.screen], led: [G.led], fan: [G.fan] },
-  petSpot: CAT,
+  petBed: CAT,
   furniture: [
     around(12, 12, 6, 40), { u0: 0, u1: 6, v0: 19, v1: 61, height: 29 }, { u0: 38, u1: 108, v0: 2, v1: 22, height: 41 }, { u0: 2, u1: 13, v0: 57, v1: 67, height: 30 },
     { u0: 0, u1: 4, v0: 70, v1: 106, height: 26 }, { u0: 4, u1: 53, v0: 69, v1: 107, height: 14 }, { u0: 92, u1: 112, v0: 86, v1: 102, height: 20 },
@@ -122,7 +120,7 @@ export const studio: HomeDesign = {
   // the bed's edge by its pillows (the pet sleeps at its foot), facing the room, and the bean bag, its back to the right wall
   spots: [{ u: 48, v: 76, direction: 'down-right', lift: 14 }, { u: 100, v: 94, direction: 'down-left', lift: 8 }],
   computer: paintComputer,
-  back(grid, pet) {
+  back(grid) {
     paintPlanks(grid, { tones: S.planks, seam: S.plankSeam, joint: S.plankJoint, width: 4, length: 52 });
     shadeAlongWalls(grid);
     roundRug(grid, 64, 72, 34, 17, S.rug, S.rugDots);
@@ -157,7 +155,7 @@ export const studio: HomeDesign = {
       layer.ellipse(x, y - 11, 6.5, 5.5, G.lamp[1]); layer.ellipse(x - 1.5, y - 12.5, 4, 3, G.lamp[0], [G.lamp[1]]);
       layer.rect(x - 8, y - 10, 16, 5, null); layer.rect(x - 6, y - 10, 13, 1, G.lamp[2]);
     });
-    paintBed(grid, pet);
+    paintBed(grid);
     art(grid, (layer) => {
       const at = iso(60, 106);
       layer.ellipse(at.x - 3, at.y, 3.2, 1.6, S.slippers); layer.ellipse(at.x + 4, at.y + 2, 3.2, 1.6, S.slippers);

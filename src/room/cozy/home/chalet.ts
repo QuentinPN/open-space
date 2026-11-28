@@ -3,7 +3,6 @@
 // pet asleep by the fire, a hot chocolate steaming on the desk.
 import { COZY_HOME_PALETTE as H } from '../../../design/room-palette.ts';
 import { paintPlanks, shadeAlongWalls } from '../decor.ts';
-import { paintPet } from '../pet.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, iso } from '../geometry.ts';
 import {
   box, fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel, type PixelGrid, type PixelTarget,
@@ -13,9 +12,9 @@ import { art, coloursOf, chairSeat, desk, hash, lamp, masked, monitor, ob, paint
 const K = H.chalet, G = K.glow;
 const SEAT = { u: 55, v: 28, z: 11 } as const;
 const SCREEN = screenOf(38, 72, 11, 17, 18);
-/** The round rug by the fire, and the pet asleep on it. */
+/** The round rug by the fire, the pet's bed. */
 const RUG = iso(40, 64);
-const PET = { x: RUG.x + 1, y: RUG.y + 1 } as const;
+const PET = { u: 41.5, v: 64.5, z: 0 } as const;
 const MUG = iso(76, 17, 17);
 const CANDLES = [44, 82] as const;
 
@@ -211,7 +210,7 @@ export const chalet: HomeDesign = {
     screen: [H.screen], fire: [K.fireBack],
     glass: [...G.night, G.pine, G.pineLight, G.snow, G.snowShade, G.moon, G.moonShade, G.star],
   },
-  petSpot: PET,
+  petBed: PET,
   furniture: [
     { u0: 83, u1: 123, v0: 0, v1: 6, height: 30 }, { u0: 2, u1: 14, v0: 27, v1: 39, height: 8 }, { u0: 0, u1: 28, v0: 42, v1: 84, height: 48 },
     { u0: 0, u1: 9, v0: 90, v1: 118, height: 30 }, { u0: 7, u1: 30, v0: 90, v1: 97, height: 18 }, { u0: 8, u1: 30, v0: 96, v1: 112, height: 14 }, { u0: 7, u1: 30, v0: 111, v1: 118, height: 18 },
@@ -220,7 +219,7 @@ export const chalet: HomeDesign = {
   // the armchair by the fire
   spots: [{ u: 25, v: 104, direction: 'down-right', lift: 14 }],
   computer: paintComputer,
-  back(grid, pet) {
+  back(grid) {
     paintPlanks(grid, { tones: K.planks, seam: K.plankSeam, joint: K.plankJoint, width: 6, length: 64 });
     shadeAlongWalls(grid);
     const U = K.rug;
@@ -232,8 +231,6 @@ export const chalet: HomeDesign = {
     paintFireplace(grid);
     paintArmchair(grid);
     paintDesk(grid);
-    // the pet asleep by the fire, on the rug
-    if (pet) paintPet(grid, pet, PET.x, PET.y);
   },
   front(grid) {
     // a wooden chair's back: three spindles and a rail

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { HOME_THEMES, type SessionInfo, type SessionState } from '../../shared/protocol.ts';
+import { HOME_THEMES, type HomeTheme, type SessionInfo, type SessionState } from '../../shared/protocol.ts';
 import { earlySpeech, pauseSpeech, speechOf, USER_SPEAKER } from '../state/speech.ts';
 import { VISIBLE_ROWS, bubbleText, earlyBubbleText, pruneBubbles, pushBubble, type Bubble } from './bubbles.ts';
 import type { SeenSequences } from '../state/queue.ts';
@@ -12,7 +12,7 @@ import { Floor } from './floor.ts';
 import { boxOutline, depthOf, distance, facingVector, insideConvex, isInRoom, tileCenter, toScreen, toTile, type Point } from './geometry.ts';
 import { PLAYER_ID, Scene, directionOf, type Character } from './scene.ts';
 import { Visits, birthdayWishOf, visitorId } from './visitors.ts';
-import { createPet, cuddle, isSpeaking, petBeam, petWords, stepPet, type Pet } from './pet.ts';
+import { createPet, isSpeaking, petBeam, petWords, stepPet, type Pet } from './pet.ts';
 import { assignSeats, keepSeats, savedSeats } from './seats.ts';
 import { NO_GEAR, parseLook, randomLook } from '../../shared/look.ts';
 import { AUTOMATON_LOOK, DEFAULT_LOOK, ROBOT_ACCENTS } from '../design/people-palette.ts';
@@ -37,14 +37,15 @@ import { ROOM_THEMES } from '../../shared/room-themes.ts';
 import { COUCH_ARM_DEPTH, COUCH_DEPTH, COUCH_PLACES, DESKS, PERSON_SPACING, ROOM_BOX, ROOM_UNITS, deskPlace, feetOf, figureAt, fitOverview, iso, overviewLayout, roomAt } from './cozy/geometry.ts';
 import { PERSON_SCALE, placeSitters } from './cozy/people.ts';
 import { PixelGrid, box, onLeftFace, onRightFace, wallPoint } from './cozy/pixels.ts';
-import { LOUNGE_ID, callers, catRoom, cozyRooms, cozySeatsKey, projectRoom, recentFolders, shownProjects, type CozyRoom } from './cozy/rooms.ts';
-import { COZY_VIEW, CozyFloor, cozyFloorPlan, tileOf } from './cozy/floor.ts';
+import { LOUNGE_ID, callers, cozyRooms, cozySeatsKey, projectRoom, recentFolders, shownProjects, type CozyRoom } from './cozy/rooms.ts';
+import { COZY_VIEW, CozyFloor, cozyFloorPlan, hides, tileOf } from './cozy/floor.ts';
 import { HOME_DESIGNS, clockOf, pcAt, roomClockAt } from './cozy/home/index.ts';
 import { METRICS_SCREEN } from './cozy/home/kit.ts';
-import { cozyPetOf, isAwake, petZzzAt, restPet, sleepingPet, type PetPixels } from './cozy/pet.ts';
+import { cozyPetOf, petZzzAt, type PetPixels } from './cozy/pet.ts';
+import { homeErrand, homePet, stepHomePet } from './cozy/home-pet.ts';
 import { ARCADE, ARCADE_FRONT, LOUNGE_PLACES } from './cozy/lounge.ts';
 import { DOOR as COZY_DOOR } from './cozy/decor.ts';
-import { petPawsIn, targetAt, thingAt } from './cozy/things.ts';
+import { targetAt, thingAt } from './cozy/things.ts';
 import { clockMinute, cozyTimeOf, sceneKey } from './cozy/time.ts';
 import { paintFestiveWalls } from './cozy/festive.ts';
 import { homeLightAt, outsideAt } from './cozy/light.ts';
@@ -1601,10 +1602,12 @@ describe("the cozy rooms' life, pet and clocks", () => {
     assert.deepEqual(cozyPetOf(dog), { kind: 'animal', animal: dog });
   });
 
-  it("has Z's rise over an animal asleep, and none over a droid at rest", () => {
+  it("has Z's rise over an animal asleep, none over it awake, and none over a droid standing by", () => {
     const pixels: PetPixels = { width: 1, height: 1, cells: ['#000000'], feet: { x: 0, y: 0 }, top: 0 };
-    assert.ok(petZzzAt(cozyPetOf({ kind: 'cat', variant: 'plain' })!, pixels, 0, 0));
-    assert.equal(petZzzAt(cozyPetOf({ kind: 'droid', variant: 'dome' })!, pixels, 0, 0), null);
+    const cat = cozyPetOf({ kind: 'cat', variant: 'plain' })!;
+    assert.ok(petZzzAt(cat, 'sleep', pixels, 0, 0));
+    assert.equal(petZzzAt(cat, 'sit', pixels, 0, 0), null);
+    assert.equal(petZzzAt(cozyPetOf({ kind: 'droid', variant: 'dome' })!, 'sleep', pixels, 0, 0), null);
   });
 
 });
@@ -1642,45 +1645,88 @@ describe("the cozy rooms' doors, boards, numbers and pet", () => {
     const rooms = overview(roomsWith([session('busy', 'work', { cwd: '/work/a' })], ['/work/a']));
     const at = rooms.findIndex(({ room }) => room.kind === 'project');
     const [busy] = rooms[at].people;
-    assert.equal(targetAt({ x: busy.feet.x, y: busy.feet.y - busy.top / 2 }, rooms, { zoomed: false, petRoom: null }).person, 'busy');
+    assert.equal(targetAt({ x: busy.feet.x, y: busy.feet.y - busy.top / 2 }, rooms, { zoomed: false, pet: null }).person, 'busy');
     const floor = iso(ROOM_UNITS - 20, ROOM_UNITS - 20);
-    assert.deepEqual(targetAt({ x: rooms[at].at.x + floor.x, y: rooms[at].at.y + floor.y }, rooms, { zoomed: false, petRoom: null }), { index: at, person: null, pet: false, thing: null });
+    assert.deepEqual(targetAt({ x: rooms[at].at.x + floor.x, y: rooms[at].at.y + floor.y }, rooms, { zoomed: false, pet: null }), { index: at, person: null, pet: false, thing: null });
   });
 
   it("leads back from the break room's door only once it is opened big: among all the rooms, a click there opens it", () => {
     const loungeDoor = (zoomed: boolean) => {
       const rooms = overview(zoomed ? [lounge] : roomsWith([], ['/work/a']));
       const { at } = rooms.find(({ room }) => room.kind === 'lounge')!;
-      return targetAt({ x: at.x + doorMiddle.x, y: at.y + doorMiddle.y }, rooms, { zoomed, petRoom: null }).thing;
+      return targetAt({ x: at.x + doorMiddle.x, y: at.y + doorMiddle.y }, rooms, { zoomed, pet: null }).thing;
     };
     assert.equal(loungeDoor(true), 'door');
     assert.equal(loungeDoor(false), null);
   });
 
-  it('pokes the pet where it lies, in the room it sleeps in, and nowhere when the user has none', () => {
-    const rooms = overview([lounge]);
-    const paws = petPawsIn(lounge, LOUNGE_ID)!;
-    const onIt = { x: paws.x, y: paws.y - 8 };
-    assert.equal(targetAt(onIt, rooms, { zoomed: true, petRoom: LOUNGE_ID }).pet, true);
-    assert.equal(targetAt(onIt, rooms, { zoomed: true, petRoom: null }).pet, false);
-    assert.equal(petPawsIn(project, LOUNGE_ID), null, 'not in a room it does not sleep in');
+  it('pokes the pet at home only: the same point of a project room or the break room is no pet, nor anywhere when the user has none', () => {
+    const paws = iso(64, 90), onIt = (at: Point) => ({ x: at.x + paws.x, y: at.y + paws.y - 8 });
+    const rooms = overview(roomsWith([], ['/work/a']));
+    for (const { room, at } of rooms) {
+      assert.equal(targetAt(onIt(at), rooms, { zoomed: false, pet: paws }).pet, room.kind === 'home', room.kind);
+      assert.equal(targetAt(onIt(at), rooms, { zoomed: false, pet: null }).pet, false, room.kind);
+    }
+  });
+});
+
+describe("the user's pet at home", () => {
+  const seeded = (start: number) => { let seed = start; return () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; };
+  const tileAt = (point: Point) => ({ x: Math.floor(point.x), y: Math.floor(point.y) });
+  const deskOf = (theme: HomeTheme) => tileOf(HOME_DESIGNS[theme].seat.u, HOME_DESIGNS[theme].seat.v);
+
+  it('walks only over free tiles to an aisle tile, or hops onto its bed to sleep, in every theme and festival', () => {
+    for (const theme of HOME_THEMES) for (const festival of [null, 'christmas'] as const) {
+      const random = seeded(7), home = homePet(theme, festival, random);
+      const errand = homeErrand(home, deskOf(theme));
+      const starts = [home.bed, ...Array.from({ length: 30 }, () => ({ x: 0.5 + Math.floor(random() * 16), y: 0.5 + Math.floor(random() * 16) }))
+        .filter(({ x, y }) => home.floor.isAisle(Math.floor(x), Math.floor(y)))];
+      for (const start of starts) for (let walk = 0; walk < 12; walk++) {
+        const { path, doing } = errand({ ...home.pet, position: { ...start }, path: [] }, random);
+        const label = `${theme} ${festival ?? ''} from ${start.x},${start.y} (${doing})`;
+        const end = path.at(-1)!, onBed = doing === 'sleep';
+        assert.ok(path.length > 0, label);
+        if (onBed) assert.deepEqual(end, home.bed, label);
+        else assert.ok(home.floor.isAisle(tileAt(end).x, tileAt(end).y), `${label}: stops on an aisle`);
+        const way = onBed ? path.slice(0, -1) : path;
+        for (const point of way) assert.ok(home.floor.isFreeTile(tileAt(point).x, tileAt(point).y), `${label}: over ${point.x},${point.y}`);
+        // tile by tile, but the hops down from its bed and onto it
+        const steps = [start, ...path].slice(1).map((point, index) => Math.hypot(point.x - [start, ...path][index].x, point.y - [start, ...path][index].y));
+        steps.forEach((step, index) => {
+          const hop = (index === 0 && start === home.bed) || (onBed && index === steps.length - 1);
+          assert.ok(step <= (hop ? 2.5 : 1.5), `${label}: a step of ${step.toFixed(2)}`);
+        });
+      }
+    }
   });
 
-  it('sleeps in the break room while nobody works anywhere and someone naps there', () => {
-    const rooms = roomsWith([session('nap', 'closed', { cwd: '/work/a', resting: true })], ['/work/a']);
-    assert.equal(catRoom(rooms), LOUNGE_ID);
-    assert.equal(catRoom(roomsWith([session('busy', 'work', { cwd: '/work/a' }), session('nap', 'closed', { cwd: '/work/a', resting: true })], ['/work/a'])), '/work/a');
+  it('lives like the classic pet: sleeps on its bed only, sits by the user now and then, wanders and stops on aisles, in every theme', () => {
+    for (const theme of HOME_THEMES) {
+      const random = seeded(11), home = homePet(theme, null, random), user = deskOf(theme);
+      let byUser = 0, elsewhere = 0;
+      for (let time = 0; time < 30 * 60_000; time += 100) {
+        stepHomePet(home, 100, user, random);
+        const { pet } = home;
+        if (pet.activity === 'walk') continue;
+        if (pet.activity === 'sleep') { assert.deepEqual(pet.position, home.bed, `${theme}: asleep away from its bed`); continue; }
+        if (pet.position.x === home.bed.x && pet.position.y === home.bed.y) continue;
+        assert.ok(home.floor.isAisle(Math.floor(pet.position.x), Math.floor(pet.position.y)), `${theme}: stopped on ${pet.position.x},${pet.position.y}`);
+        if (Math.max(Math.abs(pet.position.x - user.x), Math.abs(pet.position.y - user.y)) <= 2.5) byUser++;
+        else elsewhere++;
+      }
+      assert.ok(byUser > 0 && elsewhere > 0, `${theme}: by the user ${byUser}, elsewhere ${elsewhere}`);
+    }
   });
 
-  it('wakes the pet a while with a poke, hearts and words, as the classic cuddle does, then lets it fall asleep again', () => {
-    const pet = sleepingPet();
-    cuddle(pet);
-    assert.ok(isAwake(pet) && isSpeaking(pet) && pet.hearts.length > 0);
-    assert.equal(petZzzAt(cozyPetOf({ kind: 'cat', variant: 'plain' }, true)!, { width: 1, height: 1, cells: ['#000000'], feet: { x: 0, y: 0 }, top: 0 }, 0, 0), null, "no Z's while it sits up");
-    restPet(pet, 10_000);
-    assert.ok(!isAwake(pet) && !isSpeaking(pet) && pet.hearts.length === 0);
-    const droid = { kind: 'droid', variant: 'dome' } as const;
-    assert.deepEqual(cozyPetOf(droid, true), cozyPetOf(droid), 'a droid looks the same awake');
+  it('is not covered by the bed it sleeps on, in every theme; in the loft, the coffee table covers it behind the table, not on its kilim', () => {
+    for (const theme of HOME_THEMES) {
+      const { furniture, petBed } = HOME_DESIGNS[theme];
+      const under = furniture.filter(({ u0, u1, v0, v1 }) => petBed.u >= u0 && petBed.u < u1 && petBed.v >= v0 && petBed.v < v1);
+      for (const bed of under) assert.equal(hides(bed, petBed.u, petBed.v), false, theme);
+    }
+    const { furniture, petBed } = HOME_DESIGNS.loft, table = furniture.find(({ u0, v0 }) => u0 === 30 && v0 === 86)!;
+    assert.equal(hides(table, petBed.u, petBed.v), false, 'on its kilim, in front of the table');
+    assert.equal(hides(table, 42, 80), true, 'behind the table');
   });
 });
 

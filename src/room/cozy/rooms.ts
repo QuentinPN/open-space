@@ -161,10 +161,6 @@ export function callers(rooms: readonly CozyRoom[], limit: number): Person[] {
   return [...people.filter(({ status }) => status === 'working'), ...people.filter(({ status }) => status !== 'working')].slice(0, limit);
 }
 
-/** The room the pet sleeps in: the first project room with its lights on, else the break room while someone naps there, else the flat. */
-export const catRoom = (rooms: readonly CozyRoom[]) =>
-  (rooms.find((room) => room.kind === 'project' && room.lit) ?? rooms.find((room) => room.kind === 'lounge' && room.lit) ?? rooms[0]).id;
-
 /**
  * Where the seats the user put people on in a room are kept (localStorage), like the classic room's `seats:office`:
  * a project room's desks by its folder, the break room's places; null for the rooms nobody is moved in.

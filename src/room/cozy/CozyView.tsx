@@ -31,7 +31,7 @@ import { currentHour, lightingAt } from '../lighting.ts';
 import { crewLook } from '../looks.ts';
 import { modsNews, showsMetricsBadge } from '../metrics.ts';
 import { outfitFor } from '../outfits.ts';
-import { cuddle, isSpeaking, petWords, type Pet } from '../pet.ts';
+import { cuddle, isSpeaking, petWords } from '../pet.ts';
 import { PLAYER_ID, selfName } from '../scene.ts';
 import { Visits, birthdayWishOf, visitorId } from '../visitors.ts';
 import { ArrangeHint } from '../ArrangeHint.tsx';
@@ -39,20 +39,21 @@ import { STANDING, SpeechBubble, placeHintCard, showSky } from '../RoomView.tsx'
 import { Scene, type SceneFloor } from '../scene.ts';
 import { keepSeats, savedSeats } from '../seats.ts';
 import { useCarry } from '../useCarry.ts';
-import { COZY_VIEW, CozyFloor, cozyFloorPlan, walkable } from './floor.ts';
-import { DESKS } from './geometry.ts';
+import { COZY_VIEW, CozyFloor, cozyFloorPlan, tileOf, walkable } from './floor.ts';
+import { DESKS, iso } from './geometry.ts';
 import { LOUNGE_PLACES } from './lounge.ts';
 import { useRoomFrame, type HomeOf } from '../useRoomFrame.ts';
 import { BUBBLE_BAND, ROOM_BOX, fitOverview, overviewLayout, type Box, type Overview } from './geometry.ts';
 import { cozySprites, placeSitters, scenePeople } from './people.ts';
-import { paintCozy, type CozyFrameOptions, type FrameRoom, type PetPoke, type PlacedVisitor } from './paint.ts';
-import { callFace, clockOf } from './home/index.ts';
+import { paintCozy, type CozyFrameOptions, type FrameRoom, type HomePetFrame, type PlacedVisitor } from './paint.ts';
+import { callFace, clockOf, homePlace, homeThemeOf } from './home/index.ts';
+import { homePet, homePetAt, stepHomePet, type HomePet } from './home-pet.ts';
 import { wallPoint } from './pixels.ts';
-import { cozyPetOf, isAwake, restPet, sleepingPet } from './pet.ts';
+import { cozyPetOf } from './pet.ts';
 import { clockMinute } from './time.ts';
 import { targetAt, type CozyTarget, type CozyThing } from './things.ts';
 import { cozyVisitFloor, visitedRoom, visitorFeet } from './visits.ts';
-import { COZY_SHOWS, LOUNGE_ID, callers, catRoom, cozyRooms, cozySeatsKey, nameIn, recentFolders, shownProjects, type CozyRoom, type CozyShow } from './rooms.ts';
+import { COZY_SHOWS, LOUNGE_ID, callers, cozyRooms, cozySeatsKey, nameIn, recentFolders, shownProjects, type CozyRoom, type CozyShow } from './rooms.ts';
 
 const PRUNE_EVERY_MS = 250;
 /** The canvas has at most this many pixels per room pixel (a big screen, a single room). */
@@ -340,8 +341,8 @@ export function CozyView({ day }: { day: FestivalDay }) {
   selected.current = openIds;
   // the office life: one project room at a time is visited, the one opened big, else the first with its lights on
   const visiting = useRef<{ id: string | null; visits: Visits | null }>({ id: null, visits: null });
-  // the pet just poked, in the room it lies in: the classic cuddle (pet.ts), until it is asleep again and its hearts are gone
-  const poked = useRef<{ room: string; pet: Pet } | null>(null);
+  // the user's pet, living at home only (home-pet.ts), the same whether the home is opened big or not; none for none
+  const petHome = useRef<HomePet | null>(null);
   const visitorsIn = (room: CozyRoom, at: Point, time: number): PlacedVisitor[] => {
     const { id, visits } = visiting.current;
     if (!visits || room.id !== id) return [];
@@ -395,19 +396,22 @@ export function CozyView({ day }: { day: FestivalDay }) {
       const placed = placedRef.current(time);
       scene.current.placed = placed;
       const { festival } = dayRef.current;
-      const choice = state.preferences.pet;
-      const cuddled = poked.current;
-      if (cuddled) restPet(cuddled.pet, elapsed);
-      if (cuddled && !isAwake(cuddled.pet) && !isSpeaking(cuddled.pet) && !cuddled.pet.hearts.length) poked.current = null;
-      const poke: PetPoke | null = cuddled && choice.kind !== 'none' && poked.current
-        ? { room: cuddled.room, pet: cuddled.pet, awake: isAwake(cuddled.pet) ? cozyPetOf(choice, true) : null, words: isSpeaking(cuddled.pet) ? petWords(cuddled.pet, choice.kind) : null }
+      // the pet lives at home, in its theme and dressed for the festival, and comes by the user where they are there
+      const choice = state.preferences.pet, look = cozyPetOf(choice), home = scene.current.rooms.find((room) => room.kind === 'home');
+      const theme = home?.home ?? homeThemeOf(undefined);
+      let living = look && home ? petHome.current : null;
+      if (look && home && (!living || living.theme !== theme || living.festival !== festival)) living = homePet(theme, festival);
+      petHome.current = living;
+      const user = walked?.kind === 'home' ? walked.scene.player.position : tileOf(homePlace(theme).u, homePlace(theme).v);
+      if (living) stepHomePet(living, elapsed, user);
+      const pet: HomePetFrame | null = living && look && choice.kind !== 'none'
+        ? { look, pet: living.pet, at: homePetAt(living), words: isSpeaking(living.pet) ? petWords(living.pet, choice.kind) : null }
         : null;
       paintCozy(context, sprites, placed, {
         time, hour, festival, scale: scene.current.pixels, tagScale: scene.current.tagScale, reducedMotion, hideNames: state.preferences.hideNames === true, tagColors: state.preferences.tagColors,
         hoveredId: scene.current.hoveredId, openSessionIds: selected.current, playerName: selfName(crewRef.current), callFaces: scene.current.callFaces,
         hovered: scene.current.hovered, metricsBadge: showsMetricsBadge(modsNews(state), state.modsOpen),
-        // the pet sleeps in one room of all of them, the same whether that one is opened big or not
-        catRoom: choice.kind === 'none' ? '' : catRoom(scene.current.rooms), pet: cozyPetOf(choice), poke,
+        pet,
       });
     }, () => { last = performance.now(); });
   }, [sprites, reducedMotion]);
@@ -453,15 +457,11 @@ export function CozyView({ day }: { day: FestivalDay }) {
     const walked = walk.current;
     const atComputer = (room: CozyRoom) => walked?.id !== room.id || walked.scene.playerSpot?.atDesk === true;
     const placed = scene.current.placed.map(({ room, at, sitters, visitors }) => ({ room, at, people: [...sitters.filter(({ id }) => id !== PLAYER_ID || atComputer(room)), ...visitors] }));
-    const { pet } = useSessions.getState().preferences;
-    return targetAt(point, placed, { zoomed: zoomedRoom !== null, petRoom: pet.kind === 'none' ? null : catRoom(scene.current.rooms) });
+    const living = petHome.current, paws = living && homePetAt(living);
+    return targetAt(point, placed, { zoomed: zoomedRoom !== null, pet: paws && iso(paws.u, paws.v, paws.z) });
   };
-  // a poke on the pet: the classic room's cuddle, the same pet poked again while it is still awake
-  const pokePet = (room: string) => {
-    const pet = poked.current?.room === room ? poked.current.pet : sleepingPet();
-    cuddle(pet);
-    poked.current = { room, pet };
-  };
+  // a poke on the pet: the classic room's cuddle (it stops, speaks, hearts float up)
+  const pokePet = () => { if (petHome.current) cuddle(petHome.current.pet); };
   // the time a room's clock tells, in a card over it: the room, and where its clock is on the board
   const [clockCard, setClockCard] = useState<{ room: string; x: number; y: number } | null>(null);
   const showTime = (index: number) => {
@@ -501,7 +501,7 @@ export function CozyView({ day }: { day: FestivalDay }) {
     const visitor = visitorsHere().find((placed) => placed.id === person);
     if (visitor) { useSessions.getState().openNewSession({ person: visitor.name }); return; }
     if (person) { show(person); return; }
-    if (pet) { pokePet(room.id); return; }
+    if (pet) { pokePet(); return; }
     const state = useSessions.getState();
     switch (thing) {
       case 'computer': state.send({ t: 'openTerminal' }); return;

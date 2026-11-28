@@ -1,47 +1,47 @@
-// The user's pet in the cozy rooms (Preferences.pet): the classic room's own drawing of it, in its colours (pet.ts
-// petSprite, droid-art.ts droidPreview), asleep, or at rest for a droid, laid into a room's pixels (PET_SCALE room
-// pixels to an art pixel, as in the classic room), so the room's light falls on it like on the rest; an animal's Z's
-// rise over it, a droid has none. A poke is the classic room's cuddle (pet.ts cuddle): it speaks, hearts float up,
-// and an animal sits up a while before it falls asleep again. Which drawing and the poke are pure (tested without a
-// DOM); its pixels are read once from the classic canvas.
+// The user's pet in the cozy rooms (Preferences.pet), drawn: the classic room's own drawing of it, in its colours
+// (pet.ts petSprite, droid-art.ts drawDroid), at PET_SCALE room pixels to an art pixel, as in the classic room. It lives
+// at home (home-pet.ts): it walks there, its legs going, sits, washes, sleeps with Z's rising over it, a droid stands
+// by. Which drawing is pure (tested without a DOM); drawPetSprite is the one call that draws it.
 import type { PetChoice } from '../../../shared/pets.ts';
-import { droidPreview, type DroidLook } from '../droid-art.ts';
-import { HEART_MS, PET_FEET, droidOf, petSprite, type Pet } from '../pet.ts';
+import { drawDroid, droidHeight, droidPreview, type DroidLook } from '../droid-art.ts';
+import { PET_FEET, PET_HEIGHT, droidOf, facesBack, facesLeft, petFrame, petSprite, type Pet, type PetActivity } from '../pet.ts';
 import { ART_SCALE } from '../pixel-art.ts';
 import type { PixelGrid } from './pixels.ts';
 
 type Animal = Exclude<PetChoice, { kind: 'none' | 'droid' }>;
 
-/** What the cozy rooms draw of the pet: an animal curled up asleep (or sitting up, `awake`), a droid front on, its wheels still. */
-export type CozyPet = { kind: 'animal'; animal: Animal; awake?: true } | { kind: 'droid'; droid: DroidLook };
+/** What the cozy rooms draw of the pet: an animal, or a droid. */
+export type CozyPet = { kind: 'animal'; animal: Animal } | { kind: 'droid'; droid: DroidLook };
 
-/** The pet the user chose as the cozy rooms draw it, asleep or `awake`; none for 'none'. A droid looks the same either way. */
-export function cozyPetOf(choice: PetChoice, awake = false): CozyPet | null {
+/** The pet the user chose as the cozy rooms draw it; none for 'none'. */
+export function cozyPetOf(choice: PetChoice): CozyPet | null {
   if (choice.kind === 'none') return null;
   if (choice.kind === 'droid') return { kind: 'droid', droid: droidOf(choice) };
-  return awake ? { kind: 'animal', animal: choice, awake: true } : { kind: 'animal', animal: choice };
+  return { kind: 'animal', animal: choice };
 }
 
 /**
- * The pet lying in a cozy room as the classic room's cuddles see it (pet.ts Pet): asleep where it lies, going nowhere.
- * A poke is pet.ts cuddle (it speaks, hearts float up, it sits up a while).
+ * How the pet is drawn in a frame: what it does (a droid rolls while it walks and stands by otherwise), which of its two
+ * drawings (its legs, its tail; a droid's wheels), and which way it faces on the screen.
  */
-export function sleepingPet(): Pet {
-  return {
-    position: { x: 0, y: 0 }, heading: { x: 1, y: 0 }, path: [], activity: 'sleep', time: 0, until: Number.POSITIVE_INFINITY, speakUntil: 0,
-    nextSpeech: Number.POSITIVE_INFINITY, line: 0, hearts: [], passing: null, leaveAt: Number.POSITIVE_INFINITY, exit: null, beamAt: 0,
-  };
-}
+export interface PetPose { activity: PetActivity; frame: 0 | 1; left: boolean; back: boolean }
 
-/** The pet's clock goes on `ms`: its hearts fade, and once its cuddle is over it falls asleep again where it lies. */
-export function restPet(pet: Pet, ms: number) {
-  pet.time += ms;
-  pet.hearts = pet.hearts.filter((born) => pet.time - born < HEART_MS);
-  if (pet.activity !== 'sleep' && pet.time >= pet.until) { pet.activity = 'sleep'; pet.until = Number.POSITIVE_INFINITY; }
-}
+/** The pose of the pet living at home (pet.ts Pet) at `time`, the room's clock, as the classic room draws it (pet.ts drawPet). */
+export const petPose = (pet: Pick<Pet, 'activity' | 'heading'>, time: number): PetPose =>
+  ({ activity: pet.activity, frame: petFrame(pet, time), left: facesLeft(pet.heading), back: facesBack(pet.heading) });
 
-/** Woken by a poke, not asleep yet again. */
-export const isAwake = (pet: Pet) => pet.activity !== 'sleep';
+/** How long a droid's wheel turn lasts (droid-art.ts drawDroid): its second drawing is shown at that time. */
+const DROID_TURN_MS = 140;
+
+/** The pet in `pose`, its paws (a droid's wheels) at (x, y) in the room's pixels. */
+export function drawPetSprite(context: CanvasRenderingContext2D, pet: CozyPet, pose: PetPose, x: number, y: number) {
+  if (pet.kind === 'droid') {
+    drawDroid(context, pet.droid, x, y, { moving: pose.activity === 'walk', back: pose.back, left: pose.left, time: pose.frame * DROID_TURN_MS });
+    return;
+  }
+  const sprite = petSprite(pet.animal, pose.activity, pose.frame, pose.left);
+  context.drawImage(sprite, Math.round(x - PET_FEET.x * PET_SCALE), Math.round(y - PET_FEET.y * PET_SCALE), sprite.width * PET_SCALE, sprite.height * PET_SCALE);
+}
 
 /**
  * Room pixels to an art pixel of the pet: the classic room's own (pixel-art.ts ART_SCALE), so it is about as big as
@@ -49,7 +49,10 @@ export const isAwake = (pet: Pet) => pet.activity !== 'sleep';
  */
 export const PET_SCALE = ART_SCALE;
 
-/** What a room's cached art with the pet in it is kept under. */
+/** How far above its paws the top of the pet is, in the room's pixels (its hearts and words go above), as in the classic room (pet.ts petHeight). */
+export const petTop = (pet: CozyPet) => (pet.kind === 'droid' ? droidHeight(pet.droid.model) : PET_HEIGHT);
+
+/** What a room's cached art with the pet asleep in it is kept under. */
 export const petKey = (pet: CozyPet | null) => (pet ? JSON.stringify(pet) : '');
 
 /** The pet's pixels, a colour or null each, row by row, and where its paws (a droid's wheels) are among them. */
@@ -59,12 +62,12 @@ const hex = (red: number, green: number, blue: number) => `#${((red << 16) | (gr
 
 const read = new Map<string, PetPixels>();
 
-/** The pet's pixels, facing right (`left`: mirrored), read from the classic room's drawing of it the first time. */
+/** The pet's pixels asleep, facing right (`left`: mirrored), read from the classic room's drawing of it the first time. */
 export function petPixels(pet: CozyPet, left = false): PetPixels {
   const key = `${petKey(pet)}|${left}`;
   let pixels = read.get(key);
   if (pixels) return pixels;
-  const canvas = pet.kind === 'droid' ? droidPreview(pet.droid, false) : petSprite(pet.animal, pet.awake ? 'sit' : 'sleep', 0, left);
+  const canvas = pet.kind === 'droid' ? droidPreview(pet.droid, false) : petSprite(pet.animal, 'sleep', 0, left);
   const { width, height } = canvas;
   const data = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, width, height).data;
   const cells = Array.from({ length: width * height }, (_, index) => (data[index * 4 + 3] > 40 ? hex(data[index * 4], data[index * 4 + 1], data[index * 4 + 2]) : null));
@@ -83,8 +86,8 @@ export function paintPet(grid: PixelGrid, pixels: PetPixels, x: number, y: numbe
 }
 
 /**
- * Where the Z's of the pet asleep with its paws at (x, y) rise from: just over its head. None for a droid: at rest it
- * stands still, its eye lit, as the classic room draws it (pet.ts drawPet), it does not sleep; none for an animal awake.
+ * Where the Z's of the pet doing `activity` with its paws at (x, y) rise from: just over its head while it sleeps. None
+ * for a droid: it stands by, its eye lit, as the classic room draws it (pet.ts drawPet), it does not sleep; none awake.
  */
-export const petZzzAt = (pet: CozyPet, pixels: PetPixels, x: number, y: number): [number, number] | null =>
-  (pet.kind === 'droid' || pet.awake ? null : [x + 3 * PET_SCALE, y - pixels.top * PET_SCALE - 3]);
+export const petZzzAt = (pet: CozyPet, activity: PetActivity, pixels: PetPixels, x: number, y: number): [number, number] | null =>
+  (pet.kind === 'droid' || activity !== 'sleep' ? null : [x + 3 * PET_SCALE, y - pixels.top * PET_SCALE - 3]);

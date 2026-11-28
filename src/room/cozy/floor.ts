@@ -91,6 +91,8 @@ export class CozyFloor implements SceneFloor {
   readonly portal = null;
   readonly portalFront = null;
   readonly furniture: readonly Footprint[];
+  /** its size in tiles, for the pet (pet.ts PetFloor) */
+  readonly extent = { width: FLOOR_TILES, depth: FLOOR_TILES };
   private readonly blocked = new Set<string>();
   private readonly avoided = new Set<string>();
 
@@ -115,6 +117,9 @@ export class CozyFloor implements SceneFloor {
   }
 
   isFreeTile = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < FLOOR_TILES && y < FLOOR_TILES && !this.blocked.has(`${x},${y}`);
+
+  /** A free tile that is no seat's: walked through, stopped on by the pet. */
+  isAisle = (x: number, y: number): boolean => this.isFreeTile(x, y) && !this.avoided.has(`${x},${y}`);
 
   /** True for a floor point the user can walk to: inside the walls, nothing standing there. */
   isWalkable(tile: Point): boolean {

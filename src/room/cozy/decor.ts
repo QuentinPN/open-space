@@ -11,7 +11,7 @@ import { FESTIVE_DECOR, FESTIVE_GLOW, paintFestiveFloor, paintFestiveWalls } fro
 import { SKY_GLOW, lamp, lightingOf } from './light.ts';
 import type { CozyRoomKind } from './rooms.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
-import { COUCH, COUCH_ARM_DEPTH, DESKS, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, CAT_SPOT, around, cozyDepth, deskPlace, iso, onCouchAt, type Couch, type Desk, type Footprint } from './geometry.ts';
+import { COUCH, COUCH_ARM_DEPTH, DESKS, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, around, cozyDepth, deskPlace, iso, onCouchAt, type Couch, type Desk, type Footprint } from './geometry.ts';
 import { paintPet, petKey, petPixels, type CozyPet } from './pet.ts';
 import {
   PixelGrid, box, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, shadeFloor, tint, wallEllipse, wallPatch, wallPixel, wallPoint,
@@ -482,11 +482,8 @@ export interface RoomArt {
   back: HTMLCanvasElement;
   /** the pieces that may be in front of someone */
   pieces: Piece[];
-  /**
-   * The user's pet on the room's rug, asleep or woken by a poke (drawn in the room it is in, over the back layer but
-   * under what stands in front of it), each look drawn the first time it is asked for.
-   */
-  petLayer: (pet: CozyPet) => HTMLCanvasElement;
+  /** The user's pet asleep on the room's floor: none since it lives at home only (home-pet.ts); lounge-art.ts still makes one. */
+  petLayer?: (pet: CozyPet) => HTMLCanvasElement;
   /** what stands in front of someone standing or walking at a depth, on a layer of its own (null: nothing does) */
   frontOf: (depth: number) => HTMLCanvasElement | null;
 }
@@ -648,7 +645,6 @@ function build(kind: CozyRoomKind, lit: boolean, time: CozyTime, festival: Festi
   return {
     back: toCanvas(back, light),
     pieces: pieces.map(({ depth, paint }) => ({ depth, canvas: toCanvas(pieceGrid(depth, paint, floor), light) })),
-    petLayer: petLayers(floor, light, CAT_SPOT),
     frontOf: frontLayers(floor, light),
   };
 }
