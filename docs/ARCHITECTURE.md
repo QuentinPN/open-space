@@ -245,7 +245,7 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 
 - **Vue d'ensemble** : les pièces en nid d'abeilles (`overviewLayout`, `fitOverview` pour tenir à côté de la carte d'état), l'appartement au milieu. Un clic sur une personne ouvre sa session, ailleurs sur une pièce il l'ouvre en grand. Un filtre « Actifs » ou « Récents + épinglés » (`cozy:show`) choisit les projets montrés (`shownProjects`, `recentFolders`).
 - **Une pièce en grand** (zoom) : 4 bureaux (`DESK_COUNT`), les suivantes dans « +N » ; sans session, la pièce est éteinte (pénombre, lune). Le filtre de projets de l'en-tête zoome sa pièce ; Échap ou « Toutes les pièces » revient à la vue d'ensemble.
-- **Salle de repos** (`LOUNGE_ID`) : toutes les sessions mises au repos ou fermées, tous projets confondus (même règle que `cast.ts`, `roomSessions` `lounge`), 8 places (`lounge.ts`), le reste dans « +N ». La vue `repos` (onglet de l'en-tête, ⌘K) l'ouvre en grand, `salle` revient aux pièces ; la porte du mur gauche de chaque pièce fait la navette, l'utilisateur y marche.
+- **Salle de repos** (`LOUNGE_ID`) : toutes les sessions mises au repos ou fermées, tous projets confondus (même règle que `cast.ts`, `roomSessions` `lounge`), 8 places (`lounge.ts`), le reste dans « +N ». La vue `repos` (onglet de l'en-tête, ⌘K) l'ouvre en grand, `salle` revient aux pièces ; la porte du mur gauche de chaque pièce fait la navette, l'utilisateur y marche. Un clic sur la borne d'arcade ouvre son jeu, Petal Patrol (voir plus bas) ; l'équipe libre vient y jouer, comme elle passe dans une pièce de projet (`arcade.ts`, activité `arcade`).
 - **Chez toi** (`HOME_ID`) : l'utilisateur à son ordinateur, son animal, un appel visio sur l'écran (`callers` : les sessions des bureaux, celles au travail d'abord). Un clic sur l'ordinateur ouvre un terminal, sur l'écran de chiffres le panneau des mods, sur une horloge l'heure (`things.ts`).
 
 ### Plan des fichiers
@@ -258,7 +258,8 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 | `people.ts` | qui s'assoit où et à quelle hauteur (`SpriteSource.height`), pose assis, frappe ou sieste | pur |
 | `floor.ts` | le sol que l'on marche (`CozyFloor`, grille 16 × 16, empreintes des meubles), places, porte, endroits où s'asseoir | pur |
 | `visits.ts` | les visiteurs (`visitors.ts`) menés aux points de l'ambiance | pur |
-| `things.ts` | ce qu'un point touche : personne, animal, ordinateur, tableau, porte, horloge | pur |
+| `things.ts` | ce qu'un point touche : personne, animal, ordinateur, tableau, porte, borne d'arcade, horloge | pur |
+| `arcade.ts` | qui joue à la borne de la salle de repos : les visiteurs (`loungeVisitFloor`, un `Visits` à part, jamais dans deux pièces à la fois) | pur |
 | `home-pet.ts`, `pet.ts` | la vie de l'animal chez l'utilisateur (`stepPet` de la salle classique), puis son dessin HD | pur ; dessin |
 | `time.ts`, `light.ts`, `clock.ts`, `festive.ts` | l'heure en trois humeurs (jour, crépuscule, nuit) et les clés de cache, la lumière cuite dans le décor, l'horloge, la décoration de la fête du jour | pur ; dessin |
 | `pixels.ts` | la grille de pixels (`PixelGrid`), boîtes et faces isométriques, contours | dessin |
@@ -306,9 +307,13 @@ Un id inconnu ou pas encore dessiné retombe sur le bureau (`registeredAmbiance`
 
 Les quatre thèmes (`home/studio.ts`, `loft.ts`, `chalet.ts`, `japonais.ts`) sont des `HomeDesign` (`home/kit.ts`) : bureau, écran, sièges où l'utilisateur peut s'asseoir, lit ou tapis de l'animal, écran de chiffres, horloge, lumière cuite. Un thème absent ou inconnu est le studio (`homeThemeOf`). Chaque appartement a sa lumière (le chalet plus sombre : l'utilisateur et l'animal suivent la lumière de leur place) et les gens passent derrière ou devant les meubles (`frontOf`, `overhead`).
 
+### Petal Patrol, le jeu de la borne (`src/arcade/`)
+
+Un jeu de tir fixe original : un pot de fleurs arrose un essaim d'insectes du jardin (papillons de nuit, coccinelles, scarabées) qui avance par pas, descend à chaque bord et accélère quand il s'éclaircit et d'un niveau à l'autre ; des champignons arrêtent gouttes et graines, une bouchée à la fois ; une vie de plus tous les `LIFE_EVERY` points. `game.ts` est pur (état, `step(game, ms, controls)` découpé en tranches de 16 ms, `togglePause`, tirage pseudo-aléatoire à graine), testé dans `arcade.test.ts` ; `paint.ts` le dessine en code (couleurs dans `src/design/arcade-palette.ts`). La fenêtre (`src/command/ArcadeWindow.tsx`, ouverte par `state/arcade.ts`) flotte comme le navigateur : déplacée par sa barre de titre, clavier (flèches ou A/D, Espace, P, Échap) quand elle a le focus, boutons tactiles, pause quand le focus part ou l'onglet se cache.
+
 ### Clés gardées dans le navigateur
 
-Toutes sous `poste:` du `localStorage` (`src/lib/preferences.ts`) : `cozy:show` (`active` ou `recent`), `cozy:seats:<dossier>` et `cozy:seats:lounge` (les sièges où l'utilisateur a posé les sessions ; `savedSeats` écarte les entrées invalides, `keepSeats` garde une personne par siège) et `roomFrames` (clés `cozy` pour la vue d'ensemble et `cozy:<dossier>` pour une pièce en grand, `sanitizeRoomFrames`). Le style, le thème, les ambiances et les épinglés sont dans `OFFICE_DIR/settings.json`.
+Toutes sous `poste:` du `localStorage` (`src/lib/preferences.ts`) : `cozy:show` (`active` ou `recent`), `cozy:seats:<dossier>` et `cozy:seats:lounge` (les sièges où l'utilisateur a posé les sessions ; `savedSeats` écarte les entrées invalides, `keepSeats` garde une personne par siège), `roomFrames` (clés `cozy` pour la vue d'ensemble et `cozy:<dossier>` pour une pièce en grand, `sanitizeRoomFrames`), `arcade:best` (le record de Petal Patrol) et `arcade-placement` (où sa fenêtre a été posée). Le style, le thème, les ambiances et les épinglés sont dans `OFFICE_DIR/settings.json`.
 
 ### Performance
 
@@ -319,7 +324,7 @@ Toutes sous `poste:` du `localStorage` (`src/lib/preferences.ts`) : `cozy:show` 
 
 ### Tests
 
-Logique pure, sans DOM, dans `src/room/room.test.ts` : « cozy rooms » (pièces, capacité et « +N », salle de repos, filtres), « the cozy home », « cozy pixel art » (faces des boîtes), « the cozy rooms, like the classic one » (heure, fêtes, visites), « the cozy rooms' life, pet and clocks », « the cozy rooms' doors, boards, numbers and pet », « the user's pet at home », « walking the cozy rooms, like the classic one » (marche, places, portage, sièges gardés) « the ambiance of a cozy project room » (le contrat de chaque ambiance, le choix et le hash) et « what moves in a cozy project room » (mêmes pixels pour une même image et mouvement, couleurs que la lumière laisse telles quelles, vue animée dans sa vitre seulement). Puis `src/room/chibi-hd.test.ts` et `src/room/pet-hd.test.ts` (les dessins HD), `server/settings.test.ts` (les champs cozy, un fichier d'avant lu avec leurs défauts) et `src/state/settings-index.test.ts` (la recherche des Réglages).
+Logique pure, sans DOM, dans `src/room/room.test.ts` : « cozy rooms » (pièces, capacité et « +N », salle de repos, filtres), « the cozy home », « cozy pixel art » (faces des boîtes), « the cozy rooms, like the classic one » (heure, fêtes, visites), « the cozy rooms' life, pet and clocks », « the cozy rooms' doors, boards, numbers and pet », « the user's pet at home », « walking the cozy rooms, like the classic one » (marche, places, portage, sièges gardés) « the ambiance of a cozy project room » (le contrat de chaque ambiance, le choix et le hash) et « what moves in a cozy project room » (mêmes pixels pour une même image et mouvement, couleurs que la lumière laisse telles quelles, vue animée dans sa vitre seulement). Puis `src/room/cozy/arcade.test.ts` (la borne : clic, visiteur qui vient jouer), `src/arcade/arcade.test.ts` (le jeu), `src/room/chibi-hd.test.ts` et `src/room/pet-hd.test.ts` (les dessins HD), `server/settings.test.ts` (les champs cozy, un fichier d'avant lu avec leurs défauts) et `src/state/settings-index.test.ts` (la recherche des Réglages).
 
 ## Automates
 
