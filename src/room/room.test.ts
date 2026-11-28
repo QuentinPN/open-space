@@ -1935,13 +1935,13 @@ describe('the ambiance of a cozy project room', () => {
 
   it('is the offices for a settings file without one, or with one this version does not draw', () => {
     assert.equal(ambianceFor('/work/a', {}), 'office');
-    assert.equal(ambianceFor('/work/a', { mode: 'same', ambiance: 'igloo' }), 'office');
-    assert.equal(ambianceFor('/work/a', { mode: 'manual', ambiance: 'cafe', projects: { '/work/a': 'igloo' } }), 'cafe', 'an unknown pick: the default');
+    assert.equal(ambianceFor('/work/a', { mode: 'same', theme: 'igloo' }), 'office');
+    assert.equal(ambianceFor('/work/a', { mode: 'manual', theme: 'tokyo', projects: { '/work/a': 'igloo' } }), 'tokyo', 'an unknown pick: the theme ambiance');
   });
 
   it('is the same for every room, or each room\'s pick and the default for the others', () => {
-    assert.ok(FOLDERS.every((folder) => ambianceFor(folder, { mode: 'same', ambiance: 'space', projects: { [folder]: 'cafe' } }) === 'space'), 'the picks wait for the manual mode');
-    const manual: AmbianceChoice = { mode: 'manual', ambiance: 'space', projects: { '/work/project-1': 'cafe' } };
+    assert.ok(FOLDERS.every((folder) => ambianceFor(folder, { mode: 'same', theme: 'space', projects: { [folder]: 'cafe' } }) === 'space'), 'the picks wait for the manual mode');
+    const manual: AmbianceChoice = { mode: 'manual', theme: 'space', projects: { '/work/project-1': 'cafe' } };
     assert.equal(ambianceFor('/work/project-1', manual), 'cafe');
     assert.equal(ambianceFor('/work/project-2', manual), 'space');
   });
@@ -1956,15 +1956,15 @@ describe('the ambiance of a cozy project room', () => {
 
   it('changes only the room an ambiance is picked for, in every mode, and that room shows it', () => {
     for (const mode of MODES) for (const id of AMBIANCE_IDS) {
-      const before: AmbianceChoice = { mode, ambiance: 'space', projects: { '/work/project-3': 'cafe' } };
+      const before: AmbianceChoice = { mode, theme: 'space', projects: { '/work/project-3': 'cafe' } };
       const changes = pickAmbiance(before, '/work/project-0', id, FOLDERS);
-      const after: AmbianceChoice = changes ? { mode: changes.cozyAmbianceMode, ambiance: 'space', projects: changes.projectAmbiances } : before;
+      const after: AmbianceChoice = changes ? { mode: changes.cozyAmbianceMode, theme: 'space', projects: changes.projectAmbiances } : before;
       assert.equal(ambianceFor('/work/project-0', after), id, `${mode} → ${id}`);
       for (const folder of FOLDERS.slice(1)) assert.equal(ambianceFor(folder, after), ambianceFor(folder, before), `${mode} → ${id}: ${folder}`);
     }
   });
 
   it('changes nothing when the room already has the ambiance picked', () => {
-    for (const mode of MODES) assert.equal(pickAmbiance({ mode, ambiance: 'cafe' }, '/work/a', ambianceFor('/work/a', { mode, ambiance: 'cafe' }), FOLDERS), null, mode);
+    for (const mode of MODES) assert.equal(pickAmbiance({ mode, theme: 'cafe' }, '/work/a', ambianceFor('/work/a', { mode, theme: 'cafe' }), FOLDERS), null, mode);
   });
 });

@@ -11,7 +11,7 @@ import { hooksAddressOf } from '../shared/triggers.ts';
 import { NOTE_NAME } from '../shared/journal.ts';
 import { parseClaudeSettings } from '../shared/claude-settings.ts';
 import { parseDashboards } from '../shared/dashboards.ts';
-import { ACCOUNTS_BROWSERS, COZY_AMBIANCE_MODES, COZY_AMBIANCES, DEFAULT_PERMISSION_MODE, EFFORTS, GLASS_OPACITY, HOME_THEMES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, isPermissionMode, ROOM_STYLES, TIME_FORMATS, WINDOW_STYLES, type Preferences } from '../shared/protocol.ts';
+import { ACCOUNTS_BROWSERS, COZY_AMBIANCE_MODES, COZY_AMBIANCES, DEFAULT_PERMISSION_MODE, EFFORTS, GLASS_OPACITY, HOME_THEMES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, isPermissionMode, ROOM_STYLES, TIME_FORMATS, WINDOW_STYLES, type CozyAmbiance, type Preferences } from '../shared/protocol.ts';
 import { asArray, isJson } from './json.ts';
 import { expandHomePath, isFullPath } from '../shared/paths.ts';
 import { TERMINALS, type TerminalKind } from '../shared/terminal.ts';
@@ -47,7 +47,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   roomStyle: 'classic',
   homeTheme: 'studio',
   cozyAmbianceMode: 'same',
-  cozyAmbiance: 'office',
 };
 
 export const MAX_AGENT_NOTE = 600;
@@ -58,7 +57,7 @@ const MAX_PINNED_PROJECTS = 50;
 const MAX_PROJECT_AMBIANCES = 200;
 const MAX_FOLDER_LENGTH = 1000;
 
-const isCozyAmbiance = (value: unknown): value is NonNullable<Preferences['cozyAmbiance']> => COZY_AMBIANCES.some((ambiance) => ambiance === value);
+const isCozyAmbiance = (value: unknown): value is CozyAmbiance => COZY_AMBIANCES.some((ambiance) => ambiance === value);
 
 /** The settings found in untrusted JSON: what is valid is kept, the rest left out. Folders must be absolute (the journal's and the numbers file's may start with "~"). */
 export function parsePreferences(raw: unknown, home = os.homedir()): Partial<Preferences> {
@@ -78,7 +77,7 @@ export function parsePreferences(raw: unknown, home = os.homedir()): Partial<Pre
   // folders kept as written: they are compared with the sessions' own folders (src/state/projects.ts projectOf)
   if (Array.isArray(raw.pinnedProjects)) found.pinnedProjects = [...new Set(asArray(raw.pinnedProjects).filter((folder): folder is string => typeof folder === 'string' && isFullPath(folder) && path.isAbsolute(folder)))].slice(0, MAX_PINNED_PROJECTS);
   if (COZY_AMBIANCE_MODES.some((mode) => mode === raw.cozyAmbianceMode)) found.cozyAmbianceMode = raw.cozyAmbianceMode as Preferences['cozyAmbianceMode'];
-  if (isCozyAmbiance(raw.cozyAmbiance)) found.cozyAmbiance = raw.cozyAmbiance;
+  // a `cozyAmbiance` from an older file is ignored: the office theme is the default ambiance now
   // a project's pick by its folder, kept as written like the pins; an ambiance this version does not know is left out
   if (isJson(raw.projectAmbiances)) {
     const picks = Object.entries(raw.projectAmbiances).filter(([folder, ambiance]) => folder.length <= MAX_FOLDER_LENGTH && isFullPath(folder) && path.isAbsolute(folder) && isCozyAmbiance(ambiance));

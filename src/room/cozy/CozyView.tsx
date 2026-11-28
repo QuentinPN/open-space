@@ -150,9 +150,9 @@ export function CozyView({ day }: { day: FestivalDay }) {
   const pinned = useSessions((s) => s.preferences.pinnedProjects);
   const homeTheme = useSessions((s) => s.preferences.homeTheme);
   const ambianceMode = useSessions((s) => s.preferences.cozyAmbianceMode);
-  const ambiance = useSessions((s) => s.preferences.cozyAmbiance);
+  const officeTheme = useSessions((s) => s.preferences.theme);
   const projectAmbiances = useSessions((s) => s.preferences.projectAmbiances);
-  const ambiances = useMemo(() => ambianceChoiceOf({ cozyAmbianceMode: ambianceMode, cozyAmbiance: ambiance, projectAmbiances }), [ambianceMode, ambiance, projectAmbiances]);
+  const ambiances = useMemo(() => ambianceChoiceOf({ cozyAmbianceMode: ambianceMode, theme: officeTheme, projectAmbiances }), [ambianceMode, officeTheme, projectAmbiances]);
   // the header's break room tab, the search's "break room": the break room opened big, like the classic one
   const inLounge = useSessions((s) => s.view === 'repos');
   const automata = useSessions(hasAutomata);

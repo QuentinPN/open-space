@@ -15,7 +15,7 @@ export const ROWS: Readonly<Record<SettingRow, SettingsSection>> = {
   thinking: 'claude', outputStyle: 'claude', responseLanguage: 'claude', promptSuggestions: 'claude', autoCompact: 'claude', idleCompact: 'claude', autoContinue: 'claude', autoModeInPlan: 'claude',
   workflows: 'claude', ultracodeKeyword: 'claude', workflowSize: 'claude', inbound: 'claude', artifacts: 'claude',
   roots: 'folders', defaultFolder: 'folders',
-  theme: 'office', roomStyle: 'office', homeTheme: 'office', cozyAmbianceMode: 'office', cozyAmbiance: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
+  theme: 'office', roomStyle: 'office', homeTheme: 'office', cozyAmbianceMode: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
   journalFolder: 'folders', automataFolder: 'connections',
   version: 'about', claude: 'about', account: 'about', links: 'about', dockApp: 'about',
 };
@@ -30,7 +30,7 @@ export const CONFIG_LABELS: Readonly<Partial<Record<SettingRow, string>>> = {
 };
 
 /** The rows the cozy rooms alone have: the settings dialog shows them only in that style. */
-const COZY_ROWS: ReadonlySet<SettingRow> = new Set(['homeTheme', 'cozyAmbianceMode', 'cozyAmbiance']);
+const COZY_ROWS: ReadonlySet<SettingRow> = new Set(['homeTheme', 'cozyAmbianceMode']);
 
 /** The rows and the sections without rows, with the words they answer to (their title, hint and section). */
 export function settingEntries(roomStyle?: string): SettingEntry[] {

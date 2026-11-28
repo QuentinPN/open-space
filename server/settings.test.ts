@@ -68,14 +68,13 @@ describe('settings', () => {
     assert.equal(settings.preferences.homeTheme, 'studio');
     assert.equal(settings.preferences.pinnedProjects, undefined);
     assert.equal(settings.preferences.cozyAmbianceMode, 'same');
-    assert.equal(settings.preferences.cozyAmbiance, 'office');
     assert.equal(settings.preferences.projectAmbiances, undefined);
   });
 
-  it('keeps a known ambiance mode and ambiance, and the picks of absolute folders for known ambiances, so many at most', () => {
+  it('keeps a known ambiance mode, ignores the old default ambiance, and the picks of absolute folders for known ambiances, so many at most', () => {
     const app = path.resolve('/work/app'), site = path.resolve('/work/site');
-    assert.deepEqual(parsePreferences({ cozyAmbianceMode: 'random', cozyAmbiance: 'tokyo' }), { cozyAmbianceMode: 'random', cozyAmbiance: 'tokyo' }, 'an ambiance a later pass draws is kept');
-    assert.deepEqual(parsePreferences({ cozyAmbianceMode: 'shuffle', cozyAmbiance: 'igloo' }), {});
+    assert.deepEqual(parsePreferences({ cozyAmbianceMode: 'random', cozyAmbiance: 'tokyo' }), { cozyAmbianceMode: 'random' }, 'the default ambiance of older files is the office theme now');
+    assert.deepEqual(parsePreferences({ cozyAmbianceMode: 'shuffle' }), {});
     assert.deepEqual(parsePreferences({ projectAmbiances: { [app]: 'cafe', [site]: 'igloo', relative: 'space', '~/home': 'space' } }), { projectAmbiances: { [app]: 'cafe' } });
     assert.equal(parsePreferences({ projectAmbiances: ['cafe'] }).projectAmbiances, undefined);
     const many = Object.fromEntries(Array.from({ length: 500 }, (_, index) => [path.resolve(`/work/p${index}`), 'space']));

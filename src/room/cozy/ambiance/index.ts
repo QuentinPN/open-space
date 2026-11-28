@@ -1,4 +1,4 @@
-// The ambiances of the cozy project rooms (Preferences.cozyAmbiance*): each one a file of its own here, registered in
+// The ambiances of the cozy project rooms (Preferences.cozyAmbianceMode, projectAmbiances): each one a file of its own here, registered in
 // AMBIANCES, that says what its room is made of and where (AmbianceDesign); the shared code (decor.ts, floor.ts,
 // people.ts, visits.ts, things.ts) draws it, seats and walks its people, brings its visitors and finds its clicks from
 // that alone. Which ambiance a project's room has (ambianceFor) and what picking one on its plate changes
@@ -97,11 +97,17 @@ export const AMBIANCE_IDS = Object.keys(AMBIANCES) as AmbianceId[];
 /** An ambiance as the settings hold it, if there is one by that id here; null for none (absent, unknown, or not drawn yet). */
 export const registeredAmbiance = (value: unknown): AmbianceId | null => AMBIANCE_IDS.find((id) => id === value) ?? null;
 
-/** What decides a project room's ambiance: the settings' Preferences.cozyAmbianceMode, cozyAmbiance and projectAmbiances. */
-export interface AmbianceChoice { mode?: unknown; ambiance?: unknown; projects?: Readonly<Record<string, unknown>> }
+/**
+ * What decides a project room's ambiance: the settings' Preferences.cozyAmbianceMode and projectAmbiances, and the
+ * office `theme` (Preferences.theme), whose ambiance is the default one: the ambiance with the theme's id.
+ */
+export interface AmbianceChoice { mode?: unknown; theme?: unknown; projects?: Readonly<Record<string, unknown>> }
 
-export const ambianceChoiceOf = (preferences: Pick<Preferences, 'cozyAmbianceMode' | 'cozyAmbiance' | 'projectAmbiances'>): AmbianceChoice =>
-  ({ mode: preferences.cozyAmbianceMode, ambiance: preferences.cozyAmbiance, projects: preferences.projectAmbiances });
+export const ambianceChoiceOf = (preferences: Pick<Preferences, 'cozyAmbianceMode' | 'theme' | 'projectAmbiances'>): AmbianceChoice =>
+  ({ mode: preferences.cozyAmbianceMode, theme: preferences.theme, projects: preferences.projectAmbiances });
+
+/** The ambiance of every room without a pick of its own: the one with the office theme's id, the offices for none. */
+const defaultAmbiance = (choice: AmbianceChoice): AmbianceId => registeredAmbiance(choice.theme) ?? 'office';
 
 const modeOf = (value: unknown): CozyAmbianceMode => COZY_AMBIANCE_MODES.find((mode) => mode === value) ?? 'same';
 
@@ -113,12 +119,12 @@ function hashOf(text: string): number {
 }
 
 /**
- * The ambiance of a project's room (its folder): the one chosen for all ('same'), one of them by the folder ('random':
+ * The ambiance of a project's room (its folder): the office theme's ('same'), one of them by the folder ('random':
  * always the same for a folder, but registering a new ambiance may give some folders another one), or the one picked
- * for it ('manual'), the one chosen for all without a pick. The offices for none or one not drawn yet.
+ * for it ('manual'), the office theme's without a pick. The offices for none or one not drawn yet.
  */
 export function ambianceFor(folder: string, choice: AmbianceChoice): AmbianceId {
-  const fallback = registeredAmbiance(choice.ambiance) ?? 'office';
+  const fallback = defaultAmbiance(choice);
   switch (modeOf(choice.mode)) {
     case 'random': return AMBIANCE_IDS[hashOf(folder) % AMBIANCE_IDS.length];
     case 'manual': return registeredAmbiance(choice.projects?.[folder]) ?? fallback;
@@ -133,12 +139,12 @@ export const designOf = (room: Pick<CozyRoom, 'kind' | 'ambiance'>): AmbianceDes
 /**
  * What the settings become once `id` is picked for the room of `folder` on its plate, so that this room alone
  * changes: in the 'manual' mode, its pick; from 'same', the 'manual' mode with this pick only (the others keep the
- * ambiance chosen for all); from 'random', the 'manual' mode with each of the other rooms shown (`folders`) kept on the
- * ambiance it had. A pick of the ambiance chosen for all is no pick. Null when the room already has it.
+ * office theme's); from 'random', the 'manual' mode with each of the other rooms shown (`folders`) kept on the
+ * ambiance it had. A pick of the office theme's ambiance is no pick. Null when the room already has it.
  */
 export function pickAmbiance(choice: AmbianceChoice, folder: string, id: AmbianceId, folders: readonly string[]): Pick<Preferences, 'cozyAmbianceMode' | 'projectAmbiances'> | null {
   if (ambianceFor(folder, choice) === id) return null;
-  const mode = modeOf(choice.mode), fallback = registeredAmbiance(choice.ambiance) ?? 'office';
+  const mode = modeOf(choice.mode), fallback = defaultAmbiance(choice);
   const kept: [string, unknown][] = mode === 'manual' ? Object.entries(choice.projects ?? {})
     : mode === 'random' ? folders.map((other) => [other, ambianceFor(other, choice)]) : [];
   const picks: Record<string, CozyAmbiance> = {};

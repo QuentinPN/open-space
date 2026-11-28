@@ -236,7 +236,7 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 |---|---|
 | `roomStyle` | `classic` ou `cozy` (`ROOM_STYLES`) |
 | `homeTheme` | l'appartement de l'utilisateur : `studio` (défaut), `loft`, `chalet`, `japonais` (`HOME_THEMES`) ; la ligne « Chez toi » des Réglages n'apparaît qu'en cozy |
-| `cozyAmbianceMode`, `cozyAmbiance`, `projectAmbiances` | l'ambiance des pièces de projet, voir plus bas |
+| `cozyAmbianceMode`, `projectAmbiances` | l'ambiance des pièces de projet, voir plus bas (l'ambiance par défaut est celle du thème du bureau, `theme`) |
 | `pinnedProjects` | dossiers épinglés (absolus, sans doublon, 50 au plus) que la vue « Récents » garde en vue |
 
 ### Vues et bascule
@@ -286,11 +286,11 @@ Une ambiance est un `AmbianceDesign` (`ambiance/index.ts`) : bureaux (`desks`, `
 
 | Mode | Ambiance d'une pièce |
 |---|---|
-| `same` (défaut) | `cozyAmbiance` partout |
+| `same` (défaut) | l'ambiance de même id que le thème du bureau (`theme`) partout |
 | `random` | une ambiance du registre choisie par un hash FNV-1a du dossier : toujours la même pour un dossier |
-| `manual` | `projectAmbiances[dossier]` s'il y en a une, sinon `cozyAmbiance` |
+| `manual` | `projectAmbiances[dossier]` s'il y en a une, sinon celle du thème du bureau |
 
-Un id inconnu ou pas encore dessiné retombe sur le bureau (`registeredAmbiance`). Le hash se prend modulo le nombre d'ambiances enregistrées : en ajouter une peut changer celle de certains dossiers en `random`. Le bouton palette de la plaque d'une pièce en choisit une (`pickAmbiance`) : il passe en `manual` ; depuis `same` les autres pièces gardent l'ambiance commune, depuis `random` celles qui sont montrées sont figées sur ce qu'elles avaient.
+Un id inconnu ou pas encore dessiné retombe sur le bureau (`registeredAmbiance`). Le café et l'atelier n'ont pas de thème classique : ils ne s'obtiennent que par la plaque d'une pièce ou en `random`. Un `cozyAmbiance` d'un ancien `settings.json` est ignoré. Le hash se prend modulo le nombre d'ambiances enregistrées : en ajouter une peut changer celle de certains dossiers en `random`. Le bouton palette de la plaque d'une pièce en choisit une (`pickAmbiance`) : il passe en `manual` ; depuis `same` les autres pièces gardent l'ambiance commune, depuis `random` celles qui sont montrées sont figées sur ce qu'elles avaient.
 
 **Ajouter une ambiance** :
 
