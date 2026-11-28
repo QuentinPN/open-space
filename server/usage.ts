@@ -5,7 +5,9 @@
 import { readFileSync, type Dirent } from 'node:fs';
 import { open, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { USAGE_DAYS, addTokens, dayOf, type ActiveHour, type ConversationSpan, type CostReport, type ModelDay, type ProjectDay, type Tokens } from '../shared/usage.ts';
+import {
+  HOUR_MS, RECENT_HOURS, USAGE_DAYS, addTokens, dayOf, type ActiveHour, type ConversationSpan, type CostReport, type ModelDay, type ModelHour, type ProjectDay, type Tokens,
+} from '../shared/usage.ts';
 import { asJson, type Json, asNumber, asString } from './json.ts';
 
 /** Bump when the cache's format changes: an older cache is then dropped and rebuilt. */
@@ -34,6 +36,14 @@ const emptyTotals = (sessionId: string): FileTotals => ({ size: 0, mtimeMs: 0, i
 const tokensOf = (list: number[]): Tokens => ({ input: list[0], output: list[1], cacheWrite5m: list[2], cacheWrite1h: list[3], cacheRead: list[4] });
 const startOfDay = (time: number) => { const date = new Date(time); return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(); };
 const nextTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+/** Adds `row` to the one of `rows` under `key`: its tokens, and its answers when it counts them; a new key takes the row. */
+function tally<T extends { tokens: Tokens; turns?: number }>(rows: Map<string, T>, key: string, row: T) {
+  const known = rows.get(key);
+  if (!known) { rows.set(key, row); return; }
+  known.tokens = addTokens(known.tokens, row.tokens);
+  if (known.turns !== undefined) known.turns += row.turns ?? 0;
+}
 
 /** The string value of `"name":"` in a JSON line, found without decoding the whole line (lines can be megabytes). */
 function stringField(line: Buffer, marker: Buffer): string | null {
@@ -75,7 +85,7 @@ function addLine(totals: FileTotals, line: Buffer, earliest: number) {
   const written1h = 'ephemeral_1h_input_tokens' in split ? asNumber(split.ephemeral_1h_input_tokens) : 0;
   const written5m = 'ephemeral_5m_input_tokens' in split ? asNumber(split.ephemeral_5m_input_tokens) : written;
   const fast = usage.speed === 'fast';
-  const hour = Math.floor(time / 3_600_000) * 3_600_000;
+  const hour = Math.floor(time / HOUR_MS) * HOUR_MS;
   const id = `${hour}|${model}|${fast ? 1 : 0}`;
   let bucket = totals.buckets.get(id);
   if (!bucket) { bucket = { hour, model, fast, tokens: [0, 0, 0, 0, 0], turns: 0 }; totals.buckets.set(id, bucket); }
@@ -207,21 +217,20 @@ export class UsageLedger {
     const firstTime = startOfDay(now - (USAGE_DAYS - 1) * DAY_MS);
     const models = new Map<string, ModelDay>();
     const projects = new Map<string, ProjectDay>();
+    const recent = new Map<string, ModelHour>();
+    // the current hour and the ones before it, as the buckets are cut (whole hours since the epoch)
+    const firstHour = Math.floor(now / HOUR_MS) * HOUR_MS - (RECENT_HOURS - 1) * HOUR_MS;
     const sessions = new Map<string, { project: string; minutes: Set<number> }>();
     for (const totals of this.files.values()) {
       for (const bucket of totals.buckets.values()) {
         const day = dayOf(bucket.hour);
         if (day < firstDay) continue;
         const tokens = tokensOf(bucket.tokens);
-        const fast = bucket.fast ? true as const : undefined;
-        const modelKey = `${day}|${bucket.model}|${bucket.fast}`;
-        const model = models.get(modelKey);
-        if (model) { model.tokens = addTokens(model.tokens, tokens); model.turns += bucket.turns; }
-        else models.set(modelKey, { day, model: bucket.model, ...(fast ? { fast } : {}), tokens, turns: bucket.turns });
-        const projectKey = `${day}|${totals.project}|${bucket.model}|${bucket.fast}`;
-        const project = projects.get(projectKey);
-        if (project) project.tokens = addTokens(project.tokens, tokens);
-        else projects.set(projectKey, { day, project: totals.project, model: bucket.model, ...(fast ? { fast } : {}), tokens });
+        const fast = bucket.fast ? { fast: true as const } : {};
+        const { model, turns } = bucket;
+        tally(models, `${day}|${model}|${bucket.fast}`, { day, model, ...fast, tokens, turns });
+        tally(projects, `${day}|${totals.project}|${model}|${bucket.fast}`, { day, project: totals.project, model, ...fast, tokens });
+        if (bucket.hour >= firstHour) tally(recent, `${bucket.hour}|${totals.project}|${model}|${bucket.fast}`, { hour: bucket.hour, project: totals.project, model, ...fast, tokens, turns });
       }
       // a conversation's minutes are the union over its main file and its sub-agents' files
       const session = sessions.get(totals.sessionId) ?? { project: '', minutes: new Set<number>() };
@@ -250,7 +259,7 @@ export class UsageLedger {
       conversations.push({ id, project: session.project, start: start * 60_000, end: end * 60_000, minutes: session.minutes.size, days: [...days].sort() });
     }
     conversations.sort((a, b) => b.end - a.end);
-    return { generatedAt: now, scanning: false, models: [...models.values()], projects: [...projects.values()], hours: [...hours.values()], conversations };
+    return { generatedAt: now, scanning: false, models: [...models.values()], projects: [...projects.values()], recent: [...recent.values()], hours: [...hours.values()], conversations };
   }
 
   private load() {

@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { dayOf, isPriced, modelName, totalTokens, USAGE_DAYS, type CostReport, type Tokens } from '../../shared/usage.ts';
+import { dayOf, HOUR_MS, isPriced, modelName, totalTokens, USAGE_DAYS, type CostReport, type Tokens } from '../../shared/usage.ts';
 import { locale, t } from '../i18n/index.ts';
-import { folderName, formatClock, formatDollars, formatMinutes, formatTokens, homeRelative } from '../lib/format.ts';
+import { folderName, formatClock, formatDollars, formatHour, formatMinutes, formatPercent, formatTokens, homeRelative } from '../lib/format.ts';
 import { useSessions } from '../state/sessions.ts';
 import {
-  byModel, byProject, daysAfter, daysUntil, mondayOf, OTHERS, perDay, rewindOf, SERIES_SLOTS, seriesOf, spentOn, measure, type Metric, type Spending,
+  byModel, byProject, COST_PARTS, daysAfter, daysUntil, measure, mondayOf, OTHERS, PERIODS, perDay, perHour, rewindOf, rowsOf, SERIES_SLOTS, seriesOf,
+  sessionsIn, spentOn, summaryOf, type Metric, type Period, type Spending,
 } from '../state/usage.ts';
 import { BarChart, type Column } from './BarChart.tsx';
 import {
   ActivityIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, CostIcon, FolderIcon, PeakIcon, RefreshIcon, TrendIcon, WeekIcon,
 } from './Icons.tsx';
 
-const RANGES = [7, 30, 90] as const;
-type Range = (typeof RANGES)[number];
 const DAYS_SHOWN = 7;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
@@ -99,19 +98,30 @@ function ColumnCard({ title, column, series, format }: { title: string; column: 
   );
 }
 
-const columnsOf = (days: ReturnType<typeof perDay>, series: readonly string[], metric: Metric, label: (day: string) => string): Column[] =>
-  days.map(({ day, values }) => {
+/** The chart's columns from days or hours of spending (`perDay`, `perHour`): `key` and `label` name each one. */
+function columnsOf<T extends { values: Record<string, Spending> }>(
+  entries: readonly T[], series: readonly string[], metric: Metric, key: (entry: T) => string, label: (entry: T) => string,
+): Column[] {
+  return entries.map((entry) => {
     const byslot: Record<string, number> = {};
-    for (const [model, spending] of Object.entries(values)) {
+    for (const [model, spending] of Object.entries(entry.values)) {
       const slot = model === OTHERS ? OTHERS : slotKey(series, model);
       byslot[slot] = (byslot[slot] ?? 0) + measure(spending, metric);
     }
-    return { key: day, label: label(day), values: byslot };
+    return { key: key(entry), label: label(entry), values: byslot };
   });
+}
 
-/** A list of spendings with a bar of its share of the largest. */
-function Ranking({ rows }: { rows: { key: string; slot?: string; title: ReactNode; detail: string; cost: number; unpriced?: boolean }[] }) {
+/** "14 h - 15 h": the hour that starts at `start`. */
+// the server cuts hours on UTC boundaries: in a half-hour time zone a column's label is off by those 30 minutes
+const hourRange = (start: number) => t.usage.chart.hourRange(formatHour(start), formatHour(start + HOUR_MS));
+/** Said in place of a card's bars when its period spent nothing. */
+const Nothing = () => <p className="cp-usage__none">{t.usage.emptyPeriod}</p>;
+
+/** A list of spendings with a bar of its share of the largest; `share`: its part of the period's cost, under it. */
+function Ranking({ rows }: { rows: { key: string; slot?: string; title: ReactNode; detail: string; cost: number; unpriced?: boolean; share?: string }[] }) {
   const top = Math.max(...rows.map((entry) => entry.cost), 0) || 1;
+  if (rows.length === 0) return <Nothing />;
   return (
     <ul className="cp-usage__ranking">
       {rows.map((entry) => (
@@ -121,7 +131,10 @@ function Ranking({ rows }: { rows: { key: string; slot?: string; title: ReactNod
             <span className="cp-usage__ranking-detail">{entry.detail}</span>
           </span>
           <span className="cp-usage__meter" aria-hidden="true"><span data-slot={entry.slot ?? 'neutral'} style={{ '--share': entry.cost / top } as CSSProperties} /></span>
-          <span className="cp-usage__ranking-cost">{entry.unpriced ? t.usage.unpriced : formatDollars(entry.cost)}</span>
+          <span className="cp-usage__ranking-cost">
+            {entry.unpriced ? t.usage.unpriced : formatDollars(entry.cost)}
+            {entry.share && <span className="cp-usage__ranking-share">{entry.share}</span>}
+          </span>
         </li>
       ))}
     </ul>
@@ -131,17 +144,26 @@ function Ranking({ rows }: { rows: { key: string; slot?: string; title: ReactNod
 function Overview({ report }: { report: CostReport }) {
   const words = t.usage;
   const [metric, setMetric] = useState<Metric>('cost');
-  const [range, setRange] = useState<Range>(30);
+  const [period, setPeriod] = useState<Period>(30);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [allDays, setAllDays] = useState(false);
   const today = dayOf(report.generatedAt);
   const series = useMemo(() => seriesOf(report), [report]);
-  const days = useMemo(() => daysUntil(today, range), [today, range]);
+  const hourly = period === '24h';
   const format = metric === 'cost' ? (value: number) => formatDollars(value) : formatTokens;
-  const columns = useMemo(() => columnsOf(perDay(report, days, series), series, metric, shortDay), [report, days, series, metric]);
-  const spent = spentOn(report, days);
-  const models = byModel(report, days);
-  const projects = byProject(report, days).slice(0, 8);
+  const columns = useMemo(() => (period === '24h'
+    ? columnsOf(perHour(report, series), series, metric, (entry) => String(entry.hour), (entry) => formatHour(entry.hour))
+    : columnsOf(perDay(report, daysUntil(today, period), series), series, metric, (entry) => entry.day, (entry) => shortDay(entry.day))), [report, today, period, series, metric]);
+  const summary = useMemo(() => summaryOf(rowsOf(report, period).models), [report, period]);
+  const models = byModel(report, period);
+  const projects = byProject(report, period).slice(0, 8);
+  const empty = summary.processed === 0;
+  const total = metric === 'cost' ? formatDollars(summary.cost) : formatTokens(summary.processed);
+  const chartTitle = metric === 'cost' ? (hourly ? words.chart.costHourly : words.chart.cost) : (hourly ? words.chart.tokensHourly : words.chart.tokens);
+  const figures = [
+    ['processed', formatTokens(summary.processed)], ['cachedInput', formatTokens(summary.cachedInput)], ['uncachedInput', formatTokens(summary.uncachedInput)],
+    ['output', formatTokens(summary.output)], ['savings', formatDollars(summary.savings)],
+  ] as const;
   const recent = useMemo(() => perDay(report, daysUntil(today, USAGE_DAYS), series).reverse().filter((entry) => Object.keys(entry.values).length), [report, today, series]);
   const listed = allDays ? recent : recent.slice(0, DAYS_SHOWN);
   const dayName = (day: string) => (day === today ? words.today : day === daysUntil(today, 2)[0] ? words.yesterday : new Date(`${day}T12:00`).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' }));
@@ -154,33 +176,68 @@ function Overview({ report }: { report: CostReport }) {
         <Tile icon={<WeekIcon />} tone="2" label={words.tiles.month} value={formatDollars(spentOn(report, daysUntil(today, 30)).cost)} hint={words.tokensShort(formatTokens(totalTokens(spentOn(report, daysUntil(today, 30)).tokens)))} />
       </div>
 
-      <section className="cp-usage__card" aria-label={metric === 'cost' ? words.chart.cost : words.chart.tokens}>
+      <section className="cp-usage__card" aria-label={chartTitle}>
         <header className="cp-usage__card-head">
           <div>
-            <h4 className="cp-usage__eyebrow">{metric === 'cost' ? words.chart.cost : words.chart.tokens}</h4>
-            <p className="cp-usage__sub">{words.chart.over(metric === 'cost' ? formatDollars(spent.cost) : formatTokens(totalTokens(spent.tokens)), range)}</p>
+            <h4 className="cp-usage__eyebrow">{chartTitle}</h4>
+            <p className="cp-usage__sub">{`${hourly ? words.chart.overHours(total) : words.chart.over(total, period)} · ${words.chart.sessions(sessionsIn(report, period))}`}</p>
           </div>
           <div className="cp-usage__controls">
             <div className="cp-segmented" data-size="small" role="radiogroup" aria-label={words.chart.metric}>
               {(['cost', 'tokens'] as const).map((id) => <button key={id} type="button" role="radio" aria-checked={metric === id} onClick={() => setMetric(id)}>{words.chart.metrics[id]}</button>)}
             </div>
             <div className="cp-segmented" data-size="small" role="radiogroup" aria-label={words.chart.range}>
-              {RANGES.map((id) => <button key={id} type="button" role="radio" aria-checked={range === id} onClick={() => setRange(id)}>{words.chart.ranges(id)}</button>)}
+              {PERIODS.map((id) => <button key={id} type="button" role="radio" aria-checked={period === id} onClick={() => setPeriod(id)}>{id === '24h' ? words.chart.rangeHours : words.chart.ranges(id)}</button>)}
             </div>
           </div>
         </header>
-        <Legend series={series} />
-        <BarChart
-          columns={columns} slots={slotsOf(series)} format={metric === 'cost' ? (value) => formatDollars(value, true) : formatTokens}
-          label={words.chart.label(words.chart.metrics[metric], range)}
-          describe={(column) => <ColumnCard title={dayName(column.key)} column={column} series={series} format={format} />}
-        />
+        {empty ? <Nothing /> : (
+          <>
+            <Legend series={series} />
+            <BarChart
+              columns={columns} slots={slotsOf(series)} format={metric === 'cost' ? (value) => formatDollars(value, true) : formatTokens}
+              label={hourly ? words.chart.labelHours(words.chart.metrics[metric]) : words.chart.label(words.chart.metrics[metric], period)}
+              describe={(column) => <ColumnCard title={hourly ? hourRange(Number(column.key)) : dayName(column.key)} column={column} series={series} format={format} />}
+            />
+          </>
+        )}
+      </section>
+
+      <section className="cp-usage__card" aria-label={words.totals.title}>
+        <h4 className="cp-usage__eyebrow">{words.totals.title}</h4>
+        <dl className="cp-usage__totals">
+          {figures.map(([id, value]) => <div key={id}><dt>{words.totals[id]}</dt><dd>{value}</dd></div>)}
+        </dl>
+      </section>
+
+      <section className="cp-usage__card" aria-label={words.parts.title}>
+        <h4 className="cp-usage__eyebrow">{words.parts.title}</h4>
+        {summary.cost === 0 ? <Nothing /> : (
+          <>
+            <div className="cp-usage__parts" role="img" aria-label={words.parts.label}>
+              {COST_PARTS.filter((part) => summary.parts[part] > 0).map((part) => <span key={part} data-part={part} style={{ '--share': summary.parts[part] / summary.cost } as CSSProperties} />)}
+            </div>
+            <ul className="cp-usage__parts-legend">
+              {COST_PARTS.map((part) => (
+                <li key={part}>
+                  <span className="cp-usage__key" data-part={part} aria-hidden="true" />
+                  {words.parts[part]}
+                  <b>{formatDollars(summary.parts[part])}</b>
+                  <span className="cp-usage__parts-percent">{formatPercent(summary.parts[part] / summary.cost)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </section>
 
       <div className="cp-usage__split">
         <section className="cp-usage__card" aria-label={words.byModel}>
           <h4 className="cp-usage__eyebrow">{words.byModel}</h4>
-          <Ranking rows={models.map((entry) => ({ key: entry.model, slot: slotKey(series, entry.model), title: modelName(entry.model), detail: detail(entry.tokens), cost: entry.cost, unpriced: !isPriced(entry.model) }))} />
+          <Ranking rows={models.map((entry) => ({
+            key: entry.model, slot: slotKey(series, entry.model), title: modelName(entry.model), detail: detail(entry.tokens), cost: entry.cost, unpriced: !isPriced(entry.model),
+            share: isPriced(entry.model) && summary.cost > 0 ? formatPercent(entry.cost / summary.cost) : undefined,
+          }))} />
         </section>
         <section className="cp-usage__card" aria-label={words.byProject}>
           <h4 className="cp-usage__eyebrow">{words.byProject}</h4>
@@ -239,7 +296,7 @@ function WeekRewind({ report }: { report: CostReport }) {
   const last = rewind.days[6];
   const range = `${shortDay(monday)} - ${shortDay(last)}`;
   const peakMinutes = Math.max(1, ...rewind.heatmap.flat());
-  const costColumns = columnsOf(rewind.costByDay, series, 'cost', (day) => weekdayOf(day));
+  const costColumns = columnsOf(rewind.costByDay, series, 'cost', (entry) => entry.day, (entry) => weekdayOf(entry.day));
   const sessionColumns: Column[] = rewind.days.map((day, at) => ({ key: day, label: weekdayOf(day), values: { neutral: rewind.sessionsByDay[at] } }));
 
   return (

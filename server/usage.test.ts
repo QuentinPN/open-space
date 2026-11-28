@@ -100,6 +100,18 @@ describe('usage ledger', () => {
     assert.equal(sum(await second.report(true)).input, 11);
   });
 
+  it('keeps the last 24 hours hour by hour, with their project', async () => {
+    const files = setup('recent');
+    // counted from the hour NOW is in, as the buckets are cut: the same in every time zone, half-hour ones included
+    const current = Math.floor(NOW / 3_600_000) * 3_600_000;
+    const after = (hours: number, minutes = 0) => new Date(current + hours * 3_600_000 + minutes * 60_000 + 5_000).toISOString();
+    writeFileSync(files.main, answer({ id: 'm1', time: after(-24, 30), input: 50 }) + answer({ id: 'm2', time: after(-23, 30), input: 7 })
+      + answer({ id: 'm3', time: after(-1, 10), input: 3 }) + answer({ id: 'm4', time: after(-1, 50), input: 4 }) + answer({ id: 'm5', time: after(0), input: 2 }));
+    const report = await files.ledger().report(false);
+    const hours = [...(report.recent ?? [])].sort((a, b) => a.hour - b.hour).map((row) => [(row.hour - current) / 3_600_000, row.tokens.input, row.turns, row.project]);
+    assert.deepEqual(hours, [[-23, 7, 1, '/work/app'], [-1, 7, 2, '/work/app'], [0, 2, 1, '/work/app']], 'the hour that started 24 hours ago is left out');
+  });
+
   it('leaves out what is older than 90 days', async () => {
     const files = setup('old');
     const old = new Date(2026, 9, 20 - 95, 9, 0, 5).toISOString();

@@ -89,3 +89,14 @@ export function formatMinutes(minutes: number): string {
   const rounded = Math.round(minutes);
   return rounded < 60 ? t.common.duration.minutes(rounded) : t.common.duration.hours(Math.floor(rounded / 60), String(rounded % 60).padStart(2, '0'));
 }
+
+/** A share as a percentage: "88.7%" ("88,7 %" in French), "<0.1%" for a sliver that is not nothing. */
+export function formatPercent(share: number): string {
+  const format = (value: number) => new Intl.NumberFormat(locale(), { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(value);
+  return share > 0 && share < 0.001 ? `<${format(0.001)}` : format(share);
+}
+
+/** The hour of a time, as the user writes times: "14 h" or "2 PM". */
+export const formatHour = (at: number) => new Date(at).toLocaleTimeString(locale(), {
+  hour: 'numeric', ...(clockFormat === 'auto' ? {} : { hour12: clockFormat === '12h' }),
+});

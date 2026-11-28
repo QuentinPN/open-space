@@ -11,6 +11,8 @@ export const NO_TOKENS: Tokens = { input: 0, output: 0, cacheWrite5m: 0, cacheWr
 export interface ModelDay { day: string; model: string; fast?: true; tokens: Tokens; turns: number }
 /** One project's (its folder) spending on one day: tokens by model, to be priced. */
 export interface ProjectDay { day: string; project: string; model: string; fast?: true; tokens: Tokens }
+/** One project's spending with one model in one hour (`hour`: its start, epoch ms), for the last `RECENT_HOURS` hours. */
+export interface ModelHour { hour: number; project: string; model: string; fast?: true; tokens: Tokens; turns: number }
 /** Activity in one local hour of one day: minutes in which a session wrote something (agents at work, summed over sessions). */
 export interface ActiveHour { day: string; hour: number; minutes: number }
 /** One Claude Code conversation: its folder, when it was active, and how many minutes; sub-agents count with it. */
@@ -22,11 +24,15 @@ export interface CostReport {
   scanning: boolean;
   models: ModelDay[];
   projects: ProjectDay[];
+  /** the hours of the last day: the current hour and the 23 before it (absent from a server older than this field) */
+  recent?: ModelHour[];
   hours: ActiveHour[];
   conversations: ConversationSpan[];
 }
 
 export const USAGE_DAYS = 90;
+export const RECENT_HOURS = 24;
+export const HOUR_MS = 3_600_000;
 
 /** Dollars per million tokens: input, output, cache read. Cache writes are 1.25 x input for 5 min, 2 x for 1 h. */
 interface Price { input: number; output: number; cacheRead: number }
@@ -59,13 +65,29 @@ const priceOf = (model: string) => PRICES.find(([prefix]) => model.startsWith(pr
 
 export const isPriced = (model: string) => priceOf(model) !== undefined;
 
+/** What each kind of tokens cost in dollars at the model's list price (cache writes of both lengths together), 0 for a model without one. */
+export function costParts(model: string, tokens: Tokens, fast = false): { input: number; cacheWrite: number; cacheRead: number; output: number } {
+  const price = priceOf(model);
+  if (!price) return { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
+  const dollars = (count: number, perMillion: number) => ((count * perMillion) / 1_000_000) * (fast ? 2 : 1);
+  return {
+    input: dollars(tokens.input, price.input),
+    cacheWrite: dollars(tokens.cacheWrite5m * 1.25 + tokens.cacheWrite1h * 2, price.input),
+    cacheRead: dollars(tokens.cacheRead, price.cacheRead),
+    output: dollars(tokens.output, price.output),
+  };
+}
+
 /** What the tokens cost in dollars at the model's list price, 0 for a model without one. */
 export function costOf(model: string, tokens: Tokens, fast = false): number {
+  const parts = costParts(model, tokens, fast);
+  return parts.input + parts.cacheWrite + parts.cacheRead + parts.output;
+}
+
+/** What reading from the cache saved, in dollars, against paying the same tokens as plain input; 0 for a model without a price. */
+export function cacheSavingsOf(model: string, tokens: Tokens, fast = false): number {
   const price = priceOf(model);
-  if (!price) return 0;
-  const dollars = tokens.input * price.input + tokens.output * price.output + tokens.cacheRead * price.cacheRead
-    + tokens.cacheWrite5m * price.input * 1.25 + tokens.cacheWrite1h * price.input * 2;
-  return (dollars / 1_000_000) * (fast ? 2 : 1);
+  return price ? ((tokens.cacheRead * (price.input - price.cacheRead)) / 1_000_000) * (fast ? 2 : 1) : 0;
 }
 
 export const totalTokens = (tokens: Tokens) => tokens.input + tokens.output + tokens.cacheWrite5m + tokens.cacheWrite1h + tokens.cacheRead;
