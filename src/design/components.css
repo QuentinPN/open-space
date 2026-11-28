@@ -2394,10 +2394,12 @@ button.cp-tag:hover { border-color: var(--color-accent); }
 :is(.cp-usage__parts, .cp-usage__parts-legend) [data-part='output'] { background: color-mix(in srgb, var(--color-text) 20%, var(--color-border-strong)); }
 .cp-usage__parts { display: flex; gap: 2px; height: 0.75rem; border-radius: 999px; overflow: hidden; background: var(--chart-grid); }
 .cp-usage__parts span { flex: var(--share) 0 0; min-width: 2px; }
-.cp-usage__parts-legend { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
-.cp-usage__parts-legend li { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.cp-usage__parts-legend b { margin-left: auto; font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
-.cp-usage__parts-percent { min-width: 3.5rem; text-align: right; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.cp-usage__parts-legend { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--space-3) var(--space-4); }
+.cp-usage__parts-legend li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-2); row-gap: 2px; }
+.cp-usage__parts-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); color: var(--color-text-muted); }
+.cp-usage__parts-value { grid-column: 2; display: flex; align-items: baseline; gap: var(--space-2); }
+.cp-usage__parts-value b { font-size: var(--text-lg); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+.cp-usage__parts-percent { font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .cp-usage__days { margin: 0; padding: 0; list-style: none; display: grid; }
 .cp-usage__days > li + li { border-top: var(--border-width) solid var(--color-border); }
 .cp-usage__day { width: 100%; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto 5.5rem; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border: 0; background: none; text-align: left; font-size: var(--text-sm); }

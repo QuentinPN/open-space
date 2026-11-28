@@ -221,9 +221,11 @@ function Overview({ report }: { report: CostReport }) {
               {COST_PARTS.map((part) => (
                 <li key={part}>
                   <span className="cp-usage__key" data-part={part} aria-hidden="true" />
-                  {words.parts[part]}
-                  <b>{formatDollars(summary.parts[part])}</b>
-                  <span className="cp-usage__parts-percent">{formatPercent(summary.parts[part] / summary.cost)}</span>
+                  <span className="cp-usage__parts-name">{words.parts[part]}</span>
+                  <span className="cp-usage__parts-value">
+                    <b>{formatDollars(summary.parts[part])}</b>
+                    <span className="cp-usage__parts-percent">{formatPercent(summary.parts[part] / summary.cost)}</span>
+                  </span>
                 </li>
               ))}
             </ul>
