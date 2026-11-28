@@ -1,4 +1,4 @@
-// Whether Petal Patrol's window is open (src/command/ArcadeWindow.tsx): the cozy break room's arcade cabinet opens it.
+// Whether Nebula Raid's window is open (src/command/ArcadeWindow.tsx): the cozy break room's arcade cabinet opens it.
 import { create } from 'zustand';
 
 export const useArcade = create<{ open: boolean }>(() => ({ open: false }));

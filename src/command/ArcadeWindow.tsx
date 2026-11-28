@@ -7,7 +7,7 @@ import { closeArcade, useArcade } from '../state/arcade.ts';
 import { placePip, PIP_HEAD, PIP_MARGIN } from '../state/pip.ts';
 import type { Box } from '../state/room-frame.ts';
 import { boxVariables, floatingSurface } from './boxes.ts';
-import { ArcadeIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon, SprayIcon } from './Icons.tsx';
+import { ArcadeIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, FireIcon, PauseIcon, PlayIcon } from './Icons.tsx';
 import { INTERACTIVE } from './useWindowDrag.ts';
 
 /** how far a press on its title bar goes before it carries the window */
@@ -25,12 +25,12 @@ function zoomFor(surface: { width: number; height: number; top?: number }) {
   return Math.max(1, Math.min(3, Math.floor(room.width / FIELD.width), Math.floor(room.height / FIELD.height)));
 }
 
-/** The keys that play: arrows or A/D (Q on a French keyboard) to move, Space to spray. */
+/** The keys that play: arrows or A/D (Q on a French keyboard) to move, Space to fire. */
 const LEFT_KEYS = new Set(['ArrowLeft', 'a', 'A', 'q', 'Q']);
 const RIGHT_KEYS = new Set(['ArrowRight', 'd', 'D']);
 const FIRE_KEYS = new Set([' ', 'Spacebar', 'ArrowUp', 'Enter']);
 
-/** Petal Patrol's window, while the cozy break room's arcade has it open (state/arcade.ts). */
+/** Nebula Raid's window, while the cozy break room's arcade has it open (state/arcade.ts). */
 export function ArcadeWindow() {
   const open = useArcade((s) => s.open);
   return open ? <Arcade /> : null;
@@ -173,7 +173,7 @@ function Arcade() {
       </div>
       <div className="cp-arcade__pad">
         <button type="button" className="cp-arcade__button" aria-label={words.left} title={words.left} tabIndex={-1} {...hold('left')}><ChevronLeftIcon /></button>
-        <button type="button" className="cp-arcade__button" data-variant="fire" aria-label={words.fire} title={words.fire} tabIndex={-1} {...hold('fire')}><SprayIcon /></button>
+        <button type="button" className="cp-arcade__button" data-variant="fire" aria-label={words.fire} title={words.fire} tabIndex={-1} {...hold('fire')}><FireIcon /></button>
         <button type="button" className="cp-arcade__button" aria-label={words.right} title={words.right} tabIndex={-1} {...hold('right')}><ChevronRightIcon /></button>
       </div>
     </section>

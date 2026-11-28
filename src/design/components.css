@@ -577,7 +577,7 @@ button.cp-tag:hover { border-color: var(--color-accent); }
 .cp-pip__divider { flex: none; align-self: center; width: var(--border-width); height: 1rem; background: var(--color-border-strong); }
 .cp-pip .cp-browser__screen { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 .cp-pip .cp-stack__handle { z-index: 3; }
-/* Petal Patrol, the cozy break room's arcade game (ArcadeWindow.tsx): a floating window like the browser's, its screen
+/* Nebula Raid, the cozy break room's arcade game (ArcadeWindow.tsx): a floating window like the browser's, its screen
    in a dark bezel (its pixels the field's, drawn sharp), a row of big buttons under it to play by touch */
 .cp-arcade {
   position: fixed; left: 0; top: 0; z-index: 66; translate: var(--x) var(--y); width: var(--w); height: var(--h);
@@ -589,7 +589,7 @@ button.cp-tag:hover { border-color: var(--color-accent); }
 .cp-arcade__head { flex: none; height: 36px; display: flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-3) var(--space-1); cursor: grab; touch-action: none; color: var(--color-text-muted); }
 .cp-arcade[data-moving='true'] .cp-arcade__head { cursor: grabbing; }
 .cp-arcade__title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--color-text); }
-.cp-arcade__screen { flex: none; padding: 10px; background: #120d22; }
+.cp-arcade__screen { flex: none; padding: 10px; background: #04050b; }
 .cp-arcade__canvas { display: block; width: 100%; aspect-ratio: 168 / 192; image-rendering: pixelated; border-radius: 2px; }
 .cp-arcade__pad { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-1); touch-action: none; user-select: none; }
 .cp-arcade__button {
