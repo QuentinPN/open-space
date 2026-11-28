@@ -108,7 +108,7 @@
   position: absolute; left: var(--plate-x); top: var(--plate-y); translate: -50% -50%; z-index: 1;
   scale: calc(1 / var(--room-scale, 1)); /* the board's camera zoom does not shrink or grow the plate: constant size on screen */
   display: flex; align-items: center; gap: 2px; max-width: 16rem; padding: 2px 4px; border-radius: 999px;
-  background: var(--cozy-plate); color: var(--cozy-plate-text); font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-pixel); white-space: nowrap;
+  background: var(--cozy-plate); color: var(--cozy-plate-text); font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-round); white-space: nowrap;
 }
 .cp-cozy__plate[data-lit='false'] { background: var(--cozy-plate-dim); }
 .cp-cozy__plate :is(button, span) { color: inherit; font: inherit; }
