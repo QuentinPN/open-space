@@ -97,3 +97,12 @@ export const WARDROBE_COLORS = {
   sheath: '#7a1f26', bag: '#d0603a', guitar: '#c8442e', guitarDark: '#7a2418', fret: '#5a3a22', sporran: '#5a3a22', sock: '#eef0f4',
   shellRim: '#d9b86a', shellRimDark: '#a8873e',
 } as const;
+
+/**
+ * The HD people of the cozy rooms (src/room/chibi-hd.ts): eyes with a white glint, rosy cheeks, a mouth, and the warm
+ * white and the plum their light and shadow lean towards. Their outline is the cozy rooms' own (COZY_PALETTE.outline).
+ */
+export const HD_INK = {
+  glint: '#ffffff', iris: '#4a2f2a', blush: '#f59aa2', mouth: '#a8433f', tongue: '#e86d6d', warm: '#fff3d6', cool: '#5a2a52',
+  lens: '#dcefff', watch: '#ece6d8', watchFace: '#7ac8e8', sole: '#f6efe4',
+} as const;

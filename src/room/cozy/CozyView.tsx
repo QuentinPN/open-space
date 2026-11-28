@@ -23,7 +23,8 @@ import { useProjects } from '../../state/useProjects.ts';
 import { USER_SPEAKER, onSpeech } from '../../state/speech.ts';
 import { BackIcon, PinIcon, UnpinIcon } from '../../command/Icons.tsx';
 import { bubbleText, pruneBubbles, pushBubble, type Bubble } from '../bubbles.ts';
-import { chibiHead, chibiSprites } from '../chibi.ts';
+import { chibiHead } from '../chibi.ts';
+import { hdSprites } from '../chibi-hd.ts';
 import { TAG_FONT, visitorPose } from '../draw.ts';
 import { runFrames } from '../frame-loop.ts';
 import type { Point } from '../geometry.ts';
@@ -44,7 +45,7 @@ import { DESKS, iso } from './geometry.ts';
 import { LOUNGE_PLACES } from './lounge.ts';
 import { useRoomFrame, type HomeOf } from '../useRoomFrame.ts';
 import { BUBBLE_BAND, ROOM_BOX, fitOverview, overviewLayout, type Box, type Overview } from './geometry.ts';
-import { cozySprites, placeSitters, scenePeople } from './people.ts';
+import { placeSitters, scenePeople } from './people.ts';
 import { paintCozy, type CozyFrameOptions, type FrameRoom, type HomePetFrame, type PlacedVisitor } from './paint.ts';
 import { callFace, clockOf, homePlace, homeThemeOf } from './home/index.ts';
 import { homePet, homePetAt, stepHomePet, type HomePet } from './home-pet.ts';
@@ -175,10 +176,10 @@ export function CozyView({ day }: { day: FestivalDay }) {
   const [nameOf] = useState(() => (personId: string) => (personId.startsWith(VISITOR_PREFIX) ? personId.slice(VISITOR_PREFIX.length) : nameIn(roomsRef.current, personId)));
   const [lookFor] = useState(() => (personId: string) => crewLook(personId, nameOf(personId), crewRef.current));
   // and what the festival puts on everyone, as in the classic room (outfits.ts)
-  const [sprites] = useState(() => cozySprites(chibiSprites(lookFor, (personId) => {
+  const [sprites] = useState(() => hdSprites(lookFor, (personId) => {
     const { festival, guests } = dayRef.current;
     return personId === PLAYER_ID ? outfitFor(festival, selfName(crewRef.current), true, guests) : outfitFor(festival, nameOf(personId), false, guests);
-  })));
+  }));
 
   // the recent projects come from the usage report (the conversations of the last days): asked for once, when needed
   useEffect(() => { if (showing === 'recent' && !costs) useSessions.getState().loadCosts(); }, [showing, costs]);

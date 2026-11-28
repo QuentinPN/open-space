@@ -5,6 +5,7 @@ import { BEARD_STYLES, BOTTOMS, EYES, GEAR, GEAR_SLOTS, HAIR_STYLES, HATS, SHOES
 import type { CrewMember } from '../../shared/protocol.ts';
 import { t } from '../i18n/index.ts';
 import { GEAR_PARTS, HAT_ROWS, chibiHead, chibiPiece, chibiSprite, type BodyPart } from '../room/chibi.ts';
+import { HD_BOX, HD_PREVIEW, hdPreviewRow, hdSprite } from '../room/chibi-hd.ts';
 import type { Pose } from '../room/sprites.ts';
 import { FIXED_COLOUR } from '../room/wardrobe.ts';
 import { useSessions } from '../state/sessions.ts';
@@ -411,29 +412,43 @@ function Swatches({ label, colours, value, onPick }: { label: string; colours: r
   );
 }
 
-/** The look walking on the spot, drawn like in the room (six screen pixels per art pixel). `onRow`: the sprite row clicked. */
+/**
+ * The look walking on the spot, drawn like in the room: the classic chibi at six screen pixels per art pixel, or the HD one
+ * of the cozy room. `onRow`: the classic sprite row clicked.
+ */
 function Preview({ look, direction, label, onRow, hint }: { look: Look; direction: Pose['direction']; label: string; onRow: (row: number) => void; hint: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const hd = useSessions((s) => s.preferences.roomStyle === 'cozy');
   useEffect(() => {
     const context = canvas.current!.getContext('2d')!;
     context.imageSmoothingEnabled = false;
     let step: 0 | 1 = 0;
     const paint = () => {
-      const sprite = chibiSprite(look, { direction, posture: 'walk', step, blinking: false, smiling: true, gesture: 'none' });
+      const pose: Pose = { direction, posture: 'walk', step, blinking: false, smiling: true, gesture: 'none' };
       context.clearRect(0, 0, canvas.current!.width, canvas.current!.height);
-      context.drawImage(sprite, 0, HAT_ROWS, sprite.width, sprite.height - HAT_ROWS, 0, 0, sprite.width * 6, (sprite.height - HAT_ROWS) * 6);
+      if (hd) {
+        const { x, y, width, height, scale } = HD_PREVIEW;
+        context.drawImage(hdSprite(look, pose), x - HD_BOX.x0, y - HD_BOX.y0, width, height, 0, 0, width * scale, height * scale);
+      } else {
+        const sprite = chibiSprite(look, pose);
+        context.drawImage(sprite, 0, HAT_ROWS, sprite.width, sprite.height - HAT_ROWS, 0, 0, sprite.width * 6, (sprite.height - HAT_ROWS) * 6);
+      }
       step = step ? 0 : 1;
     };
     paint();
     if (reducedMotion()) return;
     const timer = window.setInterval(paint, 320);
     return () => window.clearInterval(timer);
-  }, [look, direction]);
+  }, [look, direction, hd]);
   // the parts can be reached by the tabs too: the click is a shortcut, not the only way
   return (
     <canvas
       ref={canvas} className="cp-crew__preview" width={26 * 6} height={36 * 6} role="img" aria-label={label} title={hint}
-      onClick={(e) => { const box = e.currentTarget.getBoundingClientRect(); onRow(Math.floor(((e.clientY - box.top) / box.height) * 36)); }}
+      onClick={(e) => {
+        const box = e.currentTarget.getBoundingClientRect();
+        const fraction = (e.clientY - box.top) / box.height;
+        onRow(hd ? hdPreviewRow(fraction) : Math.floor(fraction * 36));
+      }}
     />
   );
 }
