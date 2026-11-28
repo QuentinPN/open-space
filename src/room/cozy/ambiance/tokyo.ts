@@ -10,11 +10,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, ceilingAt, paintCouch, paintCouchArm, paintDrawers, paintWallBoxes, shadeAlongWalls, standing, type Drawers, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillTop, fillWall, onLeftFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallEllipse, wallPatch, wallPixel,
+  fillTop, fillWall, onLeftFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallEllipse, wallPatch, wallPixel, wallX, wallY,
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { hash, redraw, type MotionLayer } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.tokyo, O = C.outline, V = P.view;
@@ -106,14 +107,21 @@ function paintView(grid: PixelGrid, time: CozyTime) {
   wallPatch(grid, wall, middle, middle + 1, 80, 86, V.tower[time]);
   if (time !== 'day') wallPixel(grid, wall, middle, 85, V.beacon);
   // the near towers and their windows
-  for (const [t0, t1, top] of [[34, 39, 56], [39, 45, 52], [45, 51, 60], [51, 56, 53], [56, 60, 49], [66, 71, 58], [71, 78, 52]] as const) {
+  for (const [t0, t1, top] of NEAR) {
     wallPatch(grid, wall, t0, t1, z0, top, K.near); wallPatch(grid, wall, t1 - 1, t1, z0, top, K.nearLight);
     wallPatch(grid, wall, t0, t1, top - 1, top, K.nearLight);
-    const share = night ? 55 : dusk ? 28 : 0;
-    for (let a = t0 + 1; a < t1 - 1; a += 2) for (let z = z0 + 2; z < top - 2; z += 3) {
-      wallPixel(grid, wall, a, z, litAt(a, z, share) ? K.lit[(a + z) % K.lit.length] : K.window);
-    }
+    for (let a = t0 + 1; a < t1 - 1; a += 2) for (let z = z0 + 2; z < top - 2; z += 3) wallPixel(grid, wall, a, z, towerWindow(time, a, z, 0));
   }
+}
+
+/** The near towers in the view: from `t0` to `t1` along the wall, their top. */
+const NEAR = [[34, 39, 56], [39, 45, 52], [45, 51, 60], [51, 56, 53], [56, 60, 49], [66, 71, 58], [71, 78, 52]] as const;
+
+/** A near tower's window at `time`: lit or not, the same for a tower, more of them at night, a few going on or off as the `frame`s go by (0 at rest). */
+function towerWindow(time: CozyTime, a: number, z: number, frame: number): string {
+  const K = V[time], share = time === 'night' ? 55 : time === 'dusk' ? 28 : 0;
+  const lit = litAt(a, z, share) !== (share > 0 && frame > 0 && hash(a * 7 + z, frame >> 5) < 0.07);
+  return lit ? K.lit[(a + z) % K.lit.length] : K.window;
 }
 
 /** The window: its dark wood frame round the view of the hour, its two sliding panes, a rolled bamboo blind, a teru teru bozu, a daruma on the sill. */
@@ -468,6 +476,36 @@ const N = P.neon, M = P.vending;
 const GLOW: readonly string[] = [N.pink, N.pinkGlow, N.cyan, N.cyanGlow, N.yellow, N.yellowGlow, M.panel, M.panelShade, M.header, M.button, ...M.drinks, M.cap, ...P.lantern.paper, P.lantern.glow, P.counter.cookerLed];
 const SKY: readonly string[] = stringsOf(V);
 
+/**
+ * The city's windows going on and off at dusk and at night, the lattice tower's light blinking; while someone is
+ * there, a letter of each neon sign buzzing now and then.
+ */
+const motion: AmbianceMotion = {
+  masks: { pink: [P.neon.pink], cyan: [P.neon.cyan] },
+  paint({ view, pink, cyan }, frame, { time, lit }) {
+    if (time !== 'day') {
+      for (const [t0, t1, top] of NEAR) for (let a = t0 + 1; a < t1 - 1; a += 2) for (let z = VIEW.z0 + 2; z < top - 2; z += 3) redraw(view, 'left', a, z, towerWindow(time, a, z, 0), towerWindow(time, a, z, frame));
+      if ((frame >> 3) % 3 === 2) redraw(view, 'left', 61, 85, V.beacon, V.tower[time]);
+    }
+    if (!lit) return;
+    // "メ" of ラーメン, and the small "ョ" of トーキョー
+    if (failing(frame, 1)) fade(pink, 'right', 47, 72, P.neon.pinkGlow);
+    if (failing(frame, 2)) fade(cyan, 'left', 18, 60, P.neon.cyanGlow);
+  },
+};
+
+/** Whether a neon letter is out this frame: in a bad spell now and then, going out and back in. */
+const failing = (frame: number, seed: number) => hash(seed, frame >> 5) < 0.3 && hash(seed + 5, frame >> 1) < 0.45;
+
+/** A neon letter buzzing (its 5 by 5 tubes, from the top, from the screen's left, as neon() draws them): every other pixel of its tubes left to their glow. */
+function fade(tubes: MotionLayer, wall: Wall, left: number, top: number, glow: string) {
+  for (let column = 0; column < 5; column++) for (let line = 0; line < 5; line++) {
+    if ((column + line) % 2) continue;
+    const a = wall === 'right' ? left + column : left - column;
+    tubes.set(wallX(wall, a), wallY(wall, a, top - line), glow);
+  }
+}
+
 export const tokyo: AmbianceDesign = {
   ...office,
   id: 'tokyo',
@@ -509,4 +547,6 @@ export const tokyo: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintAndon),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.andon.paper, P.andon.paperLight, P.andon.paperShade], glow: GLOW, sky: SKY },
+  glass: { wall: 'left', ...VIEW },
+  motion,
 };
