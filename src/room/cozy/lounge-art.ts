@@ -8,11 +8,11 @@ import { COZY_PALETTE as C } from '../../design/room-palette.ts';
 import { paintClockFace } from './clock.ts';
 import {
   ROOM_CLOCK, newGrid, paintCouch, paintCouchArm, paintDoor, paintDoormat, paintFloor, paintHangingPlant, paintLamp, paintWalls, paintWindow,
-  frontLayers, petLayers, pieceGrid, roomLight, standing, toCanvas, type RoomArt, type Standing,
+  frontLayers, pieceGrid, roomLight, standing, toCanvas, type RoomArt, type Standing,
 } from './decor.ts';
 import { FESTIVE_DECOR, paintFestiveFloor, paintFestiveWalls } from './festive.ts';
 import { couchArmDepth, iso } from './geometry.ts';
-import { ARCADE, ARCADE_FRONT, BOOKSHELF, COFFEE_TABLE, LOUNGE_BEANBAGS, LOUNGE_COUCH_SEATS, LOUNGE_COUCHES, LOUNGE_FESTIVE_SPOT, LOUNGE_PET, READING_LAMP, RUG, TEA_CORNER } from './lounge.ts';
+import { ARCADE, ARCADE_FRONT, BOOKSHELF, COFFEE_TABLE, LOUNGE_BEANBAGS, LOUNGE_COUCH_SEATS, LOUNGE_COUCHES, LOUNGE_FESTIVE_SPOT, READING_LAMP, RUG, TEA_CORNER } from './lounge.ts';
 import { onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from './pixels.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
 
@@ -184,7 +184,6 @@ function build(lit: boolean, time: CozyTime, festival: Festival | null): RoomArt
   return {
     back: toCanvas(back, light),
     pieces: pieces.map(({ depth, paint }) => ({ depth, canvas: toCanvas(pieceGrid(depth, paint, floor), light) })),
-    petLayer: petLayers(floor, light, LOUNGE_PET),
     frontOf: frontLayers(floor, light),
   };
 }

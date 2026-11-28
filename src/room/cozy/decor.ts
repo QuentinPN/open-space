@@ -12,7 +12,6 @@ import { SKY_GLOW, lamp, lightingOf } from './light.ts';
 import type { CozyRoomKind } from './rooms.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
 import { COUCH, COUCH_ARM_DEPTH, DESKS, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, around, cozyDepth, deskPlace, iso, onCouchAt, type Couch, type Desk, type Footprint } from './geometry.ts';
-import { paintPet, petKey, petPixels, type CozyPet } from './pet.ts';
 import {
   PixelGrid, box, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, shadeFloor, tint, wallEllipse, wallPatch, wallPixel, wallPoint,
   canvasTarget, type Painter, type Tones, type Wall,
@@ -482,8 +481,6 @@ export interface RoomArt {
   back: HTMLCanvasElement;
   /** the pieces that may be in front of someone */
   pieces: Piece[];
-  /** The user's pet asleep on the room's floor: none since it lives at home only (home-pet.ts); lounge-art.ts still makes one. */
-  petLayer?: (pet: CozyPet) => HTMLCanvasElement;
   /** what stands in front of someone standing or walking at a depth, on a layer of its own (null: nothing does) */
   frontOf: (depth: number) => HTMLCanvasElement | null;
 }
@@ -560,24 +557,6 @@ export function roomLight(lit: boolean, time: CozyTime, lampAt: { u: number; v: 
   ] : [];
   const glow = [...SKY_GLOW, ...FESTIVE_GLOW, ...(lit ? shining : []), ...(lampsOn ? [C.lamp.shade, C.lamp.shadeLight, C.lamp.shadeDark] : [])];
   return lightingOf({ ambient: L[lit ? 'on' : 'off'][time], lamps }, new Set(glow));
-}
-
-/**
- * The user's pet on a room's floor at `spot`, asleep or awake, on a layer of its own lit like the room, with what
- * stands in front of it there laid over it: each look drawn the first time it is asked for.
- */
-export function petLayers(floor: readonly Standing[], light: RoomLight, spot: { u: number; v: number }): (pet: CozyPet) => HTMLCanvasElement {
-  const made = new Map<string, HTMLCanvasElement>();
-  return (pet) => {
-    const key = petKey(pet);
-    let canvas = made.get(key);
-    if (!canvas) {
-      const { x, y } = iso(spot.u, spot.v);
-      canvas = toCanvas(pieceGrid(cozyDepth(spot.u, spot.v), (grid) => paintPet(grid, petPixels(pet), x, y), floor), light);
-      made.set(key, canvas);
-    }
-    return canvas;
-  };
 }
 
 /**

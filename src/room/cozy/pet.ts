@@ -6,7 +6,6 @@ import type { PetChoice } from '../../../shared/pets.ts';
 import { drawDroid, droidHeight, droidPreview, type DroidLook } from '../droid-art.ts';
 import { PET_FEET, PET_HEIGHT, droidOf, facesBack, facesLeft, petFrame, petSprite, type Pet, type PetActivity } from '../pet.ts';
 import { ART_SCALE } from '../pixel-art.ts';
-import type { PixelGrid } from './pixels.ts';
 
 type Animal = Exclude<PetChoice, { kind: 'none' | 'droid' }>;
 
@@ -76,13 +75,6 @@ export function petPixels(pet: CozyPet, left = false): PetPixels {
   pixels = { width, height, cells, feet, top: feet.y - Math.max(0, firstRow) };
   read.set(key, pixels);
   return pixels;
-}
-
-/** The pet on a room's grid, its paws at (x, y) in the room's pixels. */
-export function paintPet(grid: PixelGrid, pixels: PetPixels, x: number, y: number) {
-  pixels.cells.forEach((colour, index) => {
-    if (colour) grid.rect(x + ((index % pixels.width) - pixels.feet.x) * PET_SCALE, y + (Math.floor(index / pixels.width) - pixels.feet.y) * PET_SCALE, PET_SCALE, PET_SCALE, colour);
-  });
 }
 
 /**

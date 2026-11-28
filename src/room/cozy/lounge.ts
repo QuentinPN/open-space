@@ -49,9 +49,6 @@ export const LOUNGE_PLACES: readonly Place[] = [
 /** Someone at a place of the break room is drawn in its depth order: in front of their sofa, behind its front arm. */
 export const loungeDepth = (place: Place) => cozyDepth(place.u, place.v);
 
-/** Where the pet sleeps in the break room: on the floor at the front, clear of the sofas and the beanbags. */
-export const LOUNGE_PET = { u: 98, v: 100 } as const;
-
 /**
  * Its furniture (lounge-art.ts draws it there): the bookshelf in the back corner by the reading lamp, the coffee table
  * on the rug, the tea corner and the arcade cabinet on the right wall.
