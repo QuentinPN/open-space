@@ -1,6 +1,66 @@
-// The palette of the 'tokyo' ambiance (src/room/cozy/ambiance/tokyo.ts). Owned by this file alone.
-// TODO: a stub that is the offices' palette. Replace it with this ambiance's own colours (hex only, tones light, base, dark;
-// the room's art lights them for the hour and its lamps, cozy/light.ts), and give it its own `light`.
-import { office } from './office.ts';
-
-export const tokyo = office;
+// The Tokyo apartment-office's palette (ambiance 'tokyo', src/room/cozy/ambiance/tokyo.ts). Owned by this file alone.
+export const tokyo = {
+  wall: { left: '#dcc6a6', right: '#ccb493', capTop: '#f2e4cc', capLeft: '#b49a7a', capRight: '#a68c6c', speckle: '#cfb796', speckleRight: '#bfa785', beam: ['#8e5e3e', '#6e452c', '#52331f'] },
+  wainscot: { left: '#7e5438', right: '#6f4930', board: '#5e3c26', light: '#9a6a46', rail: '#4a2e1e', railLight: '#8e5e3e', base: '#3e271a' },
+  tatami: { tones: ['#d6cd8c', '#cfc684', '#dbd394', '#d2c886'], weave: '#c4b974', light: '#e2da9e', seam: '#aa9c5e', heri: '#3e5a48', heriShade: '#2f4838' },
+  /** what the window shows: never darkened by the room's light */
+  view: {
+    day: { sky: ['#78b2ea', '#8cc0ee', '#a2cef2', '#bcdff7'], far: '#a9c0dc', near: '#7e94b9', nearLight: '#96abcc', window: '#cadff3', lit: ['#dae9f7'] },
+    dusk: { sky: ['#56478c', '#86589a', '#cc7889', '#f0a07b'], far: '#9879a5', near: '#4d4371', nearLight: '#61568b', window: '#695f8f', lit: ['#ffd78b', '#ffb76b'] },
+    night: { sky: ['#0d1331', '#13193f', '#1a214f', '#242a5d'], far: '#293061', near: '#161937', nearLight: '#212549', window: '#252951', lit: ['#ffe38d', '#ff99cf', '#9ef1fe'] },
+    tower: { day: '#ef6f4f', dusk: '#e15f4b', night: '#ff995f' },
+    deck: { day: '#fff3e9', dusk: '#f5d7c7', night: '#ffefc1' },
+    sun: '#fff1b1', sunGlow: '#ffdf7b', sunLow: '#ff995b', sunLowLight: '#ffc17b', moon: '#fff5d9', star: '#fffaeb',
+    cloud: '#f5faff', cloudShade: '#dbe7f3', beacon: '#ff495f', glint: '#e3f1fe',
+  },
+  window: { frame: '#5a3a26', frameLight: '#7e5438', sill: ['#9a6a46', '#7e5438', '#5e3c26'], sillEdge: '#b07c54' },
+  sudare: ['#e2c68c', '#c8a76b', '#a6864d'],
+  teru: { body: '#fffaf3', shade: '#e4dccf', face: '#3a2a2a', cheek: '#f4a2b4', string: '#b8ae9e' },
+  daruma: { body: ['#f0645a', '#d8463f', '#ae3330'], face: '#fff6ea', gold: '#f2c14e' },
+  door: {
+    frame: '#5a3a26', frameLight: '#7e5438', wood: '#8e5e3e', woodLight: '#a87650', woodShade: '#6e452c', paper: '#faf3e4', paperShade: '#ece2cc',
+    koshi: '#7e5438', pull: '#3a2a22', rail: '#4a2e1e',
+  },
+  noren: ['#4a6aa0', '#3d5a8e', '#2f4a78'], norenInk: '#f6f0e4',
+  genkan: { base: '#9a948c', light: '#aaa49c', edge: '#7a746c', slippers: [['#f7a6bf', '#e889a6'], ['#8fc4e8', '#6ea8d2']] },
+  board: { frame: '#a87650', frameLight: '#c48e64', cork: '#cf9e68', corkDark: '#b9875a', corkLight: '#dcae7a', pins: ['#e8504a', '#4a8ad8', '#f2c14e'], notes: ['#ffe58a', '#fbb8cc', '#b8e8c8', '#b8dcf6'], ink: '#6a5248', photo: '#fffdf6', photoSky: '#a8d4f0', photoHill: '#6a9a6a', sticker: '#f590b0', stickerLight: '#ffd2e0' },
+  clock: { rim: '#2e2622', rimShade: '#52331f', face: '#fffaf0', tick: '#e8504a' },
+  neon: {
+    plate: '#2b2338', plateEdge: '#3d3350', pin: '#6a6280',
+    pink: '#ff79c1', pinkGlow: '#b84f90', cyan: '#7ef3fd', cyanGlow: '#3ea5bf', yellow: '#ffe179', yellowGlow: '#b8993f',
+  },
+  poster: { paper: '#fff4ea', glow: '#ffe4e8', sun: '#ec4f52', fuji: '#5e7fb8', fujiShade: '#4d6aa0', snow: '#fffdfa', branch: '#6a4430', blossom: '#f7a3bf', blossomLight: '#ffd6e3', blossomDeep: '#e57a9e', tape: '#f4e6b4' },
+  counter: {
+    body: ['#a87650', '#8e5e3e', '#6e452c'], door: '#7e5438', doorLight: '#b8865e', pull: '#3a2a22', top: ['#e8d2ae', '#d2b88e', '#b89c72'], topEdge: '#f4e2c2',
+    cooker: ['#fffaf3', '#e8e0d4', '#cfc6b8'], cookerLid: '#d8cfc2', cookerFlower: '#f590b0', cookerLed: '#ff8a5a',
+    cup: ['#fffdf6', '#ebe4d8', '#d2c9ba'], cupBand: '#e8504a', cupLid: '#f2c14e',
+  },
+  vending: {
+    body: ['#f2686a', '#d64d52', '#ad3a42'], edge: '#ff8a8a', panel: '#eaf6fb', panelShade: '#c9e3ee', header: '#fff6d8', logo: '#e8504a',
+    drinks: ['#4a8ad8', '#f2c14e', '#5cbf7a', '#ff8a5a', '#9a6ad8', '#f4f0e8'], cap: '#fffdf6', button: '#7dfca0', buttonOff: '#2e6a40',
+    coin: '#c9c2bc', coinShade: '#8e8680', slot: '#2e2622', flap: '#5a5250', sticker: '#fff6d8',
+  },
+  tea: { stand: ['#a87650', '#8e5e3e', '#6e452c'], standEdge: '#c48e64', pot: '#fffaf3', potShade: '#e2d8ca', potTop: '#d8cfc2', flower: '#f590b0', leaf: '#6aae6a', button: '#4a8ad8', cup: ['#8a9a6a', '#6f7f52', '#56643e'] },
+  tansu: ['#9a6844', '#7e5438', '#62402a'], iron: '#2e2622',
+  maneki: { body: '#fffaf3', shade: '#e4dccf', ear: '#f7a6bf', collar: '#e8504a', bell: '#f2c14e', eye: '#2e2622', spot: '#f2a65a' },
+  manga: ['#e8504a', '#4a8ad8', '#f2c14e', '#5cbf7a', '#f4f0e8'],
+  bamboo: { stalk: ['#9ad66a', '#72b84e', '#4f9038'], node: '#3e7a2c', leaves: ['#a6e27a', '#6fbf52', '#4a943a'], pot: ['#5a6a8a', '#46546e', '#353f54'], potRim: '#7a8aa8', soil: '#4a3426' },
+  lantern: { paper: ['#ff7a62', '#e8503e', '#b83a2e'], band: '#2e2622', glow: '#ffc88a', tassel: '#f2c14e', cord: '#3a2a22' },
+  andon: { wood: ['#7e5438', '#62402a', '#4a2e1e'], paper: '#fff0cf', paperLight: '#fffae6', paperShade: '#f2dcae' },
+  couch: { body: ['#5e6f9e', '#4b5a86', '#3b486c'], edge: '#7383b2', cushion: ['#e8d8c0', '#d4c2a6', '#b8a688'], cushionEdge: '#f4e8d6' },
+  onigiri: { rice: '#fffcf5', riceShade: '#e6ddcf', nori: '#2e3a34', cheek: '#f7a6bf' },
+  zabuton: ['#f7a6bf', '#e889a6', '#c96a88'],
+  desk: {
+    top: ['#ecd2a6', '#d6b682', '#b99660'], edge: '#f6e2c0', leg: ['#5a4a46', '#463936', '#352a28'], monitor: ['#4a4652', '#3a3642', '#2c2932'], monitorEdge: '#5e5a68',
+    stand: ['#5a4a46', '#463936', '#352a28'], vents: '#24212a', keyboard: ['#f6f2ea', '#ddd6ca', '#c6beb0'], key: '#d0c8ba',
+  },
+  seats: [['#f7b6cb', '#ec94b0', '#cf7592'], ['#b6dca0', '#94c47c', '#76a660'], ['#a6b8e6', '#8498d0', '#6a7cb4'], ['#ffd88a', '#f2bd5c', '#d49e40']],
+  chair: { base: ['#5a4a46', '#463936', '#352a28'], pole: ['#7a6a66', '#5a4a46', '#463936'] },
+  ramen: { bowl: '#e8504a', bowlShade: '#b83a36', rim: '#fff6ea', broth: '#f2c27a', noodle: '#ffe8a0', egg: '#fffaf0', yolk: '#f2a33a', naruto: '#f7a6bf', chopsticks: '#c48e64' },
+  bento: { box: '#2e2622', lid: '#b83a36', rice: '#fffcf5', salmon: '#f79a7a', egg: '#ffd86a', green: '#6abf5a', plum: '#d8465e' },
+  light: {
+    on: { day: [1, 0.98, 0.96], dusk: [0.93, 0.8, 0.8], night: [0.6, 0.54, 0.7] },
+    off: { day: [0.84, 0.83, 0.88], dusk: [0.64, 0.56, 0.66], night: [0.4, 0.38, 0.56] },
+    lamp: { dusk: [0.42, 0.28, 0.12], night: [0.78, 0.52, 0.22] },
+  },
+} as const;
