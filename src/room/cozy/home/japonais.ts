@@ -204,6 +204,6 @@ export const japonais: HomeDesign = {
       const x = Math.round(x0 + age * 0.55 + Math.sin(age * 0.12 + index) * 3), y = Math.round(y0 + age * 0.42);
       context.fillStyle = P[index % 2 ? 1 : 2]; context.fillRect(x, y, 2, 1); context.fillStyle = P[0]; context.fillRect(x, y, 1, 1);
     }
-    steam(context, CUP.x, CUP.y - 6, frame);
+    steam(masked(context, null), CUP.x, CUP.y - 6, frame);
   },
 };

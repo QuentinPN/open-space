@@ -3,11 +3,13 @@
 // people.ts, visits.ts, things.ts) draws it, seats and walks its people, brings its visitors and finds its clicks from
 // that alone. Which ambiance a project's room has (ambianceFor) and what picking one on its plate changes
 // (pickAmbiance) are pure: tested without a DOM, as is every registered ambiance (room.test.ts).
+import type { Festival } from '../../../../shared/festivals.ts';
 import { COZY_AMBIANCE_MODES, type CozyAmbiance, type CozyAmbianceMode, type Preferences } from '../../../../shared/protocol.ts';
 import type { Activity } from '../../../../shared/room-layout.ts';
 import type { WallClock } from '../clock.ts';
 import type { DeskStyle, DoorSpot, OwnLight, Standing } from '../decor.ts';
 import type { Couch, Desk, Footprint, Place } from '../geometry.ts';
+import type { MotionLayer, WallRect } from '../motion.ts';
 import type { Painter, PixelGrid } from '../pixels.ts';
 import type { CozyRoom } from '../rooms.ts';
 import type { CozyTime } from '../time.ts';
@@ -54,6 +56,23 @@ export interface AmbianceLight extends Omit<OwnLight, 'lamp'> {
   sky: readonly string[];
 }
 
+/** What a room's moving decor follows besides the frame: the mood of the hour shown (the "try an hour" preview's too), its lights on or off, the festival. */
+export interface AmbianceScene { time: CozyTime; lit: boolean; festival: Festival | null }
+
+/**
+ * What moves in a room of an ambiance (the sea, a flame, a neon sign, fireflies), drawn each frame over its cached art
+ * (paint.ts), behind its people and the pieces that stand in front of them. Each layer only takes the cells of the art
+ * painted in its mask's colours, as drawn before the light (motion.ts MotionLayer): what stands in front keeps it out.
+ * The layer `view` is the window's view (`light.sky`, inside `glass`). What it paints must be what the light leaves as
+ * it is (`light.glow` while lit, `light.sky` always) or see-through, so it matches the art round it at every hour.
+ */
+export interface AmbianceMotion {
+  /** the colours of the back layer each layer draws over, by name; `view` is there for a room with `glass` */
+  masks: Readonly<Record<string, readonly string[]>>;
+  /** each frame (about 15 a second, 0 with reduced motion): the same frame and scene draw the same pixels */
+  paint(layers: Readonly<Record<string, MotionLayer>>, frame: number, scene: AmbianceScene): void;
+}
+
 /**
  * What a project room of an ambiance is made of. The room tests (room.test.ts) check every registered one: its seats
  * reached from its door through no furniture, its door kept clear, no head hiding another, its visitors' spots on the
@@ -87,6 +106,10 @@ export interface AmbianceDesign {
   /** what stands on the floor besides the desks, their chairs and the couch: painted from back to front (decor.ts standing) */
   standing: readonly Standing[];
   light: AmbianceLight;
+  /** its window's glass, round its view (`light.sky`): the view's motion is drawn there only */
+  glass?: WallRect;
+  /** what moves in it, if anything does */
+  motion?: AmbianceMotion;
 }
 
 /** The ambiances there are, by id, in the order the pickers offer them. An id the settings may hold but not here yet: the offices. */

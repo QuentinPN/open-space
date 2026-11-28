@@ -11,6 +11,7 @@ import { insideConvex, type Point } from '../../geometry.ts';
 import { festiveFootprints, hides } from '../floor.ts';
 import { ROOM_BOX, cozyDepth, footprintOutline, iso, type Footprint } from '../geometry.ts';
 import { SKY_GLOW, homeLightAt, lightingOf, outsideAt } from '../light.ts';
+import { colourMask, type CellMask } from '../motion.ts';
 import { outlineOf, type PixelGrid } from '../pixels.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from '../time.ts';
 import { HOME_DESIGNS, metricsPainter } from './index.ts';
@@ -28,7 +29,7 @@ interface HomeArt {
    */
   frontOf: (u: number, v: number) => HTMLCanvasElement | null;
   /** for each animation, the cells of the back layer it is drawn over */
-  masks: Record<string, Uint8Array>;
+  masks: Record<string, CellMask>;
   /** how bright the light is where the user sits (1: daylight): the user is drawn through it, like the rest of the room */
   userLight: number;
   /** how bright the light is at a point of the room's pixels: the pet is drawn through it where it is */
@@ -106,11 +107,7 @@ function build(theme: HomeTheme, time: CozyTime, festival: Festival | null): Hom
     paintFestiveFloor(back, festival, design.festiveSpot.u, design.festiveSpot.v);
   }
   // the masks are taken before the light changes the colours
-  const masks = Object.fromEntries(Object.entries(design.masks).map(([name, colours]) => {
-    const over = new Set<string>(colours), mask = new Uint8Array(back.cells.length);
-    back.cells.forEach((colour, index) => { if (colour && over.has(colour)) mask[index] = 1; });
-    return [name, mask];
-  }));
+  const masks = Object.fromEntries(Object.entries(design.masks).map(([name, colours]) => [name, colourMask(back, colours)]));
   showOutside(back, outsideAt(design.outside, time));
   const light = lightingOf(homeLightAt(design.lighting, design.outside.mood, time), new Set([...design.glow, ...SKY_GLOW, ...FESTIVE_GLOW, ...METRICS_GLOW]));
   const front = newGrid(), overhead = newGrid();

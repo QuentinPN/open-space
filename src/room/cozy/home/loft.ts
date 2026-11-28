@@ -190,6 +190,6 @@ export const loft: HomeDesign = {
       context.fillStyle = L.dust[age < 45 ? 0 : 1];
       context.fillRect(Math.round(at.x + Math.sin((frame + index * 20) * 0.05) * 3), Math.round(at.y - age * 0.3), 1, 1);
     }
-    steam(context, MUG.x, MUG.y, frame);
+    steam(masked(context, null), MUG.x, MUG.y, frame);
   },
 };

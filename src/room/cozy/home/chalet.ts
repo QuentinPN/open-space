@@ -265,5 +265,5 @@ export const chalet: HomeDesign = {
     for (let z = 37; z < 46; z++) wallPixel(anywhere, 'right', 20 + Math.round(swing * (46 - z) / 9), z, K.cuckoo.chain);
     wallPatch(anywhere, 'right', 19 + swing, 22 + swing, 35, 38, K.cuckoo.bob);
   },
-  animateFront(context, frame) { steam(context, MUG.x, MUG.y - 9, frame); },
+  animateFront(context, frame) { steam(masked(context, null), MUG.x, MUG.y - 9, frame); },
 };

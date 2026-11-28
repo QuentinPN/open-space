@@ -262,7 +262,8 @@ Tout est dessiné en code, en pixel art (aucune image externe, aucun appel rése
 | `home-pet.ts`, `pet.ts` | la vie de l'animal chez l'utilisateur (`stepPet` de la salle classique), puis son dessin HD | pur ; dessin |
 | `time.ts`, `light.ts`, `clock.ts`, `festive.ts` | l'heure en trois humeurs (jour, crépuscule, nuit) et les clés de cache, la lumière cuite dans le décor, l'horloge, la décoration de la fête du jour | pur ; dessin |
 | `pixels.ts` | la grille de pixels (`PixelGrid`), boîtes et faces isométriques, contours | dessin |
-| `decor.ts`, `lounge-art.ts`, `paint.ts` | le décor d'une pièce (couche arrière en cache, pièces triées par profondeur), la salle de repos, une image (écrans, gens, étiquettes) | dessin |
+| `decor.ts`, `lounge-art.ts`, `paint.ts` | le décor d'une pièce (`roomLayout` pur, puis couche arrière en cache, pièces triées par profondeur), la salle de repos, une image (animations du décor, écrans, gens, étiquettes) | pur ; dessin |
+| `motion.ts` | ce qui bouge dans le décor : masques de couleurs (`colourMask`), calques (`MotionLayer`), `redraw`, `flicker`, `glimmer`, `steam` | pur (le pinceau est le canvas) |
 | `ambiance/index.ts` | le contrat `AmbianceDesign`, le registre `AMBIANCES`, `ambianceFor`, `pickAmbiance` | pur |
 | `ambiance/<id>.ts` | une ambiance (10 : `office`, `cafe`, `space`, `tokyo`, `dungeon`, `beach`, `pirate`, `forest`, `cellar`, `atelier`) | dessin |
 | `home/index.ts` | les appartements : sièges, clics, appel | pur |
@@ -282,7 +283,7 @@ Les gens font environ 24 × 36 pixels d'art, dessinés un pixel d'art par pixel 
 
 ### Ambiances des pièces de projet
 
-Une ambiance est un `AmbianceDesign` (`ambiance/index.ts`) : bureaux (`desks`, `deskStyle`), canapé et ses 2 places, porte, tableau, horloge, empreintes au sol, coin de la fête, points de visite (café, eau, fenêtre, livres, 2 places de fête), lumière (lampe, `glow`, `sky`) et les peintres du sol, des murs et de la fenêtre. Le code partagé dessine, assoit, fait marcher et trouve les clics à partir de ce seul objet. Trois modes (`cozyAmbianceMode`) :
+Une ambiance est un `AmbianceDesign` (`ambiance/index.ts`) : bureaux (`desks`, `deskStyle`), canapé et ses 2 places, porte, tableau, horloge, empreintes au sol, coin de la fête, points de visite (café, eau, fenêtre, livres, 2 places de fête), lumière (lampe, `glow`, `sky`), les peintres du sol, des murs et de la fenêtre et, en option, ce qui bouge (`motion`, voir plus bas). Le code partagé dessine, assoit, fait marcher et trouve les clics à partir de ce seul objet. Trois modes (`cozyAmbianceMode`) :
 
 | Mode | Ambiance d'une pièce |
 |---|---|
@@ -299,6 +300,8 @@ Un id inconnu ou pas encore dessiné retombe sur le bureau (`registeredAmbiance`
 3. `ambiance/<id>.ts` exporte un `AmbianceDesign` : étaler `office` pour garder sa disposition et surcharger les peintres (`space.ts`), ou donner ses positions et empreintes (`cafe.ts`).
 4. L'enregistrer dans `AMBIANCES`. Les listes des Réglages et de la plaque la proposent seules ; `room.test.ts` boucle sur chaque ambiance enregistrée (places atteintes depuis la porte, porte dégagée, têtes espacées, places de visite libres et atteintes, porte, tableau et horloge cliquables et dans la pièce).
 
+**Ce qui bouge** (`motion?: AmbianceMotion`, facultatif : le bureau n'en a pas). `masks` nomme, par listes de couleurs, les cellules de la couche arrière sur lesquelles chaque calque dessine ; `roomLayout` (`decor.ts`) prend ces masques avec le décor, avant la lumière, une fois par scène, et en fait des `MotionLayer` (`motion.ts`). Le calque `view` est donné pour une ambiance qui a `glass` (le rectangle de sa vitre sur son mur) : les couleurs de `light.sky`, dans la vitre seulement. `paint(layers, frame, scene)` est appelé à chaque image juste après la couche arrière (`paint.ts`), donc derrière les gens et les pièces ; un meuble devant la vitre ou la torche n'a pas leurs couleurs, il reste intact. `scene` donne l'humeur de l'heure (celle d'« Essayer une heure » aussi), `lit` et la fête ; `frame` compte à ~15/s (0 si mouvement réduit) et une même image donne les mêmes pixels. Ce qui est peint doit être ce que la lumière ne touche pas (`light.glow` quand la pièce est allumée, `light.sky` toujours) ou transparent (vapeur). Pièce éteinte : seule la vue bouge (flammes, néons, ampoules restent comme dessinés, assombris). Peu de pixels par image : `redraw` ne repeint qu'un point qui change là où le décor a encore la couleur attendue, `flicker` recolore une flamme dans sa silhouette, `glimmer` fait respirer une lumière.
+
 ### Chez toi
 
 Les quatre thèmes (`home/studio.ts`, `loft.ts`, `chalet.ts`, `japonais.ts`) sont des `HomeDesign` (`home/kit.ts`) : bureau, écran, sièges où l'utilisateur peut s'asseoir, lit ou tapis de l'animal, écran de chiffres, horloge, lumière cuite. Un thème absent ou inconnu est le studio (`homeThemeOf`). Chaque appartement a sa lumière (le chalet plus sombre : l'utilisateur et l'animal suivent la lumière de leur place) et les gens passent derrière ou devant les meubles (`frontOf`, `overhead`).
@@ -309,14 +312,14 @@ Toutes sous `poste:` du `localStorage` (`src/lib/preferences.ts`) : `cozy:show` 
 
 ### Performance
 
-- Le décor de chaque pièce (murs, sol, meubles, lumière) est dessiné une fois sur un canvas hors écran, par genre de pièce, ambiance et état allumé ou éteint, puis réutilisé : seuls les gens, les écrans, les étiquettes et les animations sont redessinés à chaque image. Les meubles qui peuvent passer devant quelqu'un (dossier de chaise, bureau vu de dos, bras du canapé) sont des pièces à part, triées par profondeur avec les gens (`cozyDepth`).
+- Le décor de chaque pièce (murs, sol, meubles, lumière) est dessiné une fois sur un canvas hors écran, par genre de pièce, ambiance et état allumé ou éteint, puis réutilisé : seuls les gens, les écrans, les étiquettes et les animations sont redessinés à chaque image. Les animations d'une ambiance ne repeignent que quelques pixels, à travers des calques faits avec le décor (rien n'est créé d'une image à l'autre). Les meubles qui peuvent passer devant quelqu'un (dossier de chaise, bureau vu de dos, bras du canapé) sont des pièces à part, triées par profondeur avec les gens (`cozyDepth`).
 - Le cache est reconstruit quand la clé de scène change (`sceneKey` : humeur de l'heure et fête, `time.ts`) ; une pièce, une ambiance, un appartement ou un animal différents ont leur propre entrée. Une horloge ne repeint ses aiguilles que quand la minute change.
 - 15 images/s et rien quand l'onglet est caché (`runFrames`, comme la salle classique) ; pas de flou animé.
 - Les étiquettes sont dessinées à au plus `TAG_SCREEN_SCALE` pixels CSS par pixel d'étiquette, quelle que soit la taille de la pièce.
 
 ### Tests
 
-Logique pure, sans DOM, dans `src/room/room.test.ts` : « cozy rooms » (pièces, capacité et « +N », salle de repos, filtres), « the cozy home », « cozy pixel art » (faces des boîtes), « the cozy rooms, like the classic one » (heure, fêtes, visites), « the cozy rooms' life, pet and clocks », « the cozy rooms' doors, boards, numbers and pet », « the user's pet at home », « walking the cozy rooms, like the classic one » (marche, places, portage, sièges gardés) et « the ambiance of a cozy project room » (le contrat de chaque ambiance, le choix et le hash). Puis `src/room/chibi-hd.test.ts` et `src/room/pet-hd.test.ts` (les dessins HD), `server/settings.test.ts` (les champs cozy, un fichier d'avant lu avec leurs défauts) et `src/state/settings-index.test.ts` (la recherche des Réglages).
+Logique pure, sans DOM, dans `src/room/room.test.ts` : « cozy rooms » (pièces, capacité et « +N », salle de repos, filtres), « the cozy home », « cozy pixel art » (faces des boîtes), « the cozy rooms, like the classic one » (heure, fêtes, visites), « the cozy rooms' life, pet and clocks », « the cozy rooms' doors, boards, numbers and pet », « the user's pet at home », « walking the cozy rooms, like the classic one » (marche, places, portage, sièges gardés) « the ambiance of a cozy project room » (le contrat de chaque ambiance, le choix et le hash) et « what moves in a cozy project room » (mêmes pixels pour une même image et mouvement, couleurs que la lumière laisse telles quelles, vue animée dans sa vitre seulement). Puis `src/room/chibi-hd.test.ts` et `src/room/pet-hd.test.ts` (les dessins HD), `server/settings.test.ts` (les champs cozy, un fichier d'avant lu avec leurs défauts) et `src/state/settings-index.test.ts` (la recherche des Réglages).
 
 ## Automates
 

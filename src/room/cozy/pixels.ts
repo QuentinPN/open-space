@@ -260,9 +260,13 @@ export function wallEllipse(target: PixelTarget, wall: Wall, ca: number, cz: num
   }
 }
 
+/** Where a point of a back wall (`a` along it, `z` up) is in the room's box: its column, its row (wallPoint, made nothing of). */
+export const wallX = (wall: Wall, a: number) => (wall === 'left' ? ORIGIN.x - 1 - a : ORIGIN.x + a);
+export const wallY = (wall: Wall, a: number, z: number) => (wall === 'left' ? ORIGIN.y - across(ORIGIN.x - 1 - a) - 2 - z : ORIGIN.y + across(ORIGIN.x + a) - 1 - z);
+
 /** Where a point of a back wall (`a` along it, `z` up) is in the room's box. */
 export function wallPoint(wall: Wall, a: number, z: number): [number, number] {
-  return wall === 'left' ? [ORIGIN.x - 1 - a, ORIGIN.y - across(ORIGIN.x - 1 - a) - 2 - z] : [ORIGIN.x + a, ORIGIN.y + across(ORIGIN.x + a) - 1 - z];
+  return [wallX(wall, a), wallY(wall, a, z)];
 }
 
 /**

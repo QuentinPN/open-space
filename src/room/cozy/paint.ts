@@ -1,9 +1,9 @@
 // One frame of the cozy rooms (src/room/cozy/): each room's art (drawn once per mood of the hour and festival,
-// decor.ts, lounge-art.ts), its clock's hands, the white line around what is under the pointer, its screens at work,
-// its people and visitors and what stands in front of them in depth order, the nappers' Z's; the user's home its own
-// way (home/art.ts), the user's pet living there (home-pet.ts) and its Z's; then everyone's name tag on top, what the
-// visitors came for (or their birthday wish), the pet's hearts and words, and the "!" of a mod's news over the home's
-// numbers screen.
+// decor.ts, lounge-art.ts), what moves in its decor (motion.ts), its clock's hands, the white line around what is
+// under the pointer, its screens at work, its people and visitors and what stands in front of them in depth order,
+// the nappers' Z's; the user's home its own way (home/art.ts), the user's pet living there (home-pet.ts) and its Z's;
+// then everyone's name tag on top, what the visitors came for (or their birthday wish), the pet's hearts and words,
+// and the "!" of a mod's news over the home's numbers screen.
 import type { Festival } from '../../../shared/festivals.ts';
 import { ROOM_PALETTE as P } from '../../design/room-palette.ts';
 import { t } from '../../i18n/index.ts';
@@ -122,6 +122,11 @@ function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { r
   const art = lounge ? loungeArt(room.lit, options.hour, options.festival) : roomArt(room.kind === 'servers' ? 'servers' : 'project', design, room.lit, options.hour, options.festival);
   const clock = lounge ? ROOM_CLOCK : design.clock;
   context.drawImage(art.back, 0, 0);
+  // what moves in its decor, over its art and behind its people (ambiance/index.ts AmbianceMotion)
+  if (art.motion && design.motion && !lounge) {
+    for (const name in art.motion.layers) art.motion.layers[name].pen = context;
+    design.motion.paint(art.motion.layers, frame, art.motion.scene);
+  }
   context.drawImage(clockHands(clock, options.hour), 0, 0);
   // the white line around its things under the pointer: its clock, its door, its board
   if (hovered === 'clock') context.drawImage(clockOutline(clock), 0, 0);

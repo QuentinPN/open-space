@@ -7,6 +7,7 @@ import { ORIGIN, ROOM_BOX, WALL_HEIGHT, WALL_THICKNESS, iso, type Footprint, typ
 import type { Lighting, Outside } from '../light.ts';
 import type { CozyTime } from '../time.ts';
 import type { WallClock } from '../clock.ts';
+import type { CellMask } from '../motion.ts';
 import { PixelGrid, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, wallPatch, wallPixel, type PixelTarget, type Tones, type Wall } from '../pixels.ts';
 
 export const OUTLINE = C.outline;
@@ -18,11 +19,7 @@ export const ob = (grid: PixelGrid, u0: number, u1: number, v0: number, v1: numb
 export const art = (grid: PixelGrid, draw: (layer: PixelGrid) => void, colour: string = OUTLINE) => outlined(grid, draw, colour);
 
 /** A number in [0, 1) that stays the same for (a, b): where the bricks, the stars and the lit windows fall. */
-export function hash(a: number, b: number): number {
-  let value = (a * 374761393 + b * 668265263) | 0;
-  value = Math.imul(value ^ (value >>> 13), 1274126177);
-  return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
-}
+export { hash } from '../motion.ts';
 
 /** Where the user sits: on the floor at (u, v), `z` pixels up (the seat's height). */
 export interface HomeSeat { u: number; v: number; z: number }
@@ -37,7 +34,7 @@ export interface CallGrid { ua: number; columns: number; rows: number }
 export interface CallFace { hair: string; top: string; skin: string; speaking: boolean }
 
 /** What the animations of a frame read: the cells of the art each one is drawn over, the call. */
-export interface HomeScene { masks: Readonly<Record<string, Uint8Array>>; faces: readonly CallFace[]; time: CozyTime }
+export interface HomeScene { masks: Readonly<Record<string, CellMask>>; faces: readonly CallFace[]; time: CozyTime }
 
 export { lamp, lightingOf, type Lamp, type Lighting } from '../light.ts';
 
@@ -116,7 +113,7 @@ export function coloursOf(group: unknown): string[] {
 /* Drawn each frame */
 
 /** Single pixels on the room's canvas, only over the cells of `mask` (null: anywhere in the room's box). */
-export function masked(context: CanvasRenderingContext2D, mask: Uint8Array | null): PixelTarget {
+export function masked(context: CanvasRenderingContext2D, mask: CellMask | null): PixelTarget {
   return {
     set(x, y, colour) {
       const column = Math.floor(x), row = Math.floor(y);
@@ -129,14 +126,7 @@ export function masked(context: CanvasRenderingContext2D, mask: Uint8Array | nul
 }
 
 /** The steam of a hot drink, rising from (x, y). */
-export function steam(context: CanvasRenderingContext2D, x: number, y: number, frame: number) {
-  for (let index = 0; index < 3; index++) {
-    const age = (frame + index * 7) % 21;
-    if (age > 17) continue;
-    context.fillStyle = H.steam[age < 9 ? 0 : 1];
-    context.fillRect(x + (index - 1) * 2 + Math.round(Math.sin((age + index * 3) * 0.55)), y - Math.floor(age * 0.6), 1, 1);
-  }
-}
+export { steam } from '../motion.ts';
 
 /** A face in a call tile, its rows from the top: h hair, e eye, s skin, b top. */
 const FACE = ['.hhhh.', 'hhhhhh', 'hesseh', 'hssssh', '.bbbb.'];
