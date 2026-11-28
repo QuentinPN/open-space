@@ -57,7 +57,7 @@ import { cozyPetOf } from './pet.ts';
 import { clockMinute } from './time.ts';
 import { targetAt, type CozyTarget, type CozyThing } from './things.ts';
 import { cozyVisitFloor, visitedRoom, visitorFeet } from './visits.ts';
-import { loungeVisitFloor } from './arcade.ts';
+import { loungeVisitFloor, sessionPlays } from './arcade.ts';
 import { COZY_SHOWS, LOUNGE_ID, callers, cozyRooms, cozySeatsKey, nameIn, recentFolders, shownProjects, type CozyRoom, type CozyShow } from './rooms.ts';
 
 const PRUNE_EVERY_MS = 250;
@@ -412,7 +412,11 @@ export function CozyView({ day }: { day: FestivalDay }) {
         visit.visits = visited ? new Visits(cozyVisitFloor(() => dayRef.current.festival, designOf(visited))) : null;
       }
       const { festival: dressedFor } = dayRef.current, lounge = lounging.current, loungeKey = `${dressedFor}`;
-      if (loungeKey !== lounge.key) { lounge.key = loungeKey; lounge.visits = new Visits(loungeVisitFloor(dressedFor)); }
+      if (loungeKey !== lounge.key) {
+        lounge.key = loungeKey;
+        // a session at rest on the arcade's place plays there: the crew leaves it to them
+        lounge.visits = new Visits(loungeVisitFloor(dressedFor, () => scene.current.rooms.some((room) => room.kind === 'lounge' && sessionPlays(room))));
+      }
       // nobody is in two rooms at once: whoever visits one is not free for the other
       const namesIn = (visits: Visits | null) => new Set(visits ? [...visits.visitors.values()].map((visitor) => visitor.name) : []);
       const inOffice = namesIn(visit.visits), atArcade = namesIn(lounge.visits), enabled = state.preferences.officeLife;

@@ -3,7 +3,8 @@
 // are the visits' (visits.ts VISIT_UNIT room units a side); what stands on the floor (Footprint) blocks them, but a
 // seat's own tile, walked onto last. A project room's seats are its desks' chairs, the break room's its sofas' and
 // beanbags' places; where the user may sit: at home, their desk's chair (where they start) and the theme's other spots
-// (its bed, sofa, armchair or cushion); in a project room, the visitors' couch; in the break room, a free place.
+// (its bed, sofa, armchair or cushion); in a project room, the visitors' couch; in the break room, a free place to sit
+// (the arcade's is for a session that plays: a click on the cabinet plays the game).
 // People come in through the door on the left wall (a project room's ambiance's, the break room's decor.ts DOOR). Pure:
 // tested without a DOM.
 import type { Festival } from '../../../shared/festivals.ts';
@@ -181,7 +182,7 @@ export function cozyFloorPlan(room: Pick<CozyRoom, 'kind' | 'home' | 'ambiance'>
     };
   }
   if (room.kind === 'lounge') {
-    return { furniture: [...LOUNGE_FOOTPRINTS, ...festiveFootprints(festival, LOUNGE_FESTIVE_SPOT)], seats: LOUNGE_PLACES, spots: LOUNGE_PLACES.map((place) => ({ place, atDesk: false })), sharedSeats: true, door: DOOR };
+    return { furniture: [...LOUNGE_FOOTPRINTS, ...festiveFootprints(festival, LOUNGE_FESTIVE_SPOT)], seats: LOUNGE_PLACES, spots: LOUNGE_PLACES.filter((place) => !place.playing).map((place) => ({ place, atDesk: false })), sharedSeats: true, door: DOOR };
   }
   const design = designOf(room);
   return {

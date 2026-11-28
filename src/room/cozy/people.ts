@@ -1,5 +1,6 @@
 // Who sits where in a cozy room and how they look there (src/room/cozy/): the user alone at their computer in the flat,
-// a project's sessions at its desks, the sessions at rest napping in the break room. Their feet come from the places
+// a project's sessions at its desks, the sessions at rest napping in the break room, or one of them playing at its
+// arcade. Their feet come from the places
 // (geometry.ts, lounge.ts) and their height from the sprites (SpriteSource.height), so taller people fit without moving
 // anything. Pure: tested without a DOM.
 import type { Person } from '../cast.ts';
@@ -25,9 +26,9 @@ export interface Sitter {
   napping: boolean;
 }
 
-/** Someone on their seat of a room's plan: at a desk of a project room (its ambiance's), on a place of the break room (napping). */
+/** Someone on their seat of a room's plan: at a desk of a project room (its ambiance's), on a place of the break room (napping, or playing at its arcade). */
 function seated(room: CozyRoom, person: Person, seat: number): Sitter {
-  if (room.kind === 'lounge') return { id: person.id, person, place: LOUNGE_PLACES[seat], desk: null, napping: true };
+  if (room.kind === 'lounge') { const place = LOUNGE_PLACES[seat]; return { id: person.id, person, place, desk: null, napping: !place.playing }; }
   const desk = designOf(room).desks[seat];
   return { id: person.id, person, place: deskPlace(desk), desk, napping: false };
 }
@@ -50,14 +51,17 @@ export const PERSON_SCALE = 0.6;
 /** How long a frame of typing or waving lasts, like in the classic room (draw.ts poseOf). */
 const BEAT_MS: Record<Gesture, number> = { typing: 170, raising: 380, none: 120 };
 
-/** Seated: typing while their session works, an arm up while it waits for a permission or an answer, eyes closed at rest. */
+/**
+ * Seated: typing while their session works, an arm up while it waits for a permission or an answer, eyes closed at
+ * rest. At the break room's arcade: standing, their hands going on its buttons.
+ */
 export function sitterPose(sitter: Sitter, time: number, reducedMotion: boolean): Pose {
-  const status = sitter.person?.status ?? null;
-  const gesture: Gesture = sitter.napping ? 'none' : status === 'working' ? 'typing' : status === 'permission' || status === 'question' ? 'raising' : 'none';
+  const status = sitter.person?.status ?? null, playing = sitter.place.playing === true;
+  const gesture: Gesture = playing ? 'typing' : sitter.napping ? 'none' : status === 'working' ? 'typing' : status === 'permission' || status === 'question' ? 'raising' : 'none';
   const offset = blinkOffsetOf(sitter.id);
   return {
     direction: sitter.place.direction,
-    posture: 'sit',
+    posture: playing ? 'stand' : 'sit',
     step: gesture !== 'none' && !reducedMotion && Math.floor((time + offset) / BEAT_MS[gesture]) % 2 === 1 ? 1 : 0,
     blinking: sitter.napping || (!reducedMotion && (time + offset) % 3800 < 140),
     smiling: !sitter.napping && status === 'finished',

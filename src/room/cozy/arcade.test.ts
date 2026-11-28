@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import type { SessionInfo } from '../../../shared/protocol.ts';
 import { DEFAULT_LOOK } from '../../design/people-palette.ts';
 import { hdArt } from '../chibi-hd.ts';
 import { visitorPose } from '../draw.ts';
 import { distance } from '../geometry.ts';
 import { directionOf } from '../scene.ts';
 import { Visits } from '../visitors.ts';
-import { ARCADE_SPOT, loungeVisitFloor } from './arcade.ts';
+import { ARCADE_SPOT, loungeVisitFloor, sessionPlays } from './arcade.ts';
 import { CozyFloor, cozyFloorPlan } from './floor.ts';
 import { ROOM_BOX, iso } from './geometry.ts';
-import { ARCADE } from './lounge.ts';
+import { ARCADE, ARCADE_SEAT, LOUNGE_PLACES } from './lounge.ts';
+import { placeSitters } from './people.ts';
 import { loungeRoom, projectRoom, type CozyRoom } from './rooms.ts';
 import { targetAt, thingAt } from './things.ts';
 
@@ -17,6 +19,14 @@ const LOUNGE: CozyRoom = loungeRoom({ sessions: [], seen: {}, previous: () => ne
 const PROJECT: CozyRoom = projectRoom('/work/a', 'a', { sessions: [], seen: {}, pinned: [], previous: () => new Map() });
 /** A point on the cabinet's screen, in the room's pixels. */
 const SCREEN = iso((ARCADE.u0 + ARCADE.u1) / 2, ARCADE.v1, 32);
+/** `count` sessions at rest, the first come first. */
+const resting = (count: number): SessionInfo[] => Array.from({ length: count }, (_, index) => ({
+  id: `r${index}`, name: `r${index}`, cwd: '/work/a', model: '', activeModel: '', permissionMode: 'auto', state: 'closed', stateSince: 1000, createdAt: index, turns: 1,
+  permissions: [], subagents: [], command: '', lastMessage: '', resumable: true, lastSeq: 5, resting: true,
+}));
+const loungeWith = (count: number) => loungeRoom({ sessions: resting(count), seen: {}, previous: () => new Map() });
+/** A random generator of its own for the visits, the same each run. */
+const seeded = (seed: number) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 
 describe("the cozy break room's arcade", () => {
   it('is what a click on its cabinet falls on, in the break room opened big or among all the rooms', () => {
@@ -29,9 +39,7 @@ describe("the cozy break room's arcade", () => {
   });
 
   it('brings someone of the crew in through the door to play, round the furniture, facing the screen with their hands going', () => {
-    let seed = 3;
-    const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-    const visits = new Visits(loungeVisitFloor(null), random);
+    const visits = new Visits(loungeVisitFloor(null), seeded(3));
     const floor = new CozyFloor(cozyFloorPlan({ kind: 'lounge' }));
     const free = ['Alex'];
     let walked = 0;
@@ -49,5 +57,28 @@ describe("the cozy break room's arcade", () => {
     const beats = [0, 170].map((time) => visitorPose(visitor, { time, reducedMotion: false }).pose);
     assert.equal(beats[0].gesture, 'typing');
     assert.notDeepEqual(hdArt(DEFAULT_LOOK, beats[0]).cells, hdArt(DEFAULT_LOOK, beats[1]).cells, 'their hands move from one beat to the next');
+  });
+
+  it('lets a session at rest play there once every seat is taken, standing at its screen, awake', () => {
+    const seats = LOUNGE_PLACES.length - 1;
+    assert.equal(sessionPlays(loungeWith(seats)), false, 'the seats are taken first');
+    const lounge = loungeWith(seats + 1);
+    assert.equal(sessionPlays(lounge), true);
+    const player = placeSitters(lounge, { x: 0, y: 0 }, { height: () => 36 }, 0, false).find(({ sitter }) => lounge.resting.seats.get(sitter.id) === ARCADE_SEAT)!;
+    assert.equal(player.sitter.napping, false, 'no nap at the arcade');
+    assert.deepEqual([player.pose.posture, player.pose.direction, player.pose.gesture], ['stand', 'up-right', 'typing'], 'standing, facing its screen, hands on its buttons');
+  });
+
+  it('sends the crew away from the arcade while a session plays there, and none comes', () => {
+    let taken = false;
+    const visits = new Visits(loungeVisitFloor(null, () => taken), seeded(5));
+    const visitor = () => visits.visitors.get('visitor:Alex');
+    const step = () => visits.step(50, { free: ['Alex'], hour: 13, enabled: true, blocked: null });
+    for (let ms = 0; ms < 120_000 && visitor()?.phase !== 'staying'; ms += 50) step();
+    assert.equal(visitor()?.phase, 'staying', 'they came to play');
+    taken = true;
+    step();
+    assert.equal(visitor()?.phase, 'leaving', 'they leave it to the session');
+    for (let ms = 0; ms < 600_000; ms += 50) { step(); assert.notEqual(visitor()?.phase, 'staying', 'nobody else plays meanwhile'); }
   });
 });

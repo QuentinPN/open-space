@@ -3,13 +3,17 @@
 // sofa under the window on the left wall, a loveseat on the right wall, the arcade cabinet and the tea corner beside it,
 // the bookshelf in the back corner, three beanbags on and round the rug. The door back to the offices is on the left
 // wall, where the project rooms have theirs, and nothing stands in front of it. Its places are taken in an order that
-// spreads the first nappers over the room, as the classic one does. Pure: tested without a DOM.
+// spreads the first nappers over the room, as the classic one does; one more, in front of the arcade, is for a session
+// that plays rather than naps. Pure: tested without a DOM.
 import { around, cozyDepth, onCouchAt, type Couch, type Footprint, type Place } from './geometry.ts';
 
-/** The sofa under the window, along the left wall (three places), and the loveseat along the right wall (two). */
+/**
+ * The sofa under the window, along the left wall (three places), and the loveseat along the right wall (two), far
+ * enough from the arcade that whoever plays there hides nobody on it.
+ */
 export const LOUNGE_COUCHES: readonly Couch[] = [
   { u: 0, v: 16, depth: 18, length: 84 },
-  { u: 24, v: 0, depth: 18, length: 60, alongU: true },
+  { u: 18, v: 0, depth: 18, length: 60, alongU: true },
 ];
 /** How many people each of them seats: its cushions (decor.ts paintCouch). */
 export const LOUNGE_COUCH_SEATS = [3, 2] as const;
@@ -36,15 +40,27 @@ const [left, right] = LOUNGE_COUCHES;
 const [leftSeats, rightSeats] = LOUNGE_COUCHES.map((couch, index) => sofaSeats(couch, LOUNGE_COUCH_SEATS[index]));
 const [nearDoor, nearTea, nearPet] = LOUNGE_BEANBAGS.map(({ u, v, direction }): Place => ({ u, v, direction, lift: BEANBAG_LIFT }));
 
+/** The cabinet's back is against the right wall: its screen and its buttons (v1 side) look into the room. */
+export const ARCADE = { u0: 89, u1: 101, v0: 0, v1: 12, height: 46 } as const;
+/** How far its control panel juts out in front of it (lounge-art.ts paintArcade). */
+const ARCADE_PANEL = 4;
+/** Where whoever plays stands, a step in front of its screen (the floor point; they face the cabinet): kept clear. */
+export const ARCADE_FRONT = { u: (ARCADE.u0 + ARCADE.u1) / 2, v: ARCADE.v1 + ARCADE_PANEL + 6 } as const;
+
 /**
  * The break room's places, in the order they are taken: an end of each sofa and a beanbag first, then the other ends,
- * the sofa's middle last, so the first people to come to rest do not sit elbow to elbow.
+ * the sofa's middle last, so the first people to come to rest do not sit elbow to elbow; then, once every seat is
+ * taken (or for whoever the user puts there), the arcade, standing in front of its screen. Its place keeps its number
+ * when the room gets more, so the seats the user picked stay theirs.
  */
 export const LOUNGE_PLACES: readonly Place[] = [
   sofaPlace(left, leftSeats[0]), sofaPlace(right, rightSeats[1]), nearDoor,
   sofaPlace(left, leftSeats[2]), nearTea, sofaPlace(right, rightSeats[0]),
   nearPet, sofaPlace(left, leftSeats[1]),
+  { ...ARCADE_FRONT, direction: 'up-right', lift: 0, playing: true },
 ];
+/** The arcade's place among them: a session there plays (people.ts), and the crew's visits leave it to them (arcade.ts). */
+export const ARCADE_SEAT = LOUNGE_PLACES.findIndex((place) => place.playing);
 
 /** Someone at a place of the break room is drawn in its depth order: in front of their sofa, behind its front arm. */
 export const loungeDepth = (place: Place) => cozyDepth(place.u, place.v);
@@ -54,16 +70,10 @@ export const loungeDepth = (place: Place) => cozyDepth(place.u, place.v);
  * on the rug, the tea corner and the arcade cabinet on the right wall.
  */
 export const BOOKSHELF = { u0: 0, u1: 11, v0: 2, v1: 16, height: 54 } as const;
-export const READING_LAMP = { u: 18, v: 9 } as const;
+export const READING_LAMP = { u: 15, v: 9 } as const;
 export const RUG = { u: 52, v: 54 } as const;
 export const COFFEE_TABLE = { u0: 42, u1: 62, v0: 45, v1: 63 } as const;
-export const TEA_CORNER = { u0: 102, u1: 126, v0: 0, v1: 14 } as const;
-/** The cabinet's back is against the right wall: its screen and its buttons (v1 side) look into the room. */
-export const ARCADE = { u0: 87, u1: 99, v0: 0, v1: 12, height: 46 } as const;
-/** How far its control panel juts out in front of it (lounge-art.ts paintArcade). */
-const ARCADE_PANEL = 4;
-/** Where whoever plays stands, a step in front of its screen (the floor point; they face the cabinet): kept clear. */
-export const ARCADE_FRONT = { u: (ARCADE.u0 + ARCADE.u1) / 2, v: ARCADE.v1 + ARCADE_PANEL + 6 } as const;
+export const TEA_CORNER = { u0: 103, u1: 126, v0: 0, v1: 14 } as const;
 /** Where a festival's tree, pumpkins or balloons stand. */
 export const LOUNGE_FESTIVE_SPOT = { u: 118, v: 84 } as const;
 

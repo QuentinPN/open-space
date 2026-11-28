@@ -54,8 +54,11 @@ export const footprintOutline = ({ u0, u1, v0, v1, height }: Footprint): Point[]
 /** A footprint around a floor point: `half` units each way. */
 export const around = (u: number, v: number, half: number, height: number): Footprint => ({ u0: u - half, u1: u + half, v0: v - half, v1: v + half, height });
 
-/** A place in a room: on a desk's chair or on the couch, facing its desk or the room. `lift`: the seat's height, in pixels. */
-export interface Place { u: number; v: number; direction: Direction; lift: number }
+/**
+ * A place in a room: on a desk's chair or on the couch, facing its desk or the room. `lift`: the seat's height, in pixels;
+ * `playing`: standing there at the break room's arcade cabinet, hands on its buttons, rather than seated.
+ */
+export interface Place { u: number; v: number; direction: Direction; lift: number; playing?: boolean }
 
 /**
  * A desk of a project room: at the back ('back', facing the right wall, from (u, v) `length` units along u, its person
