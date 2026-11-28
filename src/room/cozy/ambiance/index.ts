@@ -11,9 +11,16 @@ import type { Couch, Desk, Footprint, Place } from '../geometry.ts';
 import type { Painter, PixelGrid } from '../pixels.ts';
 import type { CozyRoom } from '../rooms.ts';
 import type { CozyTime } from '../time.ts';
+import { atelier } from './atelier.ts';
+import { beach } from './beach.ts';
 import { cafe } from './cafe.ts';
+import { cellar } from './cellar.ts';
+import { dungeon } from './dungeon.ts';
+import { forest } from './forest.ts';
 import { office } from './office.ts';
+import { pirate } from './pirate.ts';
 import { space } from './space.ts';
+import { tokyo } from './tokyo.ts';
 
 /** A floor point of a room, (u, v) in its units (geometry.ts). */
 export type FloorPoint = readonly [number, number];
@@ -83,7 +90,7 @@ export interface AmbianceDesign {
 }
 
 /** The ambiances there are, by id, in the order the pickers offer them. An id the settings may hold but not here yet: the offices. */
-export const AMBIANCES = { office, cafe, space } as const satisfies Partial<Record<CozyAmbiance, AmbianceDesign>>;
+export const AMBIANCES = { office, cafe, space, tokyo, dungeon, beach, pirate, forest, cellar, atelier } as const satisfies Partial<Record<CozyAmbiance, AmbianceDesign>>;
 export type AmbianceId = keyof typeof AMBIANCES;
 export const AMBIANCE_IDS = Object.keys(AMBIANCES) as AmbianceId[];
 
