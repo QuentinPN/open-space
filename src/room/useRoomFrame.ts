@@ -3,12 +3,15 @@
 import { useEffect, type RefObject } from 'react';
 import { canArrange, markArranged, startsDrag, swallowAltRelease } from '../lib/drag.ts';
 import { readPreference, writePreference } from '../lib/preferences.ts';
-import { clampRoom, DEFAULT_ROOM_FRAME, panRoom, roomBox, sanitizeRoomFrames, zoomRoom, type Box, type RoomName } from '../state/room-frame.ts';
+import { clampRoom, DEFAULT_ROOM_FRAME, panRoom, roomBox, sanitizeRoomFrames, zoomRoom, type Box, type FrameKey } from '../state/room-frame.ts';
 import { refreshFrost } from './Sky.tsx';
 
 const SETTLE_MS = 220;
 
-export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: RoomName) {
+/** Where the element sits when it is not moved: by default centred in its parent (the classic room); the cozy board is placed by its own left and top. */
+export type HomeOf = (element: HTMLElement) => Box;
+
+export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: FrameKey, homeOf?: HomeOf) {
   useEffect(() => {
     const element = stage.current!;
     const fit = element.parentElement!;
@@ -16,6 +19,7 @@ export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: Room
 
     // the room in its own place, as the layout puts it (centred in its area), whatever transform it carries
     const home = (): Box => {
+      if (homeOf) return homeOf(element);
       const area = fit.getBoundingClientRect(), width = element.offsetWidth, height = element.offsetHeight;
       return { left: area.left + (area.width - width) / 2, top: area.top + (area.height - height) / 2, width, height };
     };
@@ -26,7 +30,9 @@ export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: Room
     };
     const show = () => {
       if (!canArrange()) { for (const name of ['--room-x', '--room-y', '--room-scale']) element.style.removeProperty(name); return; }
-      const from = home(), box = roomBox(from, clampRoom(frame, from, bounds()));
+      const from = home();
+      if (!from.width || !from.height) return;
+      const box = roomBox(from, clampRoom(frame, from, bounds()));
       element.style.setProperty('--room-x', `${box.left - from.left}px`);
       element.style.setProperty('--room-y', `${box.top - from.top}px`);
       element.style.setProperty('--room-scale', String(box.width / from.width));
@@ -97,6 +103,7 @@ export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: Room
     show();
     const observer = new ResizeObserver(show);
     observer.observe(fit);
+    if (homeOf) observer.observe(element);
     window.addEventListener('resize', show);
     element.addEventListener('pointerdown', onPointerDown);
     element.addEventListener('pointermove', onPointerMove);
@@ -116,5 +123,5 @@ export function useRoomFrame(stage: RefObject<HTMLDivElement | null>, room: Room
       window.clearTimeout(saving);
       window.clearTimeout(settling);
     };
-  }, [stage, room]);
+  }, [stage, room, homeOf]);
 }

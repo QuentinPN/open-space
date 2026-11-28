@@ -5,7 +5,7 @@
 import { ROOM_PALETTE as P } from '../design/room-palette.ts';
 import { SERVERS_FURNITURE as SF } from '../design/theme-servers.ts';
 import { t } from '../i18n/index.ts';
-import type { Agent, Status } from './cast.ts';
+import type { Agent, Person, Status } from './cast.ts';
 import { drawHearts, drawPet, isSpeaking, petBeam, petHeight, petHere, petWords } from './pet.ts';
 import type { PetChoice } from '../../shared/pets.ts';
 import type { Festival } from '../../shared/festivals.ts';
@@ -27,14 +27,12 @@ import { beamGlow, hiddenInBeam, portalParticles, vortex, type ParticleShape } f
 import { PLAYER_ID, directionOf, type Character, type Scene, type Walker } from './scene.ts';
 import { hash, type Gesture, type Pose, type SpriteSource } from './sprites.ts';
 import { paintActivity } from './activity-icons.ts';
-import { Visits, type Visitor } from './visitors.ts';
+import { Visits, birthdayWishOf, type Visitor } from './visitors.ts';
 import { stackLabels } from './labels.ts';
 import { roomPointOnWall } from './wall-art.ts';
 import { sessionTagColors } from '../design/tag-colors.ts';
 import { roomTags } from '../../shared/tags.ts';
 
-/** How long a visitor at a birthday party wishes it, in ms. */
-const WISH_MS = 4000;
 export const TAG_FONT = '500 9.5px "Fredoka", sans-serif';
 const TAG_HEIGHT = 13;
 /** Room pixels per pixel of the light map: light is soft, it does not need the room's resolution. */
@@ -336,7 +334,7 @@ function paintSteam(context: Context, time: number, pieces: readonly FurniturePi
 
 /* People */
 
-function poseOf(walker: Walker, seated: boolean, smiling: boolean, gesture: Gesture, options: FrameOptions): Pose {
+function poseOf(walker: Walker, seated: boolean, smiling: boolean, gesture: Gesture, options: Pick<FrameOptions, 'time' | 'reducedMotion'>): Pose {
   const moving = walker.path.length > 0;
   const beat = gesture === 'typing' ? 170 : gesture === 'raising' ? 380 : 120;
   return {
@@ -363,8 +361,8 @@ function characterPose(character: Character, options: FrameOptions, standing = f
   return seated && options.dozing ? { ...pose, blinking: true, smiling: false } : pose;
 }
 
-/** A visitor of the crew: walking, standing at what they came for, or sitting on the sofa (raised by its cushions). */
-function visitorPose(visitor: Visitor, options: FrameOptions): { pose: Pose; lift: number } {
+/** A visitor of the crew: walking, standing at what they came for, or sitting on the sofa (raised by its cushions). Both room styles. */
+export function visitorPose(visitor: Visitor, options: Pick<FrameOptions, 'time' | 'reducedMotion'>): { pose: Pose; lift: number } {
   const sitting = Visits.sitting(visitor);
   return { pose: poseOf(visitor, sitting, false, 'none', options), lift: sitting ? visitor.spot.lift ?? 0 : 0 };
 }
@@ -430,7 +428,7 @@ function paintDropSeats(context: Context, scene: Scene, time: number) {
  * A name tag: one pill of dark glass, like the page's badges, the same height for everyone. In it, from the left: the
  * session's status as a round icon, the name, the word the user put on the session, the faces of its sub-agents.
  */
-interface NameTag {
+export interface NameTag {
   name: string;
   colour: string;
   status: Exclude<Status, null> | null;
@@ -461,7 +459,7 @@ const FAINT_TAG_ALPHA = 0.7;
 const GHOST_FILTER = 'grayscale(1) brightness(0.4)';
 const GHOST_ALPHA = 0.7;
 /** room pixels between the top of a head and its name tag */
-const TAG_LIFT = 5;
+export const TAG_LIFT = 5;
 /** the room a hairline takes between two parts of a tag, with the gaps on both sides */
 const SEPARATED = TAG_GAP * 2 + 1;
 
@@ -589,9 +587,44 @@ function paintNameTag(context: Context, sprites: SpriteSource, tag: NameTag, lef
   context.restore();
 }
 
+/** A name tag above someone's head: `x` the middle of it, `bottom` its lower edge; `faint`: nothing calls for it, see FAINT_TAG_ALPHA. */
+export interface PlacedTag { tag: NameTag; x: number; bottom: number; faint: boolean }
+
+/**
+ * A session's name tag (or an automaton's): its status and its sub-agents only once `seated` (walking in or out, it is
+ * just someone passing by), its name hidden behind its tags when the settings say so, unless under the pointer.
+ */
+export function personTag(person: Person, seated: boolean, options: Pick<FrameOptions, 'hideNames' | 'tagColors' | 'hoveredId' | 'openSessionIds'>): { tag: NameTag; faint: boolean } {
+  const status = seated ? person.status : null;
+  const selected = options.openSessionIds.includes(person.sessionId), hovered = options.hoveredId === person.id;
+  const noticed = status !== null || selected || hovered;
+  // what waits for the user stays at full strength, like the open session and the one under the pointer
+  const calling = status !== null && status !== 'working';
+  const shownTags = roomTags(person.tags);
+  return {
+    faint: !calling && !selected && !hovered,
+    tag: {
+      name: options.hideNames && shownTags.shown.length > 0 && !hovered && !person.automatonRole && !person.automaton ? '' : person.name, colour: noticed ? P.tagText : P.quietTagText, status, branch: person.branch, automaton: person.automatonRole !== undefined,
+      tags: shownTags.shown.map((text, index) => ({ text, color: options.tagColors ? sessionTagColors(person.tags)[index] : null })), moreTags: shownTags.more,
+      sessionId: person.sessionId, agents: seated ? person.agents : [], framed: selected,
+    },
+  };
+}
+
+/** The name tags, on top of everything; a tag that would cover another moves up (labels.ts). Leaves the font set to TAG_FONT. */
+export function paintNameTags(context: Context, sprites: SpriteSource, tags: readonly PlacedTag[], time: number, reducedMotion: boolean) {
+  context.font = TAG_FONT;
+  const boxes = tags.map(({ tag, x, bottom }) => { const width = tagWidth(context, tag); return { left: Math.round(x - width / 2), top: Math.round(bottom - TAG_HEIGHT), width, height: TAG_HEIGHT }; });
+  stackLabels(boxes).forEach((top, index) => {
+    context.globalAlpha = tags[index].faint ? FAINT_TAG_ALPHA : 1;
+    paintNameTag(context, sprites, tags[index].tag, boxes[index].left, top, time, reducedMotion);
+  });
+  context.globalAlpha = 1;
+}
+
 /** What the pet says ("Miaou !", "Ouaf ouaf !"…) above it, in a small white bubble. */
 /** A white speech bubble over the room, its tail's tip at (x, y): the pet, and the crew wishing a happy birthday. */
-function paintSpeech(context: Context, text: string, x: number, y: number) {
+export function paintSpeech(context: Context, text: string, x: number, y: number) {
   const width = Math.ceil(context.measureText(text).width) + 10;
   const left = Math.round(x - width / 2), top = Math.round(y - TAG_HEIGHT - 6);
   context.fillStyle = P.pet.bubble;
@@ -639,7 +672,7 @@ function wallItems(layout: Layout, lighting: Lighting, hour: number, festival: F
 }
 
 /** Z's floating up from someone dozing in the break room, one after the other. */
-function paintZzz(context: Context, x: number, y: number, time: number, seed: number) {
+export function paintZzz(context: Context, x: number, y: number, time: number, seed: number) {
   for (let index = 0; index < 3; index++) {
     const age = ((time + seed) / 2400 + index / 3) % 1;
     context.globalAlpha = Math.min(1, (1 - age) * 1.6);
@@ -913,7 +946,7 @@ export function paintFrame(context: Context, backdrop: HTMLCanvasElement, scene:
   // name tags and icons go on top of everything, so the furniture never hides them; a tag that would cover another moves up
   context.font = TAG_FONT;
   context.textAlign = 'center';
-  const tags: { tag: NameTag; x: number; bottom: number; faint: boolean }[] = [];
+  const tags: PlacedTag[] = [];
   for (const character of characters) {
     // a ghost says nothing: no tag, no state, no Z's, until the pointer is on it
     if (isGhost(character) && options.hoveredId !== character.person.id) continue;
@@ -922,19 +955,7 @@ export function paintFrame(context: Context, backdrop: HTMLCanvasElement, scene:
     const head = feet.y - sprites.height(poseFor(character), character.person.id);
     if (options.dozing && character.phase === 'seated') paintZzz(context, feet.x, head - 4, options.reducedMotion ? 0 : options.time, character.blinkOffset);
     // the status and the sub-agents only once at the desk: walking in or out, it is just someone passing by
-    const status = character.phase === 'seated' ? character.person.status : null;
-    const noticed = status !== null || isSelected(character) || options.hoveredId === character.person.id;
-    // what waits for the user stays at full strength, like the open session and the one under the pointer
-    const calling = status !== null && status !== 'working';
-    const shownTags = roomTags(character.person.tags);
-    tags.push({
-      x: feet.x, bottom: head - TAG_LIFT, faint: !calling && !isSelected(character) && options.hoveredId !== character.person.id,
-      tag: {
-        name: options.hideNames && shownTags.shown.length > 0 && options.hoveredId !== character.person.id && !character.person.automatonRole && !character.person.automaton ? '' : character.person.name, colour: noticed ? P.tagText : P.quietTagText, status, branch: character.person.branch, automaton: character.person.automatonRole !== undefined,
-        tags: shownTags.shown.map((text, index) => ({ text, color: options.tagColors ? sessionTagColors(character.person.tags)[index] : null })), moreTags: shownTags.more,
-        sessionId: character.person.sessionId, agents: character.phase === 'seated' ? character.person.agents : [], framed: isSelected(character),
-      },
-    });
+    tags.push({ x: feet.x, bottom: head - TAG_LIFT, ...personTag(character.person, character.phase === 'seated', options) });
   }
   const playerFeet = toScreen(scene.player.position);
   // gone in the teleporter's light, their name goes with them
@@ -942,12 +963,7 @@ export function paintFrame(context: Context, backdrop: HTMLCanvasElement, scene:
     x: playerFeet.x, bottom: playerFeet.y - playerLift - sprites.height(playerPose, PLAYER_ID) - TAG_LIFT, faint: options.hoveredId !== PLAYER_ID,
     tag: { name: options.playerName, colour: P.playerTagText, status: null, tags: [], moreTags: 0, sessionId: PLAYER_ID, agents: [], framed: false },
   });
-  const boxes = tags.map(({ tag, x, bottom }) => { const width = tagWidth(context, tag); return { left: Math.round(x - width / 2), top: Math.round(bottom - TAG_HEIGHT), width, height: TAG_HEIGHT }; });
-  stackLabels(boxes).forEach((top, index) => {
-    context.globalAlpha = tags[index].faint ? FAINT_TAG_ALPHA : 1;
-    paintNameTag(context, sprites, tags[index].tag, boxes[index].left, top, options.time, options.reducedMotion);
-  });
-  context.globalAlpha = 1;
+  paintNameTags(context, sprites, tags, options.time, options.reducedMotion);
   if (pet && choice) {
     const paws = toScreen(pet.position);
     drawHearts(context, pet, paws.x, paws.y);
@@ -969,9 +985,8 @@ export function paintFrame(context: Context, backdrop: HTMLCanvasElement, scene:
     }
     const bob = options.reducedMotion ? 0 : Math.round(Math.sin((options.time + visitor.blinkOffset) / 500));
     // at a birthday party, they first wish it out loud (the second of two after the first), then show what they do
-    const celebrated = options.festival === 'birthday' ? options.guests.filter((name) => name !== visitor.name) : [];
-    const wishing = visitor.spot.activity === 'party' && celebrated.length > 0 && Math.floor(visitor.stayed / WISH_MS) === visitor.order;
-    if (visitor.phase === 'staying' && wishing) paintSpeech(context, t.room.birthdayWish(celebrated), feet.x, above + 4);
+    const celebrated = birthdayWishOf(visitor, options.festival, options.guests);
+    if (celebrated) paintSpeech(context, t.room.birthdayWish(celebrated), feet.x, above + 4);
     else if (visitor.phase === 'staying') paintActivity(context, visitor.spot.activity, feet.x, above - 1 + bob);
   }
 }

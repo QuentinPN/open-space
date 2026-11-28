@@ -360,6 +360,8 @@ const FESTIVAL_VISITS: Partial<Record<Festival, readonly VisitSpot[]>> = {
   christmas: [{ activity: 'party', at: { x: 12.3, y: 6.4 }, facing: 0, together: 2 }, { activity: 'party', at: { x: 13.7, y: 6.4 }, facing: 0, together: 4 }],
   songkran: [{ activity: 'party', at: { x: 9.5, y: 9.6 }, facing: 0 }],
 };
+/** Where the crew gathers in the office for a festival (none for most): the cozy rooms gather as many (src/room/cozy/visits.ts). */
+export const festivalVisits = (festival: Festival | null): readonly VisitSpot[] => (festival && FESTIVAL_VISITS[festival]) || [];
 
 /** The office with its numbers object (the user named a numbers file); the other room as it is. */
 /**

@@ -3,6 +3,7 @@
 // festival's table) and leave. They never sit at a desk and carry no status, so the sessions stay readable; a click on
 // one starts a session with them (RoomView). More come in the morning and at lunch, few in the evening, none at night.
 // Pure: RoomView steps it with the free names and the hour, draw.ts paints the visitors.
+import type { Festival } from '../../shared/festivals.ts';
 import type { Activity, VisitSpot } from '../../shared/room-layout.ts';
 import type { Floor } from './floor.ts';
 import { distance, facingVector, onFigure, toScreen, type Point } from './geometry.ts';
@@ -49,6 +50,19 @@ const STAY_MS: Readonly<Record<Activity, readonly [number, number]>> = {
 
 export const visitorId = (name: string) => `visitor:${name}`;
 
+/** How long a visitor at a birthday party wishes it, in ms. */
+const WISH_MS = 4000;
+
+/**
+ * Whose birthday a visitor wishes out loud now, or null: at a birthday party, once there, the first of two then the
+ * second (a turn of WISH_MS each), everyone the day is for (`guests`) but themselves; then they show what they do.
+ */
+export function birthdayWishOf(visitor: Visitor, festival: Festival | null, guests: readonly string[]): readonly string[] | null {
+  if (festival !== 'birthday' || visitor.phase !== 'staying' || visitor.spot.activity !== 'party') return null;
+  const celebrated = guests.filter((name) => name !== visitor.name);
+  return celebrated.length > 0 && Math.floor(visitor.stayed / WISH_MS) === visitor.order ? celebrated : null;
+}
+
 export function rhythmAt(hour: number): Rhythm {
   if (hour >= 7 && hour < 10) return { every: [2, 4], weights: { coffee: 4, water: 1, window: 1, party: 2 } };
   if (hour >= 10 && hour < 12) return { every: [4, 7], weights: { coffee: 1, water: 2, window: 1, books: 2, party: 2 } };
@@ -71,14 +85,17 @@ function pickActivity(weights: Rhythm['weights'], available: ReadonlySet<Activit
   return null;
 }
 
+/** What visits need of a floor: its spots, its door, and the routes to a spot and back to the door (Floor; the cozy rooms' own, cozy/visits.ts). */
+export type VisitFloor = Pick<Floor, 'door' | 'route' | 'pathToDoor'> & { readonly layout: { readonly visitSpots?: readonly VisitSpot[] } };
+
 export class Visits {
   readonly visitors = new Map<string, Visitor>();
-  private readonly floor: Floor;
+  private readonly floor: VisitFloor;
   private readonly random: () => number;
   /** ms until the next visit; the first one comes soon after the room opens */
   private wait: number;
 
-  constructor(floor: Floor, random: () => number = Math.random) {
+  constructor(floor: VisitFloor, random: () => number = Math.random) {
     this.floor = floor;
     this.random = random;
     this.wait = 8_000 + random() * 12_000;
@@ -88,17 +105,20 @@ export class Visits {
 
   /**
    * Moves the visitors, and sends someone in when it is time. `free`: the crew members without a session (a visitor
-   * who gets one leaves); `hour`: the hour shown; `blocked`: a floor point taken by the user (a sofa they sit on).
+   * who gets one leaves, as does one whose spot the floor no longer offers: a sofa a session now takes); `hour`: the
+   * hour shown; `blocked`: a floor point taken by the user (a sofa they sit on).
    */
   step(ms: number, { free, hour, enabled, blocked }: { free: readonly string[]; hour: number; enabled: boolean; blocked: Point | null }) {
     const stillFree = new Set(enabled ? free : []);
+    const spots = this.spots;
+    const welcome = (visitor: Visitor) => stillFree.has(visitor.name) && spots.includes(visitor.spot);
     for (const [id, visitor] of this.visitors) {
       if (visitor.outside > 0) {
-        if (stillFree.has(visitor.name)) visitor.outside -= ms;
+        if (welcome(visitor)) visitor.outside -= ms;
         else this.visitors.delete(id);
         continue;
       }
-      if (visitor.phase !== 'leaving' && !stillFree.has(visitor.name)) this.leave(visitor);
+      if (visitor.phase !== 'leaving' && !welcome(visitor)) this.leave(visitor);
       const arrived = advanceAlong(visitor, STROLL_SPEED * ms / 1000);
       if (visitor.phase === 'leaving') { if (arrived) this.visitors.delete(id); continue; }
       if (visitor.phase === 'coming' && arrived) this.settle(visitor);

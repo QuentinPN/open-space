@@ -7,7 +7,7 @@ import type { TerminalKind } from '../../shared/terminal.ts';
 import { applyGlassOpacity } from '../design/glass.ts';
 import { IS_MAC, IS_WINDOWS } from '../lib/platform.ts';
 import { INBOUND_POLICIES, WORKFLOW_SIZES, type ClaudeSettings, type ClaudeSwitch } from '../../shared/claude-settings.ts';
-import { ACCOUNTS_BROWSERS, EFFORTS, GLASS_OPACITY, WINDOW_STYLES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, PERMISSION_MODES, TIME_FORMATS, type Preferences } from '../../shared/protocol.ts';
+import { ACCOUNTS_BROWSERS, EFFORTS, GLASS_OPACITY, HOME_THEMES, WINDOW_STYLES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, PERMISSION_MODES, ROOM_STYLES, TIME_FORMATS, type HomeTheme, type Preferences, type RoomStyle } from '../../shared/protocol.ts';
 import { ROOM_THEMES, type RoomTheme } from '../../shared/room-themes.ts';
 import { matchesAll } from '../../shared/search.ts';
 import { t } from '../i18n/index.ts';
@@ -18,7 +18,7 @@ import { CONFIG_LABELS, settingEntries, type SettingRow } from '../state/setting
 import {
   ActivityIcon, AgentIcon, AutomatonIcon, TagIcon, BellIcon, DiffIcon, BranchIcon, PipIcon, CursorIcon, DownloadIcon, CalendarIcon, ChangelogIcon, ChartIcon, ClockIcon, CloseIcon, CoffeeIcon, CopyIcon, RadioIcon, CrewIcon, DeskIcon, ExternalLinkIcon, FestivalIcon, FolderIcon,
   CompactIcon, FreeWindowsIcon, GaugeIcon, GlobeIcon, InboxIcon, InfoIcon, ItsMeIcon, KeyIcon, KeyboardIcon, LanguageIcon, MessageIcon, NotesIcon, PlanIcon, RefreshIcon, SearchIcon, SettingsIcon, SoundIcon,
-  OpacityIcon, PaletteIcon, PhoneIcon, SparklesIcon, TerminalIcon, ThinkingIcon, TimerIcon, TuneIcon, UltracodeIcon, WebhookIcon, WorkflowIcon,
+  HomeIcon, OpacityIcon, PaletteIcon, PhoneIcon, RoomsIcon, SparklesIcon, TerminalIcon, ThinkingIcon, TimerIcon, TuneIcon, UltracodeIcon, WebhookIcon, WorkflowIcon,
 } from './Icons.tsx';
 import { Copyable } from './Copyable.tsx';
 import { AccountAction } from './AccountAction.tsx';
@@ -54,7 +54,7 @@ const LAYOUT: Readonly<Partial<Record<SettingsSection, readonly (readonly [Group
   ],
   folders: [['places', ['roots', 'defaultFolder']], ['files', ['journalFolder']]],
   // what Open Space looks like: the windows, then the room and its people
-  office: [['appearance', ['windowStyle', 'glassOpacity', 'tagColors', 'reduceMotion']], ['life', ['theme', 'festivals', 'officeLife', 'hideNames', 'radio', 'previewFestival', 'previewHour']], ['crew', ['crew']]],
+  office: [['appearance', ['windowStyle', 'glassOpacity', 'tagColors', 'reduceMotion']], ['life', ['theme', 'roomStyle', 'homeTheme', 'festivals', 'officeLife', 'hideNames', 'radio', 'previewFestival', 'previewHour']], ['crew', ['crew']]],
   // what starts sessions without the user at the keyboard, and the chat bots and programs that reach Open Space (body())
   connections: [['automata', ['automata', 'hooksAddress', 'automataFolder']], ['phone', ['phoneAccess']]],
   about: [['appearance', ['version', 'claude', 'account', 'links', 'dockApp']]],
@@ -167,7 +167,7 @@ function SettingsEditor() {
 
   const goTo = (next: SettingsSection) => { setQuery(''); store().openSettings(true, next); };
 
-  const matches = useMemo(() => (query.trim() ? settingEntries().filter((entry) => matchesAll(`${entry.label} ${entry.sectionLabel} ${entry.words}`, query)) : null), [query]);
+  const matches = useMemo(() => (query.trim() ? settingEntries(draft.roomStyle).filter((entry) => matchesAll(`${entry.label} ${entry.sectionLabel} ${entry.words}`, query)) : null), [query, draft.roomStyle]);
 
   const setClaude = <K extends keyof ClaudeSettings>(key: K, value: ClaudeSettings[K]) => change({ claude: withSetting(draft.claude, key, value, claudeDefaults[key]) });
   /** Under a Claude Code row that Open Space sets: Claude Code's own value, and the way back to it. */
@@ -404,6 +404,21 @@ function SettingsEditor() {
         <Row key={id} id={id} flash={flash} icon={<PaletteIcon />} title={rows.theme.title} hint={rows.theme.hint}>
           <select aria-labelledby={`setting-${id}-title`} value={draft.theme} onChange={(e) => change({ theme: e.target.value as RoomTheme })}>
             {ROOM_THEMES.map((theme) => <option key={theme} value={theme}>{rows.theme.options[theme]}</option>)}
+          </select>
+        </Row>
+      );
+      case 'roomStyle': return (
+        <Row key={id} id={id} flash={flash} icon={<RoomsIcon />} title={rows.roomStyle.title} hint={rows.roomStyle.hint}>
+          <select aria-labelledby={`setting-${id}-title`} value={draft.roomStyle ?? 'classic'} onChange={(e) => change({ roomStyle: e.target.value as RoomStyle })}>
+            {ROOM_STYLES.map((style) => <option key={style} value={style}>{rows.roomStyle.options[style]}</option>)}
+          </select>
+        </Row>
+      );
+      // the cozy rooms' own: the classic office has no home
+      case 'homeTheme': return draft.roomStyle !== 'cozy' ? null : (
+        <Row key={id} id={id} flash={flash} icon={<HomeIcon />} title={rows.homeTheme.title} hint={rows.homeTheme.hint}>
+          <select aria-labelledby={`setting-${id}-title`} value={draft.homeTheme ?? 'studio'} onChange={(e) => change({ homeTheme: e.target.value as HomeTheme })}>
+            {HOME_THEMES.map((theme) => <option key={theme} value={theme}>{rows.homeTheme.options[theme]}</option>)}
           </select>
         </Row>
       );

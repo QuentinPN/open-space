@@ -16,6 +16,7 @@ import { Launcher } from './command/Launcher.tsx';
 import { AttentionAnnouncer, ConnectionBanner, Toasts } from './command/Notices.tsx';
 import { activeProject, projectsOf } from './state/projects.ts';
 import { RoomView } from './room/RoomView.tsx';
+import { CozyView } from './room/cozy/CozyView.tsx';
 import { ServerRoomEmpty } from './command/ServerRoomEmpty.tsx';
 import { SessionList } from './command/SessionList.tsx';
 import { Sky, refreshFrost } from './room/Sky.tsx';
@@ -53,6 +54,8 @@ export function App() {
   // the server room is always there to go to; it fills up once there is a trigger or the external runs' folder
   const room = view === 'repos' ? 'lounge' : view === 'automates' ? 'automata' : 'office';
   const day = useFestival();
+  // the cozy rooms (a little room per project) take the office's and the break room's place; the server room stays the classic one
+  const cozy = useSessions((s) => s.preferences.roomStyle === 'cozy') && room !== 'automata';
   // the room and the sky read the theme as they paint: set before they mount again for it (their keys)
   const theme = useSessions((s) => s.preferences.theme);
   setRoomTheme(theme);
@@ -232,7 +235,7 @@ export function App() {
       {/* the dashboards show no session: one still selected must not take their place on a narrow screen */}
       <main className="cp-main" data-detail={view !== 'dashboards' && selectedId !== null} data-view={view}>
         <div className="cp-main__content">
-          {view === 'focus' ? <SessionList /> : view === 'dashboards' ? <Dashboards /> : <RoomView key={`${room}:${theme}:${day.festival}:${day.guests.join()}`} room={room} day={day}/>}
+          {view === 'focus' ? <SessionList /> : view === 'dashboards' ? <Dashboards /> : cozy ? <CozyView key="cozy" day={day} /> : <RoomView key={`${room}:${theme}:${day.festival}:${day.guests.join()}`} room={room} day={day}/>}
           {room === 'automata' && view !== 'focus' && <ServerRoomEmpty />}
         </div>
         {/* docked mods keep their place in the grid, the launcher beside them; the dashboards are the mods alone */}

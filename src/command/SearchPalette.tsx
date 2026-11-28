@@ -91,7 +91,8 @@ function PaletteContent() {
     return { id, label, words: more };
     // each mod opens or comes to the front by its name
   }).concat(mods.map((mod) => ({ id: `${MOD_ACTION}${mod.id}`, label: mod.name, words: `mod ${mod.description}` }))), [sound, notifications, words, mods]);
-  const settings = useMemo(settingEntries, []);
+  const roomStyle = useSessions((s) => s.preferences.roomStyle);
+  const settings = useMemo(() => settingEntries(roomStyle), [roomStyle]);
 
   const everything = useMemo(
     () => searchResults({ query, filter: 'all', sessions: Object.values(sessions), hits, commands, actions, settings }),

@@ -91,6 +91,11 @@ export function roomSessions(all: readonly SessionInfo[], seen: SeenSequences, r
   ];
 }
 
+/** The sessions of a room its plan found no seat for (the room's "+N"), in the room's order. */
+export function unseatedSessions(sessions: readonly SessionInfo[], seen: SeenSequences, room: RoomKind, plan: RoomPlan): SessionInfo[] {
+  return roomSessions(sessions, seen, room).flat().filter((session) => !plan.seats.has(session.id));
+}
+
 /** Within a priority group, people already seated keep their place before newcomers (no musical chairs). */
 function seatedFirst<T>(group: readonly T[], isSeated: (item: T) => boolean): T[] {
   return [...group.filter(isSeated), ...group.filter((item) => !isSeated(item))];

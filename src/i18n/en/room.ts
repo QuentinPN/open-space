@@ -24,6 +24,17 @@ export const room: Dictionary['room'] = {
     more: (count) => `${plural(count, 'more session', 'more sessions')} without a seat`,
     list: 'Sessions without a seat',
   },
+  cozy: {
+    home: 'Your flat',
+    servers: 'Server room',
+    back: 'All rooms',
+    show: { label: 'Rooms shown', active: 'Active', recent: 'Recent + pinned' },
+    pin: (project) => `Pin ${project}`,
+    unpin: (project) => `Unpin ${project}`,
+    asleep: (count) => `${plural(count, 'more session sleeps', 'more sessions sleep')} here`,
+    description: (rooms, sessions) => `${plural(rooms, 'room', 'rooms')}, ${plural(sessions, 'session', 'sessions')}.`,
+    clock: { hint: 'See the time', time: (time) => `It is ${time}` },
+  },
   speaker: (label) => `${label}:`,
   petLines: {
     droid: ['Beep!', 'Beep-boop!', 'Bwee-oop?', 'Brrrip!', 'Beep beep.'],

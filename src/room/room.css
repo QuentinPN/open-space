@@ -86,3 +86,56 @@
 /* the hour of the room's light: a slider, the time it shows, and a way back to the real time */
 
 
+
+/* the cozy rooms (cozy/CozyView.tsx, Preferences.roomStyle 'cozy'): a bar over a board of little rooms, one canvas and
+   the rooms' plates over it. The plates' colours come from COZY_PALETTE through the --cozy-* variables. */
+.cp-cozy { grid-template-rows: auto minmax(0, 1fr); }
+.cp-cozy__bar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-height); }
+/* the board is placed by CozyView (geometry.ts fitOverview): beside the status card, the bubbles' band free above it */
+.cp-cozy__stage { position: relative; min-height: 0; }
+/* moved and zoomed like the classic room (useRoomFrame.ts): same variables, settling and grab cursors as .cp-room__stage */
+.cp-cozy__board { position: absolute; translate: var(--room-x, 0) var(--room-y, 0); scale: var(--room-scale, 1); transform-origin: 0 0; }
+.cp-cozy__board[data-settling] { transition: translate 220ms cubic-bezier(0.2, 0.8, 0.2, 1), scale 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+:root[data-alt] .cp-cozy__board, :root[data-alt] .cp-cozy__canvas { cursor: grab; }
+.cp-cozy__board[data-dragging], .cp-cozy__board[data-dragging] .cp-cozy__canvas { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .cp-cozy__board[data-settling] { transition: none; } }
+.cp-cozy__board > .cp-room__bubbles { inset: calc(-1 * var(--cozy-band, 0px)) 0 0 0; }
+.cp-cozy__canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+.cp-cozy__board[data-hovering] .cp-cozy__canvas { cursor: pointer; }
+/* a room's plate, on the front of its floor */
+.cp-cozy__plate {
+  position: absolute; left: var(--plate-x); top: var(--plate-y); translate: -50% -50%; z-index: 1;
+  display: flex; align-items: center; gap: 2px; max-width: 16rem; padding: 2px 4px; border-radius: 999px;
+  background: var(--cozy-plate); color: var(--cozy-plate-text); font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-pixel); white-space: nowrap;
+}
+.cp-cozy__plate[data-lit='false'] { background: var(--cozy-plate-dim); }
+.cp-cozy__plate :is(button, span) { color: inherit; font: inherit; }
+.cp-cozy__plate button { border: 0; background: transparent; cursor: pointer; }
+.cp-cozy__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 1px var(--space-2); border-radius: 999px; }
+.cp-cozy__plate[data-hovered] .cp-cozy__name, .cp-cozy__plate button.cp-cozy__name:hover { color: var(--cozy-plate-hover); }
+.cp-cozy__pin { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 999px; opacity: 0.55; }
+.cp-cozy__pin .cp-icon { width: 12px; height: 12px; }
+.cp-cozy__pin:hover, .cp-cozy__pin[aria-pressed='true'] { opacity: 1; }
+.cp-cozy__pin[aria-pressed='true'] { color: var(--cozy-plate-hover); }
+.cp-cozy__more { padding: 1px var(--space-2); border-radius: 999px; }
+.cp-cozy__plate .cp-cozy__more { background: var(--room-more); color: var(--room-more-text); }
+.cp-cozy__asleep { padding-inline: var(--space-1) var(--space-2); opacity: 0.75; }
+.cp-cozy__list {
+  position: absolute; top: calc(100% + var(--space-1)); left: 50%; translate: -50% 0; z-index: 2; min-width: 12rem;
+  list-style: none; margin: 0; padding: var(--space-1); display: grid; max-height: 16rem; overflow: auto;
+  background: var(--color-surface-raised); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-overlay);
+}
+.cp-cozy__list li button { width: 100%; text-align: left; padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--color-text); font: var(--text-sm) var(--font-ui); }
+.cp-cozy__list li button:hover { background: var(--color-surface-sunken); }
+/* the time a room's clock tells, in a card over it (its tail under it points at the clock) */
+.cp-cozy__clock {
+  position: absolute; left: var(--clock-x); top: var(--clock-y); translate: -50% calc(-100% - 6px); z-index: 3;
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-md);
+  background: var(--color-surface-raised); color: var(--color-text); border: var(--border-width) solid var(--color-border-strong); box-shadow: var(--shadow-overlay);
+  font: var(--weight-bold) var(--text-xl) / 1.2 var(--font-pixel); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cp-cozy__clock::after {
+  content: ''; position: absolute; left: 50%; top: 100%; translate: -50% -50%; rotate: 45deg; width: 8px; height: 8px;
+  background: inherit; border: inherit; border-width: 0 var(--border-width) var(--border-width) 0;
+}
+.cp-cozy__back .cp-icon { margin-inline-end: var(--space-1); }

@@ -29,6 +29,19 @@ export const room = {
     more: (count: number) => `${plural(count, 'autre session', 'autres sessions')} sans place`,
     list: 'Sessions sans place',
   },
+  /** the cozy rooms (src/room/cozy/): a little room per project, the user's flat in the middle */
+  cozy: {
+    home: 'Chez toi',
+    servers: 'Salle des serveurs',
+    back: 'Toutes les pièces',
+    show: { label: 'Pièces montrées', active: 'Actifs', recent: 'Récents + épinglés' },
+    pin: (project: string) => `Épingler ${project}`,
+    unpin: (project: string) => `Désépingler ${project}`,
+    asleep: (count: number) => `${plural(count, 'autre session dort', 'autres sessions dorment')} ici`,
+    description: (rooms: number, sessions: number) => `${plural(rooms, 'pièce', 'pièces')}, ${plural(sessions, 'session', 'sessions')}.`,
+    /** a room's clock: what a click on it does, and the time it then tells */
+    clock: { hint: 'Voir l’heure', time: (time: string) => `Il est ${time}` },
+  },
   /** before someone's words in a speech bubble */
   speaker: (label: string) => `${label} :`,
   /** what each pet says: a cat meows, a dog barks, the rubber duck listens to your bug, Rocky speaks in chords */

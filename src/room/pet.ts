@@ -150,7 +150,7 @@ export const isSpeaking = (pet: Pet) => pet.time < pet.speakUntil;
 const C = ROOM_PALETTE.pet;
 const CANVAS = { width: 22, height: 17 };
 /** Where the paws touch the floor on the canvas. */
-const FEET = { x: 10, y: 15 };
+export const PET_FEET = { x: 10, y: 15 } as const;
 
 export type Paint = (x: number, y: number, width: number, height: number, colour: string) => void;
 export type Dot = (x: number, y: number, colour: string) => void;
@@ -406,7 +406,7 @@ export function drawPet(context: CanvasRenderingContext2D, pet: Pet, choice: Dra
   }
   const frame: 0 | 1 = Math.floor(time / (pet.activity === 'walk' ? 160 : 900)) % 2 ? 1 : 0;
   const sprite = petSprite(choice, pet.activity, frame, pet.heading.x - pet.heading.y < 0);
-  context.drawImage(sprite, Math.round(x - FEET.x * ART_SCALE), Math.round(y - FEET.y * ART_SCALE), sprite.width * ART_SCALE, sprite.height * ART_SCALE);
+  context.drawImage(sprite, Math.round(x - PET_FEET.x * ART_SCALE), Math.round(y - PET_FEET.y * ART_SCALE), sprite.width * ART_SCALE, sprite.height * ART_SCALE);
 }
 
 /** The hearts of a cuddle, rising from the pet's head and fading. */

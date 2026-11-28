@@ -15,7 +15,7 @@ export const ROWS: Readonly<Record<SettingRow, SettingsSection>> = {
   thinking: 'claude', outputStyle: 'claude', responseLanguage: 'claude', promptSuggestions: 'claude', autoCompact: 'claude', idleCompact: 'claude', autoContinue: 'claude', autoModeInPlan: 'claude',
   workflows: 'claude', ultracodeKeyword: 'claude', workflowSize: 'claude', inbound: 'claude', artifacts: 'claude',
   roots: 'folders', defaultFolder: 'folders',
-  theme: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
+  theme: 'office', roomStyle: 'office', homeTheme: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
   journalFolder: 'folders', automataFolder: 'connections',
   version: 'about', claude: 'about', account: 'about', links: 'about', dockApp: 'about',
 };
@@ -30,9 +30,9 @@ export const CONFIG_LABELS: Readonly<Partial<Record<SettingRow, string>>> = {
 };
 
 /** The rows and the sections without rows, with the words they answer to (their title, hint and section). */
-export function settingEntries(): SettingEntry[] {
+export function settingEntries(roomStyle?: string): SettingEntry[] {
   const words = t.settings.prefs;
-  const rows = (Object.keys(ROWS) as SettingRow[]).filter((row) => (row !== 'dockApp' || IS_MAC) && (row !== 'terminal' || IS_WINDOWS)).map((row) => {
+  const rows = (Object.keys(ROWS) as SettingRow[]).filter((row) => (row !== 'dockApp' || IS_MAC) && (row !== 'terminal' || IS_WINDOWS) && (row !== 'homeTheme' || roomStyle === 'cozy')).map((row) => {
     const { title, hint } = words.rows[row] as { title: string; hint?: string };
     return { section: ROWS[row], row, label: title, sectionLabel: words.sections[ROWS[row]], words: `${hint ?? ''} ${CONFIG_LABELS[row] ? `${CONFIG_LABELS[row]} /config` : ''}` };
   });

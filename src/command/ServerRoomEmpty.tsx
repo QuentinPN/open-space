@@ -5,11 +5,12 @@ import { t } from '../i18n/index.ts';
 import { useNow } from '../lib/useNow.ts';
 import { useSessions } from '../state/sessions.ts';
 import { nextStart } from '../state/triggers.ts';
+import { hasAutomata } from '../state/automata.ts';
 import { AutomatonIcon, PlusIcon } from './Icons.tsx';
 
 export function ServerRoomEmpty() {
   // the external runs' folder counts as automatons too: their robots stand in the room (AutomataDialog's `external`)
-  const empty = useSessions((s) => s.triggers.triggers.length === 0 && s.preferences.automataFolder === '' && s.automata.running.length + s.automata.recent.length === 0);
+  const empty = useSessions((s) => !hasAutomata(s));
   const triggers = useSessions((s) => s.triggers.triggers);
   const openAutomata = useSessions((s) => s.openAutomata);
   const now = useNow(60_000);

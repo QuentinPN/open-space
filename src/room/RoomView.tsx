@@ -6,8 +6,6 @@
 import { inProject } from '../state/projects.ts';
 import { useProjects } from '../state/useProjects.ts';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
-import { AUTOMATON_LOOK, DEFAULT_LOOK } from '../design/people-palette.ts';
-import { runOfPerson } from '../../shared/automata.ts';
 import { seatedRuns } from '../state/automata.ts';
 import { ROOM_PALETTE } from '../design/room-palette.ts';
 import { t } from '../i18n/index.ts';
@@ -22,8 +20,8 @@ import type { Look } from '../../shared/look.ts';
 import { LOUNGE, OFFICE, SERVER_ROOM } from '../../shared/room-layout.ts';
 import { paintBackdrop } from './backdrop.ts';
 import { BUBBLE_LANE, BUBBLE_ROW_HEIGHT, VISIBLE_ROWS, bubbleText, pruneBubbles, pushBubble, type Bubble } from './bubbles.ts';
-import { decorOf, planRoom, roomSessions, type RoomKind } from './cast.ts';
-import { chibiHead, chibiSprites, lookOfStranger } from './chibi.ts';
+import { decorOf, planRoom, unseatedSessions, type RoomKind } from './cast.ts';
+import { chibiHead, chibiSprites } from './chibi.ts';
 import { outfitFor } from './outfits.ts';
 import { TAG_FONT, paintFrame, type HoveredThing } from './draw.ts';
 import { isOrbAt } from './server-room.ts';
@@ -38,14 +36,14 @@ import { PLAYER_ID, Scene, selfName, type Character } from './scene.ts';
 import type { Pose } from './sprites.ts';
 import { modsNews, showsMetricsBadge } from './metrics.ts';
 import { useRoomFrame } from './useRoomFrame.ts';
+import { runFrames } from './frame-loop.ts';
 import { ArrangeHint } from './ArrangeHint.tsx';
+import { crewLook } from './looks.ts';
 import { boardContent } from './whiteboard.ts';
 import { advanceTrip, exitsOf, through } from './pet-trip.ts';
 
-const FRAME_MS = 1000 / 15;
-
 /** `scale`: CSS pixels per canvas pixel. `offset`: how much of the canvas is cropped on the left (narrow screens zoom in). */
-interface StageLayout { width: number; scale: number; offset: number }
+export interface StageLayout { width: number; scale: number; offset: number }
 const PRUNE_EVERY_MS = 250;
 /** Held this long on someone, they are picked up; moved further than HOLD_SLOP canvas pixels while held, at once. */
 const HOLD_MS = 250;
@@ -67,8 +65,8 @@ const PALETTE_VARIABLES = {
 
 /** The time of day as a fractional hour (14:30 is 14.5). */
 
-/** The sky of the windows, carried on to the page behind the room (--sky-top and --sky-bottom, read by tokens.css). */
-function showSky(document: Document, lighting: Lighting) {
+/** The sky of the windows, carried on to the page behind the room (--sky-top and --sky-bottom, read by tokens.css). Both room styles. */
+export function showSky(document: Document, lighting: Lighting) {
   const style = document.documentElement.style;
   const top = css(lighting.skyTop), bottom = css(lighting.skyBottom);
   if (style.getPropertyValue('--sky-top') === top && style.getPropertyValue('--sky-bottom') === bottom) return;
@@ -162,14 +160,7 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
   const hint = useRef<HTMLDivElement>(null);
   const [hintText, setHintText] = useState<string | null>(null);
   // the user wears their own look; a session, sub-agent or visitor named like a crew member wears that member's look
-  const lookFor = useMemo(() => (personId: string): Look => {
-    if (personId === PLAYER_ID) return crewRef.current.find((member) => member.self)?.look ?? DEFAULT_LOOK;
-    // an automaton, and the runs it started (their faces on its tag): never a look of the crew
-    if (runOfPerson(personId)) return AUTOMATON_LOOK;
-    const name = scene.nameOf(personId);
-    const member = crewRef.current.find((candidate) => !candidate.self && candidate.name === name);
-    return member ? member.look ?? DEFAULT_LOOK : lookOfStranger(personId);
-  }, [scene]);
+  const lookFor = useMemo(() => (personId: string): Look => crewLook(personId, scene.nameOf(personId), crewRef.current), [scene]);
   // what the festival puts on everyone (a sub-agent's head, in a tag, is drawn without it)
   // the automatons are robots of their role (robot.ts), everyone else a chibi in the festival's outfit
   const [sprites] = useState(() => withRobots(chibiSprites(lookFor, (personId) => personId === PLAYER_ID
@@ -181,11 +172,10 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
   const [bubbles, setBubbles] = useState<readonly Bubble[]>([]);
   const [layout, setLayout] = useState<StageLayout>({ width: 0, scale: 1, offset: 0 });
   const list = useMemo(() => Object.values(sessions), [sessions]);
-  const inRoom = useMemo(() => roomSessions(list, seen, room).flat(), [list, seen, room]);
   // the plan reads who sits where now: it changes with the sessions and with a move by hand (`moves`), and the scene follows it below
   const bots = useMemo(() => seatedRuns(automata), [automata]);
   const plan = useMemo(() => planRoom(list, seen, new Map([...keptSeats.current, ...scene.seats()]), floor.seatCount, room, scene.playerSeats(), bots), [list, seen, scene, floor, room, moves, bots]);
-  const hidden = useMemo(() => inRoom.filter((session) => !plan.seats.has(session.id)), [inRoom, plan]);
+  const hidden = useMemo(() => unseatedSessions(list, seen, room, plan), [list, seen, room, plan]);
   // the automatons without a capsule, shown over the server room's door
   const waiting = useRef(plan.waitingAutomata);
   waiting.current = plan.waitingAutomata;
@@ -210,7 +200,6 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     context.imageSmoothingEnabled = false;
     const backdrop = paintBackdrop(floor.layout, festival, decorOf(room), guests);
     const dozing = room === 'lounge';
-    let timer: number | undefined;
     let last = 0;
     const frame = () => {
       const now = performance.now();
@@ -229,18 +218,8 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
       // through the teleporter: the other room opens, the user coming in on its twin
       if (scene.playerTeleported) { scene.playerTeleported = false; useSessions.getState().teleport(room === 'office' ? 'automates' : 'salle'); }
     };
-    const start = () => {
-      if (timer !== undefined || document.hidden) return;
-      last = performance.now();
-      frame();
-      timer = window.setInterval(frame, FRAME_MS);
-    };
-    const stop = () => { window.clearInterval(timer); timer = undefined; };
-    const onVisibility = () => (document.hidden ? stop() : start());
-    document.addEventListener('visibilitychange', onVisibility);
     void document.fonts.load(TAG_FONT);
-    start();
-    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+    return runFrames(frame, () => { last = performance.now(); });
   }, [scene, floor, room, festival, guests, sprites, furniture, reducedMotion]);
 
   useEffect(() => {
@@ -329,12 +308,7 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     setHintText(text);
     const card = hint.current;
     if (!card || !text) return;
-    // right of the pointer, or left of it near the right edge
-    // in the stage's own pixels: the room may be zoomed out (useRoomFrame.ts)
-    const box = stage.current!.getBoundingClientRect(), scale = box.width / stage.current!.offsetWidth;
-    const x = (event.clientX - box.left) / scale, y = (event.clientY - box.top) / scale;
-    const left = x + 16 + card.offsetWidth > stage.current!.offsetWidth ? x - 10 - card.offsetWidth : x + 16;
-    card.style.transform = `translate(${Math.round(left)}px, ${Math.round(y + 10)}px)`;
+    placeHintCard(card, stage.current!, event);
   };
   const pickUp = (canvasElement: HTMLCanvasElement) => {
     const held = press.current;
@@ -423,8 +397,19 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
   );
 }
 
+/**
+ * The card of what a click does (.cp-room__hint-card), right of the pointer, or left of it near the stage's right edge,
+ * in the stage's own pixels: the room may be zoomed out (useRoomFrame.ts). Both room styles.
+ */
+export function placeHintCard(card: HTMLElement, stage: HTMLElement, pointer: { clientX: number; clientY: number }) {
+  const box = stage.getBoundingClientRect(), scale = box.width / stage.offsetWidth;
+  const x = (pointer.clientX - box.left) / scale, y = (pointer.clientY - box.top) / scale;
+  const left = x + 16 + card.offsetWidth > stage.offsetWidth ? x - 10 - card.offsetWidth : x + 16;
+  card.style.transform = `translate(${Math.round(left)}px, ${Math.round(y + 10)}px)`;
+}
+
 /** Placed by hand once its width is known: kept inside the room, its tail pointing at the speaker. */
-function SpeechBubble({ bubble, layout, onOpen }: { bubble: Bubble; layout: StageLayout; onOpen: () => void }) {
+export function SpeechBubble({ bubble, layout, onOpen }: { bubble: Bubble; layout: StageLayout; onOpen: () => void }) {
   const element = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const node = element.current!;

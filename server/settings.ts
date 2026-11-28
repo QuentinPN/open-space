@@ -11,7 +11,7 @@ import { hooksAddressOf } from '../shared/triggers.ts';
 import { NOTE_NAME } from '../shared/journal.ts';
 import { parseClaudeSettings } from '../shared/claude-settings.ts';
 import { parseDashboards } from '../shared/dashboards.ts';
-import { ACCOUNTS_BROWSERS, DEFAULT_PERMISSION_MODE, EFFORTS, GLASS_OPACITY, IDLE_COMPACT_MINUTES, ISOLATE_MODES, isPermissionMode, TIME_FORMATS, WINDOW_STYLES, type Preferences } from '../shared/protocol.ts';
+import { ACCOUNTS_BROWSERS, DEFAULT_PERMISSION_MODE, EFFORTS, GLASS_OPACITY, HOME_THEMES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, isPermissionMode, ROOM_STYLES, TIME_FORMATS, WINDOW_STYLES, type Preferences } from '../shared/protocol.ts';
 import { asArray, isJson } from './json.ts';
 import { expandHomePath, isFullPath } from '../shared/paths.ts';
 import { TERMINALS, type TerminalKind } from '../shared/terminal.ts';
@@ -44,12 +44,15 @@ export const DEFAULT_PREFERENCES: Preferences = {
   // a settings file from before worktrees has none: it gets this one
   isolate: 'busy',
   accountsBrowser: 'shared',
+  roomStyle: 'classic',
+  homeTheme: 'studio',
 };
 
 export const MAX_AGENT_NOTE = 600;
 export const MAX_TAG_RULE = 300;
 const MAX_ROOTS = 20;
 const MAX_FAVORITE_NOTES = 200;
+const MAX_PINNED_PROJECTS = 50;
 
 /** The settings found in untrusted JSON: what is valid is kept, the rest left out. Folders must be absolute (the journal's and the numbers file's may start with "~"). */
 export function parsePreferences(raw: unknown, home = os.homedir()): Partial<Preferences> {
@@ -64,6 +67,10 @@ export function parsePreferences(raw: unknown, home = os.homedir()): Partial<Pre
   if (typeof raw.glassOpacity === 'number' && raw.glassOpacity >= GLASS_OPACITY.min && raw.glassOpacity <= GLASS_OPACITY.max) found.glassOpacity = raw.glassOpacity;
   if (IDLE_COMPACT_MINUTES.some((minutes) => minutes === raw.idleCompact)) found.idleCompact = raw.idleCompact as number;
   if (WINDOW_STYLES.some((style) => style === raw.windowStyle)) found.windowStyle = raw.windowStyle as Preferences['windowStyle'];
+  if (ROOM_STYLES.some((style) => style === raw.roomStyle)) found.roomStyle = raw.roomStyle as Preferences['roomStyle'];
+  if (HOME_THEMES.some((theme) => theme === raw.homeTheme)) found.homeTheme = raw.homeTheme as Preferences['homeTheme'];
+  // folders kept as written: they are compared with the sessions' own folders (src/state/projects.ts projectOf)
+  if (Array.isArray(raw.pinnedProjects)) found.pinnedProjects = [...new Set(asArray(raw.pinnedProjects).filter((folder): folder is string => typeof folder === 'string' && isFullPath(folder) && path.isAbsolute(folder)))].slice(0, MAX_PINNED_PROJECTS);
   if (TIME_FORMATS.some((format) => format === raw.timeFormat)) found.timeFormat = raw.timeFormat as Preferences['timeFormat'];
   if (ISOLATE_MODES.some((mode) => mode === raw.isolate)) found.isolate = raw.isolate as Preferences['isolate'];
   if (ACCOUNTS_BROWSERS.some((browser) => browser === raw.accountsBrowser)) found.accountsBrowser = raw.accountsBrowser as Preferences['accountsBrowser'];

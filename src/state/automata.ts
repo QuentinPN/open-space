@@ -29,4 +29,11 @@ export function seatedRuns(state: AutomataState): SeatedAutomaton[] {
 /** Every run the page knows, at work first. */
 export const allRuns = (state: AutomataState): AutomatonRun[] => [...state.running, ...state.recent];
 
+/**
+ * Whether the user has automatons at all: a trigger, the external runs' folder, or runs already seen. Without any, the
+ * server room is an empty card (ServerRoomEmpty) and the cozy overview has no server room (src/room/cozy/).
+ */
+export const hasAutomata = (state: { triggers: { triggers: readonly unknown[] }; preferences: { automataFolder: string }; automata: AutomataState }) =>
+  state.triggers.triggers.length > 0 || state.preferences.automataFolder !== '' || state.automata.running.length + state.automata.recent.length > 0;
+
 export const roleOf = (state: AutomataState, role: string): AgentRole | undefined => state.roles.find((candidate) => candidate.name === role);

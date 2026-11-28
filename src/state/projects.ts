@@ -25,11 +25,17 @@ export function projectsOf(sessions: readonly SessionInfo[], seen: SeenSequences
     byFolder.set(folder, project);
   }
   const projects = [...byFolder.values()];
-  const shared = new Set(projects.filter((project) => projects.some((other) => other !== project && other.name === project.name)).map(({ name }) => name));
-  for (const project of projects) {
-    if (shared.has(project.name)) project.name = project.folder.split(/[\\/]/).filter(Boolean).slice(-2).join('/');
-  }
+  const names = projectNames(projects.map(({ folder }) => folder));
+  for (const project of projects) project.name = names.get(project.folder) ?? project.name;
   return projects.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Each folder's name as the projects show it: its own, or with its parent when two folders have the same name ("web/app", "mobile/app"). */
+export function projectNames(folders: readonly string[]): Map<string, string> {
+  const own = new Map(folders.map((folder) => [folder, folderName(folder)]));
+  const counts = new Map<string, number>();
+  for (const name of own.values()) counts.set(name, (counts.get(name) ?? 0) + 1);
+  return new Map([...own].map(([folder, name]) => [folder, (counts.get(name) ?? 0) > 1 ? folder.split(/[\\/]/).filter(Boolean).slice(-2).join('/') : name]));
 }
 
 /** The digit of ⌥1…⌥9 that opens a new session in a project: its place among the header's projects, the first nine. */

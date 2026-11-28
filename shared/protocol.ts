@@ -599,6 +599,12 @@ export interface Preferences {
   accountsBrowser: AccountsBrowser;
   /** the dashboards of mods (shared/dashboards.ts); absent until the first one is made */
   dashboards?: Dashboard[];
+  /** how the room is drawn: the one big office (classic), or a little room per project (cozy, src/room/cozy/); absent means classic */
+  roomStyle?: RoomStyle;
+  /** the projects (their folders) the cozy overview keeps in sight with the recent ones, even without a session; absent means none */
+  pinnedProjects?: string[];
+  /** how the user's home looks in the cozy rooms (src/room/cozy/home/); absent means the studio */
+  homeTheme?: HomeTheme;
 }
 
 /**
@@ -623,6 +629,12 @@ export const IDLE_COMPACT_MINUTES = [0, 15, 30, 60, 120, 240] as const;
 /** How the windows and the thread are dressed, whatever the room's theme: only a skin, every control stays (tokens.css, components.css). */
 export const WINDOW_STYLES = ['classic', 'match', 'terminal', 'hacker', 'neon', 'dungeon', 'space', 'beach', 'pirate', 'forest'] as const;
 export type WindowStyle = (typeof WINDOW_STYLES)[number];
+/** Preferences.roomStyle: the one big office, or a little room per project. */
+export const ROOM_STYLES = ['classic', 'cozy'] as const;
+export type RoomStyle = (typeof ROOM_STYLES)[number];
+/** Preferences.homeTheme: the user's home in the cozy rooms, the first one by default. */
+export const HOME_THEMES = ['studio', 'loft', 'chalet', 'japonais'] as const;
+export type HomeTheme = (typeof HOME_THEMES)[number];
 export const TIME_FORMATS = ['auto', '24h', '12h'] as const;
 export type TimeFormat = (typeof TIME_FORMATS)[number];
 

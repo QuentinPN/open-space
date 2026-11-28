@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { SessionInfo, SessionState } from '../../shared/protocol.ts';
+import { HOME_THEMES, type SessionInfo, type SessionState } from '../../shared/protocol.ts';
 import { earlySpeech, pauseSpeech, speechOf, USER_SPEAKER } from '../state/speech.ts';
 import { VISIBLE_ROWS, bubbleText, earlyBubbleText, pruneBubbles, pushBubble, type Bubble } from './bubbles.ts';
 import type { SeenSequences } from '../state/queue.ts';
 import { decorOf, planRoom, roleTitle, roomSessions } from './cast.ts';
-import { OFFICE_PORTAL, SERVER_PORTAL, LOUNGE, METRICS_KINDS, METRICS_OBJECT, METRICS_PIECES, OFFICE, ORB, ROOM, SERVER_ROOM, blockedTiles, isMetricsPiece, podFacing, layoutOn, type MetricsKind } from '../../shared/room-layout.ts';
+import { OFFICE_PORTAL, SERVER_PORTAL, LOUNGE, METRICS_KINDS, METRICS_OBJECT, METRICS_PIECES, OFFICE, ORB, ROOM, SERVER_ROOM, blockedTiles, festivalVisits, isMetricsPiece, podFacing, layoutOn, type MetricsKind } from '../../shared/room-layout.ts';
 import { FESTIVALS, easterSunday, festivalDay, festivalOn } from '../../shared/festivals.ts';
 import { outfitFor } from './outfits.ts';
 import { Floor } from './floor.ts';
 import { boxOutline, depthOf, distance, facingVector, insideConvex, isInRoom, tileCenter, toScreen, toTile, type Point } from './geometry.ts';
-import { Scene, directionOf, type Character } from './scene.ts';
-import { Visits, visitorId } from './visitors.ts';
+import { PLAYER_ID, Scene, directionOf, type Character } from './scene.ts';
+import { Visits, birthdayWishOf, visitorId } from './visitors.ts';
 import { createPet, isSpeaking, petBeam, petWords, stepPet, type Pet } from './pet.ts';
 import { assignSeats } from './seats.ts';
 import { NO_GEAR, parseLook, randomLook } from '../../shared/look.ts';
@@ -34,6 +34,19 @@ import { advanceTrip, exitsOf, pickExit, startTrip, through } from './pet-trip.t
 import { PORTAL, pieceHeight, portalPoint } from './pixel-furniture.ts';
 import { WALL_EFFECT } from './themes/kit.ts';
 import { ROOM_THEMES } from '../../shared/room-themes.ts';
+import { COUCH_ARM_DEPTH, COUCH_DEPTH, COUCH_PLACES, DESKS, PERSON_SPACING, ROOM_BOX, ROOM_UNITS, deskPlace, feetOf, figureAt, fitOverview, iso, overviewLayout, roomAt } from './cozy/geometry.ts';
+import { PERSON_SCALE, placeSitters } from './cozy/people.ts';
+import { PixelGrid, box, onLeftFace, onRightFace, wallPoint } from './cozy/pixels.ts';
+import { callers, cozyRooms, projectRoom, recentFolders, shownProjects } from './cozy/rooms.ts';
+import { HOME_DESIGNS, clockOf, pcAt, roomClockAt } from './cozy/home/index.ts';
+import { cozyPetOf, petZzzAt, type PetPixels } from './cozy/pet.ts';
+import { clockMinute, cozyTimeOf, sceneKey } from './cozy/time.ts';
+import { paintFestiveWalls } from './cozy/festive.ts';
+import { homeLightAt, outsideAt } from './cozy/light.ts';
+import { VISIT_UNIT, cozyVisitFloor, occluderDepth, visitSpotsIn, visitedRoom, visitorFeet } from './cozy/visits.ts';
+import { COZY_PALETTE } from '../design/room-palette.ts';
+import { projectsOf } from '../state/projects.ts';
+import type { ConversationSpan } from '../../shared/usage.ts';
 
 const session = (id: string, state: SessionState, extra: Partial<SessionInfo> = {}): SessionInfo => ({
   id, name: id, cwd: `/work/${id}`, model: '', activeModel: '', permissionMode: 'auto', state, stateSince: 1000, createdAt: 0, turns: 1, permissions: [],
@@ -625,6 +638,21 @@ describe('office life', () => {
     }
     assert.ok(closest >= 1.2, `${closest} tiles apart at the closest`);
     assert.equal(visits.visitors.size, 0, 'gone through the door');
+  });
+
+  it('has those at a birthday party wish it out loud in turn, to everyone it is for but themselves', () => {
+    const visits = new Visits(new Floor(OFFICE, 'birthday'), () => 0);
+    assert.equal(visits.start('party', ['Ana', 'Bo'], { together: true }).length, 2);
+    const guests = ['Ana', 'Lou'];
+    const wishes = new Map<string, Set<string>>();
+    for (let elapsed = 0; elapsed < 20_000; elapsed += 100) {
+      visits.step(100, { free: ['Ana', 'Bo'], hour: 9, enabled: true, blocked: null });
+      const wishing = [...visits.visitors.values()].filter((visitor) => birthdayWishOf(visitor, 'birthday', guests));
+      assert.ok(wishing.length <= 1, 'one at a time');
+      for (const visitor of wishing) wishes.set(visitor.name, new Set(birthdayWishOf(visitor, 'birthday', guests)));
+      for (const visitor of visits.visitors.values()) assert.equal(birthdayWishOf(visitor, 'christmas', guests), null, 'only on a birthday');
+    }
+    assert.deepEqual(wishes, new Map([['Ana', new Set(['Lou'])], ['Bo', new Set(['Ana', 'Lou'])]]));
   });
 
   it('never has more than two visitors, and sends away one who got a session, or everyone when it is off', () => {
@@ -1232,5 +1260,363 @@ describe('the automatons as robots', () => {
     const state: AutomataState = { folder: 'ok', running: [run], recent: [], tasks: [], roles: [], agents: { lead: [{ id: 'c1', role: 'code-reviewer', task: '' }] } };
     const plan = planRoom([], {}, NOBODY, SERVER_ROOM.seats.length, 'automata', new Set(), seatedRuns(state));
     assert.deepEqual(plan.people.map((person) => person.automatonRole), ['planner', 'code-reviewer']);
+  });
+});
+
+describe('cozy rooms', () => {
+  const inProject = (folder: string, id: string, state: SessionState, extra: Partial<SessionInfo> = {}) => session(id, state, { cwd: folder, ...extra });
+  const roomOf = (folder: string, sessions: readonly SessionInfo[]) => projectRoom(folder, 'app', { sessions, seen: {}, pinned: [], previous: () => NOBODY });
+
+  it('puts the flat in the middle of the overview, with rooms on every side', () => {
+    const { slots } = overviewLayout(9);
+    const [home, ...others] = slots;
+    assert.ok(others.some((slot) => slot.x < home.x) && others.some((slot) => slot.x > home.x), 'rooms left and right');
+    assert.ok(others.some((slot) => slot.y < home.y) && others.some((slot) => slot.y > home.y), 'rooms above and below');
+  });
+
+  it('keeps every room inside the overview', () => {
+    for (let count = 1; count <= 12; count++) {
+      const { width, height, slots } = overviewLayout(count);
+      assert.equal(slots.length, count);
+      for (const slot of slots) {
+        assert.ok(slot.x >= 0 && slot.x + ROOM_BOX.width <= width, `${count} rooms: inside across`);
+        assert.ok(slot.y >= 0 && slot.y + ROOM_BOX.height <= height, `${count} rooms: inside down`);
+      }
+    }
+  });
+
+  it('seats four sessions at work at their own desks and counts the fifth', () => {
+    const room = roomOf('/work/app', Array.from({ length: 5 }, (_, index) => inProject('/work/app', `s${index}`, 'work', { createdAt: index })));
+    assert.equal(room.desks.people.length, 4);
+    assert.equal(new Set(room.desks.people.map(({ id }) => room.desks.seats.get(id))).size, 4, 'one desk each');
+    assert.equal(room.desks.hiddenSessions, 1);
+  });
+
+  it('lists in "+N" only the sessions at work without a desk, not those stopped on the couch', () => {
+    const working = Array.from({ length: 5 }, (_, index) => inProject('/work/app', `w${index}`, 'work', { createdAt: index }));
+    const room = roomOf('/work/app', [...working, inProject('/work/app', 'stopped', 'closed', { createdAt: 9 })]);
+    assert.deepEqual(room.unseated.map(({ id }) => id), ['w4']);
+    assert.equal(room.unseated.length, room.desks.hiddenSessions);
+    assert.deepEqual(room.couch.people.map(({ id }) => id), ['stopped']);
+  });
+
+  it('names each room like its project in the header, a recent one with its parent beside another of its name', () => {
+    const sessions = [inProject('/work/one/app', 'a', 'work')];
+    const rooms = cozyRooms({ sessions, seen: {}, projects: ['/work/one/app', '/work/two/app'], pinned: [], automata: false, previous: () => NOBODY });
+    const pill = projectsOf(sessions, {}).find(({ folder }) => folder === '/work/one/app')!.name;
+    assert.equal(rooms.find(({ id }) => id === '/work/one/app')!.name, pill);
+    assert.equal(rooms.find(({ id }) => id === '/work/two/app')!.name, 'two/app');
+  });
+
+  it('fits the overview in the largest part of the stage the status card leaves, never under it', () => {
+    const stage = { x: 0, y: 0, width: 1000, height: 800 }, card = { x: 0, y: 500, width: 340, height: 300 };
+    const fit = fitOverview(stage, [card], { width: 100, height: 100 });
+    assert.equal(fit.scale, 6.6, 'the 660 x 800 strip right of the card holds a larger overview than the 1000 x 500 one above it');
+    assert.ok(fit.left >= card.x + card.width, 'beside the card');
+    assert.equal(fit.top, (800 - 660) / 2, 'centred in that strip');
+    assert.equal(fitOverview(stage, [], { width: 100, height: 100 }).scale, 8, 'the whole stage without a card');
+  });
+
+  it("seats nobody where their head would hide another one's", () => {
+    // a chibi seated is 50 pixels tall in the office (chibi.ts), drawn at PERSON_SCALE in the cozy rooms
+    const seatedHeight = 50 * PERSON_SCALE;
+    const feet = [...DESKS.map(deskPlace), ...COUCH_PLACES].map(feetOf);
+    for (const [index, a] of feet.entries()) for (const b of feet.slice(index + 1)) {
+      assert.ok(Math.abs(a.x - b.x) >= PERSON_SPACING || Math.abs(a.y - b.y) >= seatedHeight, `${JSON.stringify(a)} and ${JSON.stringify(b)}`);
+    }
+  });
+
+  it('puts the sessions at rest on the couch, not at the desks, two at most', () => {
+    const resting = Array.from({ length: 3 }, (_, index) => inProject('/work/app', `r${index}`, 'closed', { resting: true, createdAt: index }));
+    const room = roomOf('/work/app', [...resting, inProject('/work/app', 'busy', 'work')]);
+    assert.deepEqual(room.desks.people.map(({ id }) => id), ['busy']);
+    assert.equal(room.couch.people.length, 2);
+    assert.equal(room.couch.hiddenSessions, 1);
+  });
+
+  it('turns the lights off in a room nobody is in, and on for someone napping', () => {
+    assert.equal(roomOf('/work/app', []).lit, false);
+    assert.equal(roomOf('/work/app', [inProject('/work/app', 'r', 'closed', { resting: true })]).lit, true);
+    assert.equal(roomOf('/work/app', [inProject('/work/other', 'w', 'work')]).lit, false, "another project's session is not in it");
+  });
+
+  it('has the server room only when there are automatons, the flat always first', () => {
+    const input = { sessions: [], seen: {}, projects: ['/work/app'], pinned: [], previous: () => NOBODY };
+    assert.deepEqual(cozyRooms({ ...input, automata: false }).map(({ kind }) => kind), ['home', 'project']);
+    assert.deepEqual(cozyRooms({ ...input, automata: true }).map(({ kind }) => kind), ['home', 'project', 'servers']);
+  });
+
+  it('shows the active projects, or also the recent and pinned ones, each once', () => {
+    const sessions = [inProject('/work/beta', 'b', 'work'), inProject('/work/alpha', 'a', 'closed', { resting: true }), { ...inProject('/work/cron', 'c', 'work'), trigger: { id: 'abcdef12', name: 'Recap' } }];
+    assert.deepEqual(shownProjects('active', sessions, {}, ['/work/gamma'], ['/work/delta']), ['/work/alpha', '/work/beta'], "a trigger's run has no project room");
+    assert.deepEqual(shownProjects('recent', sessions, {}, ['/work/gamma', '/work/beta'], ['/work/delta']), ['/work/alpha', '/work/beta', '/work/delta', '/work/gamma']);
+  });
+
+  it('takes the recent projects from the last two weeks of conversations, within the roots, a worktree as its project', () => {
+    const now = 100 * 86_400_000;
+    const talk = (project: string, daysAgo: number): ConversationSpan => ({ id: project, project, start: 0, end: now - daysAgo * 86_400_000, minutes: 1, days: [] });
+    const conversations = [
+      talk('/work/old', 15), talk('/elsewhere/app', 1), talk('/work/app/.claude/worktrees/fix', 3), talk('/work/app', 5), talk('/work/new', 0.5),
+    ];
+    assert.deepEqual(recentFolders(conversations, ['/work'], now), ['/work/new', '/work/app']);
+  });
+
+  it('finds the room a click falls in, the front one where two overlap', () => {
+    const middle = iso(64, 64);
+    const side = [{ x: 0, y: 0 }, { x: 300, y: 0 }];
+    assert.equal(roomAt({ x: middle.x + 300, y: middle.y }, side), 1);
+    assert.equal(roomAt({ x: 0, y: 0 }, side), -1, 'the corner of the box is outside the room');
+    const front = { x: 0, y: 40 }, behind = { x: 0, y: 0 }, both = { x: middle.x, y: middle.y + 40 };
+    assert.equal(roomAt(both, [behind, front]), 1);
+    assert.equal(roomAt(both, [front, behind]), 0);
+  });
+
+  it('finds who a click falls on, the one in front where two overlap', () => {
+    const figures = [{ id: 'front', feet: { x: 50, y: 110 }, top: 30 }, { id: 'back', feet: { x: 50, y: 100 }, top: 30 }];
+    assert.equal(figureAt({ x: 52, y: 95 }, figures), 'front');
+    assert.equal(figureAt({ x: 52, y: 75 }, figures), 'back', 'over the front one\'s head');
+    assert.equal(figureAt({ x: 80, y: 95 }, figures), null);
+  });
+});
+
+describe('the cozy home', () => {
+  const homeOf = (homeTheme: unknown) => cozyRooms({ sessions: [], seen: {}, projects: [], pinned: [], automata: false, homeTheme, previous: () => NOBODY })[0];
+
+  it('is the studio for a settings file without a home, or with one this version does not know', () => {
+    assert.equal(homeOf(undefined).home, 'studio');
+    assert.equal(homeOf('igloo').home, 'studio');
+    assert.equal(homeOf('chalet').home, 'chalet');
+  });
+
+  it('seats the user at their own desk in every home, on the floor, facing a screen, where a click finds them', () => {
+    for (const theme of HOME_THEMES) {
+      const [user] = placeSitters(homeOf(theme), { x: 0, y: 0 }, { height: () => 30 }, 0, true);
+      const { u, v } = user.sitter.place;
+      assert.equal(user.id, PLAYER_ID, theme);
+      assert.deepEqual({ u, v }, { u: HOME_DESIGNS[theme].seat.u, v: HOME_DESIGNS[theme].seat.v }, `${theme}: at its own desk`);
+      assert.ok(u >= 0 && u < ROOM_UNITS && v >= 0 && v < ROOM_UNITS, `${theme}: on the floor`);
+      assert.ok(HOME_DESIGNS[theme].screens.some((screen) => screen.v < v && Math.abs((screen.ua + screen.ub) / 2 - u) < screen.ub - screen.ua), `${theme}: a screen in front`);
+      assert.equal(figureAt({ x: user.feet.x, y: user.feet.y - 10 }, [user]), PLAYER_ID, theme);
+    }
+  });
+
+  it('puts the sessions at work first in the video call, as many as it has tiles', () => {
+    const sessions = [inFolder('/work/a', 'waits', 'wait', 0), inFolder('/work/b', 'works', 'work', 1), inFolder('/work/a', 'also', 'work', 2)];
+    const rooms = cozyRooms({ sessions, seen: {}, projects: ['/work/a', '/work/b'], pinned: [], automata: false, previous: () => NOBODY });
+    assert.deepEqual(callers(rooms, 2).map(({ id }) => id).sort(), ['also', 'works']);
+    assert.equal(callers(rooms, 4).at(-1)!.id, 'waits');
+  });
+});
+
+const inFolder = (folder: string, id: string, state: SessionState, createdAt: number) => session(id, state, { cwd: folder, createdAt });
+
+describe('cozy pixel art', () => {
+  // the lavender nightstand: 12 units along u (its face to the bottom left), 14 along v (its face to the bottom right)
+  const [u0, u1, v0, v1, height] = [2, 14, 106, 120, 18];
+  const drawn = () => { const grid = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height); box(grid, u0, u1, v0, v1, 0, height, ['top', 'left', 'right']); return grid; };
+  const columnsWith = (grid: PixelGrid, colour: string) => {
+    const columns: number[] = [];
+    for (let x = 0; x < grid.width; x++) for (let y = 0; y < grid.height; y++) if (grid.get(x, y) === colour) { columns.push(x); break; }
+    return columns;
+  };
+  /** How many columns in a row share the same value, left to right. */
+  const runs = (values: readonly number[]) => values.reduce<number[]>((lengths, value, index) => {
+    if (index > 0 && value === values[index - 1]) lengths[lengths.length - 1]++;
+    else lengths.push(1);
+    return lengths;
+  }, []);
+
+  it('draws a box with each face as wide as its side', () => {
+    const grid = drawn();
+    assert.equal(columnsWith(grid, 'left').length, u1 - u0);
+    assert.equal(columnsWith(grid, 'right').length, v1 - v0);
+    assert.equal(columnsWith(grid, 'top').length, u1 - u0 + v1 - v0);
+  });
+
+  it('draws a box whose edges drop one pixel every two across, but where two edges meet at its far and near corners', () => {
+    const grid = drawn(), columns = columnsWith(grid, 'top');
+    const firstRow = (x: number) => { let y = 0; while (!grid.get(x, y)) y++; return y; };
+    const lastRow = (x: number) => { let y = grid.height - 1; while (!grid.get(x, y)) y--; return y; };
+    for (const edge of [columns.map(firstRow), columns.map(lastRow)]) {
+      const lengths = runs(edge);
+      assert.deepEqual(lengths.filter((length) => length !== 2), [4], `${edge}`);
+      for (let index = 1; index < edge.length; index++) assert.ok(Math.abs(edge[index] - edge[index - 1]) <= 1, `${edge}`);
+    }
+  });
+
+  it('keeps a line drawn along a face on that face, from one end of it to the other', () => {
+    const grid = drawn(), lines = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
+    onLeftFace(lines, v1, u0, u1, 9, 'left');
+    onRightFace(lines, u1, v0, v1, 9, 'right');
+    for (const face of ['left', 'right']) {
+      const columns = columnsWith(lines, face);
+      assert.deepEqual(columns, columnsWith(grid, face));
+      for (const x of columns) for (let y = 0; y < lines.height; y++) if (lines.get(x, y) === face) assert.equal(grid.get(x, y), face, `${face} face at ${x}, ${y}`);
+    }
+  });
+});
+
+describe('the cozy rooms, like the classic one', () => {
+  const projectRooms = (sessions: SessionInfo[], folders: string[]) => cozyRooms({ sessions, seen: {}, projects: folders, pinned: [], automata: false, previous: () => NOBODY }).filter((room) => room.kind === 'project');
+
+  it('opens a terminal from the middle of each screen of the user\'s computer, in every home, and not from the floor', () => {
+    for (const theme of HOME_THEMES) {
+      for (const { v, ua, ub, za, zb } of HOME_DESIGNS[theme].screens) assert.ok(pcAt(theme, iso((ua + ub) / 2, v, (za + zb) / 2)), `${theme}: its screen`);
+      const spot = HOME_DESIGNS[theme].festiveSpot;
+      assert.ok(!pcAt(theme, iso(spot.u, spot.v)), `${theme}: a corner of its floor`);
+      assert.ok(!pcAt(theme, iso(ROOM_UNITS - 4, ROOM_UNITS - 4)), `${theme}: the front of its floor`);
+    }
+  });
+
+  it('moves the clocks\' hands once a minute: the same minute within it, the next one after, midnight back to the first', () => {
+    assert.equal(clockMinute(14 + 30 / 60), clockMinute(14 + 30.9 / 60));
+    assert.equal(clockMinute(14 + 31 / 60), clockMinute(14 + 30 / 60) + 1);
+    assert.equal(clockMinute(23 + 59 / 60), 1439);
+    assert.equal(clockMinute(24), 0);
+  });
+
+  it('follows the hour in three moods, and draws its rooms again only when the mood or the festival changes', () => {
+    assert.deepEqual([cozyTimeOf(12), cozyTimeOf(19.5), cozyTimeOf(0)], ['day', 'dusk', 'night']);
+    assert.equal(sceneKey(10, null), sceneKey(16.75, null), 'the minutes of a day go by on the same art');
+    assert.notEqual(sceneKey(12, null), sceneKey(23, null));
+    assert.notEqual(sceneKey(12, null), sceneKey(12, 'christmas'));
+    assert.notEqual(sceneKey(12, 'christmas'), sceneKey(12, 'halloween'));
+  });
+
+  it('dresses its walls for every festival', () => {
+    const bare = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
+    for (const festival of FESTIVALS) {
+      const grid = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
+      paintFestiveWalls(grid, festival);
+      assert.ok(grid.cells.some((cell, index) => cell !== bare.cells[index]), festival);
+    }
+  });
+
+  it('shows a window drawn at dusk under the night sky and its moon at night, without stars by day, unchanged at dusk', () => {
+    const outside = { mood: 'dusk' as const, sky: ['#000001', '#000002'], body: ['#000003', '#000004'] as const, stars: ['#000005'] };
+    const night = outsideAt(outside, 'night'), day = outsideAt(outside, 'day');
+    assert.equal(outsideAt(outside, 'dusk').size, 0);
+    assert.ok(outside.sky.every((colour) => COZY_PALETTE.sky.night.includes(night.get(colour) as never)));
+    assert.equal(night.get('#000003'), COZY_PALETTE.sky.moon);
+    assert.ok(!night.has('#000005'), 'the stars stay at night');
+    assert.equal(day.get('#000005'), null, 'a star by day takes the sky beside it');
+    assert.equal(day.get('#000003'), COZY_PALETTE.sky.sun);
+  });
+
+  it('keeps a home\'s own light at its own hour, its lamps brighter at night than by day', () => {
+    for (const theme of HOME_THEMES) {
+      const { lighting, outside } = HOME_DESIGNS[theme];
+      assert.equal(homeLightAt(lighting, outside.mood, outside.mood), lighting, theme);
+      const strength = (time: 'day' | 'night') => homeLightAt(lighting, outside.mood, time).lamps.reduce((sum, lamp) => sum + lamp.colour[0], 0);
+      assert.ok(strength('night') > strength('day'), theme);
+    }
+  });
+
+  it('has the crew drop by the project room opened big, else the first one lit', () => {
+    const rooms = projectRooms([inFolder('/work/b', 'busy', 'work', 0)], ['/work/a', '/work/b']);
+    assert.equal(visitedRoom(rooms, null)?.id, '/work/b');
+    assert.equal(visitedRoom(rooms, '/work/a')?.id, '/work/a');
+    assert.equal(visitedRoom([], null), null);
+  });
+
+  it('walks a visitor in from the front of a cozy room to what they came for, and out again once they have a session', () => {
+    const [room] = projectRooms([], ['/work/a']);
+    const visits = new Visits(cozyVisitFloor(() => room), () => 0);
+    const floor = cozyVisitFloor(() => room);
+    for (const activity of ['coffee', 'water', 'window', 'books', 'sofa'] as const) {
+      assert.deepEqual(visits.start(activity, ['Ana']), ['Ana'], activity);
+      const visitor = visits.visitors.get(visitorId('Ana'))!;
+      for (let elapsed = 0; elapsed < 15_000 && visitor.phase === 'coming'; elapsed += 100) visits.step(100, { free: ['Ana'], hour: 3, enabled: true, blocked: null });
+      assert.equal(visitor.phase, 'staying', activity);
+      assert.ok(distance(visitor.position, visitor.spot.at) < 1e-6 && visitor.spot.activity === activity, activity);
+      const { x, y } = visitor.position;
+      assert.ok(x * VISIT_UNIT >= 0 && x * VISIT_UNIT < ROOM_UNITS && y * VISIT_UNIT >= 0 && y * VISIT_UNIT < ROOM_UNITS, `${activity}: on the floor`);
+      for (let elapsed = 0; elapsed < 15_000 && visits.visitors.size; elapsed += 100) visits.step(100, { free: [], hour: 3, enabled: true, blocked: null });
+      assert.equal(visits.visitors.size, 0, `${activity}: gone`);
+    }
+    assert.ok(distance(floor.door, floor.pathToDoor({ x: 3, y: 3 }).at(-1)!) < 1e-6, 'out by where they came in');
+  });
+
+  it('leaves the couch places a session naps on to it', () => {
+    const [room] = projectRooms([session('nap', 'closed', { cwd: '/work/a', resting: true })], ['/work/a']);
+    const sofas = visitSpotsIn(room).filter((spot) => spot.activity === 'sofa');
+    assert.equal(sofas.length, COUCH_PLACES.length - 1);
+    const taken = COUCH_PLACES[room.couch.seats.get('nap')!];
+    assert.ok(sofas.every((spot) => distance(spot.at, { x: taken.u / VISIT_UNIT, y: taken.v / VISIT_UNIT }) > 0.5));
+    assert.equal(visitSpotsIn(projectRooms([], ['/work/a'])[0]).filter((spot) => spot.activity === 'sofa').length, COUCH_PLACES.length);
+  });
+});
+
+describe("the cozy rooms' life, pet and clocks", () => {
+  const projectRooms = (sessions: SessionInfo[], folders: string[]) => cozyRooms({ sessions, seen: {}, projects: folders, pinned: [], automata: false, previous: () => NOBODY }).filter((room) => room.kind === 'project');
+  const height = { height: () => 30 };
+
+  it('draws whoever sits on the couch over its seat and back but under its front arm, a session or a visitor', () => {
+    const [room] = projectRooms([session('a', 'closed', { cwd: '/work/a', resting: true }), session('b', 'closed', { cwd: '/work/a', resting: true })], ['/work/a']);
+    const sitters = placeSitters(room, { x: 0, y: 0 }, height, 0, true).filter(({ sitter }) => sitter.napping);
+    const visitors = COUCH_PLACES.map((place) => visitorFeet({ x: place.u / VISIT_UNIT, y: place.v / VISIT_UNIT }, place.lift).depth);
+    assert.equal(sitters.length, COUCH_PLACES.length);
+    for (const depth of [...sitters.map((placed) => placed.depth), ...visitors]) {
+      assert.ok(depth > COUCH_DEPTH && depth < COUCH_ARM_DEPTH, `${depth}: after the couch, before its arm`);
+    }
+    // what is laid over a visitor on the couch is only what stands in front of them, not the couch itself
+    for (const depth of visitors) assert.ok(occluderDepth(depth)! >= COUCH_DEPTH);
+  });
+
+  it("gathers the crew for a festival's party where the classic office does, as many at a time, and walks them there", () => {
+    const [room] = projectRooms([], ['/work/a']);
+    for (const festival of [null, ...FESTIVALS]) {
+      const party = visitSpotsIn(room, festival).filter((spot) => spot.activity === 'party');
+      assert.equal(party.length, festivalVisits(festival).length, festival ?? 'a plain day');
+      assert.deepEqual(party.map((spot) => spot.together !== undefined), festivalVisits(festival).map((spot) => spot.together !== undefined), festival ?? 'a plain day');
+    }
+    const visits = new Visits(cozyVisitFloor(() => room, () => 'birthday'), () => 0);
+    assert.equal(visits.start('party', ['Ana', 'Bo'], { together: true }).length, 2);
+    for (let elapsed = 0; elapsed < 20_000; elapsed += 100) visits.step(100, { free: ['Ana', 'Bo'], hour: 3, enabled: true, blocked: null });
+    for (const visitor of visits.visitors.values()) assert.ok(visitor.phase === 'staying' && distance(visitor.position, visitor.spot.at) < 1e-6, visitor.name);
+  });
+
+  it('tells the time from a click on the clock of every room and home, and not from beside it', () => {
+    const rooms = [...projectRooms([], ['/work/a']), ...HOME_THEMES.map((theme) => cozyRooms({ sessions: [], seen: {}, projects: [], pinned: [], automata: false, homeTheme: theme, previous: () => NOBODY })[0])];
+    for (const room of rooms) {
+      const { wall, a, z, radius } = clockOf(room), name = room.home ?? room.kind;
+      const [x, y] = wallPoint(wall, a, z);
+      assert.ok(roomClockAt(room, { x: x + 0.5, y: y + 0.5 }), `${name}: its middle`);
+      const [bx, by] = wallPoint(wall, a, z + radius + 12);
+      assert.ok(!roomClockAt(room, { x: bx + 0.5, y: by + 0.5 }), `${name}: the wall above it`);
+      assert.ok(!roomClockAt(room, iso(ROOM_UNITS / 2, ROOM_UNITS / 2)), `${name}: the floor`);
+    }
+  });
+
+  it('draws the pet the user chose, in their colours, a droid as their droid, and none for none', () => {
+    assert.equal(cozyPetOf({ kind: 'none' }), null);
+    assert.deepEqual(cozyPetOf({ kind: 'droid', variant: 'sphere', colors: { fur: '#123456' } }), { kind: 'droid', droid: { model: 'sphere', color: '#123456' } });
+    const dog = { kind: 'dog', variant: 'husky', colors: { fur: '#abcdef' } } as const;
+    assert.deepEqual(cozyPetOf(dog), { kind: 'animal', animal: dog });
+  });
+
+  it("has Z's rise over an animal asleep, and none over a droid at rest", () => {
+    const pixels: PetPixels = { width: 1, height: 1, cells: ['#000000'], feet: { x: 0, y: 0 }, top: 0 };
+    assert.ok(petZzzAt(cozyPetOf({ kind: 'cat', variant: 'plain' })!, pixels, 0, 0));
+    assert.equal(petZzzAt(cozyPetOf({ kind: 'droid', variant: 'dome' })!, pixels, 0, 0), null);
+  });
+
+  it('sends a visitor off the couch place a session then naps on, and keeps one on a place left free', () => {
+    let room = projectRooms([], ['/work/a'])[0];
+    const visits = new Visits(cozyVisitFloor(() => room), () => 0);
+    visits.start('sofa', ['Ana']);
+    visits.start('sofa', ['Bo']);
+    const step = () => { for (let elapsed = 0; elapsed < 15_000; elapsed += 100) visits.step(100, { free: ['Ana', 'Bo'], hour: 3, enabled: true, blocked: null }); };
+    step();
+    const placeOf = (name: string) => COUCH_PLACES.findIndex((place) => distance(visits.visitors.get(visitorId(name))!.position, { x: place.u / VISIT_UNIT, y: place.v / VISIT_UNIT }) < 1e-6);
+    const [ana, bo] = [placeOf('Ana'), placeOf('Bo')];
+    assert.ok(ana >= 0 && bo >= 0 && ana !== bo, 'both seated on the couch');
+    room = projectRooms([session('nap', 'closed', { cwd: '/work/a', resting: true })], ['/work/a'])[0];
+    const napped = room.couch.seats.get('nap')!;
+    assert.ok(napped === ana || napped === bo);
+    visits.step(100, { free: ['Ana', 'Bo'], hour: 3, enabled: true, blocked: null });
+    const [moved, stayed] = napped === ana ? ['Ana', 'Bo'] : ['Bo', 'Ana'];
+    assert.equal(visits.visitors.get(visitorId(moved))?.phase, 'leaving');
+    assert.equal(visits.visitors.get(visitorId(stayed))?.phase, 'staying');
   });
 });

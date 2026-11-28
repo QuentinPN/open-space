@@ -11,6 +11,9 @@ export const DEFAULT_ROOM_FRAME: RoomFrame = { x: 0, y: 0, scale: 1 };
 export const MIN_ROOM_SCALE = 0.6;
 
 export type RoomName = 'office' | 'lounge' | 'automata';
+/** The classic rooms, and the cozy ones: 'cozy' (all the rooms) and 'cozy:<folder>' (one opened big). */
+export type FrameKey = RoomName | 'cozy' | `cozy:${string}`;
+export type RoomFrames = Partial<Record<FrameKey, RoomFrame>>;
 
 export const roomBox = (home: Box, frame: RoomFrame): Box => ({
   left: home.left + frame.x * home.width, top: home.top + frame.y * home.height, width: home.width * frame.scale, height: home.height * frame.scale,
@@ -46,12 +49,12 @@ const isFrame = (value: unknown): value is RoomFrame =>
   typeof value === 'object' && value !== null && ['x', 'y', 'scale'].every((key) => Number.isFinite((value as Record<string, unknown>)[key]));
 
 /** The frames saved in the browser, without whatever an older version or a broken value left there. */
-export function sanitizeRoomFrames(raw: unknown): Partial<Record<RoomName, RoomFrame>> {
+export function sanitizeRoomFrames(raw: unknown): RoomFrames {
   if (typeof raw !== 'object' || raw === null) return {};
-  const frames: Partial<Record<RoomName, RoomFrame>> = {};
-  for (const room of ['office', 'lounge', 'automata'] as const) {
-    const frame = (raw as Record<string, unknown>)[room];
-    if (isFrame(frame)) frames[room] = { x: frame.x, y: frame.y, scale: frame.scale };
+  const frames: RoomFrames = {};
+  for (const [key, frame] of Object.entries(raw)) {
+    const known = key === 'office' || key === 'lounge' || key === 'automata' || key === 'cozy' || key.startsWith('cozy:');
+    if (known && isFrame(frame)) frames[key as FrameKey] = { x: frame.x, y: frame.y, scale: frame.scale };
   }
   return frames;
 }

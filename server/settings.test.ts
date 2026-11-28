@@ -59,6 +59,24 @@ describe('settings', () => {
     assert.equal(DEFAULT_PREFERENCES.isolate, 'busy');
   });
 
+  it('a settings file from before the cozy rooms keeps the classic office, the studio at home and pins nothing', async () => {
+    const file = path.join(folder, 'before-cozy.json');
+    writeFileSync(file, JSON.stringify({ onboarded: true, theme: 'beach' }));
+    const settings = new Settings(file);
+    await settings.load();
+    assert.equal(settings.preferences.roomStyle, 'classic');
+    assert.equal(settings.preferences.homeTheme, 'studio');
+    assert.equal(settings.preferences.pinnedProjects, undefined);
+  });
+
+  it('keeps a known room style, a known home and the pinned projects that are absolute folders', () => {
+    const pinned = path.resolve('/work/app');
+    assert.deepEqual(parsePreferences({ roomStyle: 'cozy', pinnedProjects: [pinned, pinned, 'relative', '~/home', 3] }), { roomStyle: 'cozy', pinnedProjects: [pinned] });
+    assert.deepEqual(parsePreferences({ roomStyle: 'castle' }), {}, 'an unknown room style is left out');
+    assert.deepEqual(parsePreferences({ homeTheme: 'chalet' }), { homeTheme: 'chalet' });
+    assert.deepEqual(parsePreferences({ homeTheme: 'igloo' }), {}, 'an unknown home is left out');
+  });
+
   it('needs the first start until it is done, and keeps the notifications of an older file', async () => {
     const file = path.join(folder, 'settings.json');
     writeFileSync(file, JSON.stringify({ notifications: false }));

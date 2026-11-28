@@ -31,6 +31,10 @@ describe('room frame', () => {
     assert.deepEqual(sanitizeRoomFrames({ automata: { x: 0, y: 0.2, scale: 0.8 } }), { automata: { x: 0, y: 0.2, scale: 0.8 } });
     assert.deepEqual(sanitizeRoomFrames(null), {});
   });
+  it('keeps the cozy frames (all rooms, one room) and drops other keys', () => {
+    const frame = { x: 0.1, y: 0, scale: 0.7 };
+    assert.deepEqual(sanitizeRoomFrames({ cozy: frame, 'cozy:/work/app': frame, 'other': frame, 'cozy:/x': { x: 1 } }), { cozy: frame, 'cozy:/work/app': frame });
+  });
 });
 
 describe('drag threshold', () => {
