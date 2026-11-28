@@ -25,3 +25,22 @@ export function assignSeats(requests: readonly SeatRequest[], previous: Readonly
   }
   return seats;
 }
+
+/**
+ * The seats the user put people on, as saved (localStorage, by room): those of a seat the room still has. Anything
+ * else saved there (an older room's, a broken value) is left out. Both room styles.
+ */
+export function savedSeats(saved: unknown, seatCount: number): Map<string, number> {
+  if (!saved || typeof saved !== 'object') return new Map();
+  return new Map(Object.entries(saved).filter((entry): entry is [string, number] => Number.isInteger(entry[1]) && entry[1] >= 0 && entry[1] < seatCount));
+}
+
+/**
+ * The seats kept by hand after a move: each one's seat now (`seated`), and those kept before for people not in the
+ * room, unless someone now sits on theirs (one person per seat).
+ */
+export function keepSeats(kept: ReadonlyMap<string, number>, seated: ReadonlyMap<string, number>): Map<string, number> {
+  const bySeat = new Map([...kept].map(([id, seat]) => [seat, id]));
+  for (const [id, seat] of seated) bySeat.set(seat, id);
+  return new Map([...bySeat].map(([seat, id]) => [id, seat]));
+}

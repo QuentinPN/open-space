@@ -1,13 +1,14 @@
 // Life in the cozy offices (Preferences.officeLife): the classic room's visits (visitors.ts: who comes, when, for how
 // long, by the hour's rhythm) walked in a project room of the cozy style: a coffee at the counter, a glass at the water
-// cooler, a look out of the window, a book from the drawers, a moment on the couch when nobody naps there, and on a
-// festival the classic office gathers for, a party by its tree or balloons. They come in from the front of the room.
+// cooler, a look out of the window, a book from the drawers, a moment on the couch (the sessions at rest nap in the
+// break room, not there), and on a festival the classic office gathers for, a party by its tree or balloons. They come
+// in from the front of the room.
 // Visitors walk in tiles: here a tile is VISIT_UNIT room units. Pure: tested without a DOM.
 import type { Festival } from '../../../shared/festivals.ts';
 import { festivalVisits, type VisitSpot } from '../../../shared/room-layout.ts';
 import { distance, type Point } from '../geometry.ts';
 import type { VisitFloor } from '../visitors.ts';
-import { COUCH_PLACES, cozyDepth, feetOf, personDepth } from './geometry.ts';
+import { COUCH_PLACES, feetOf, personDepth } from './geometry.ts';
 import type { CozyRoom } from './rooms.ts';
 
 /** Room units in a tile of the visits: they walk at the classic room's pace across a cozy room in a few seconds. */
@@ -53,7 +54,8 @@ const PARTY: readonly CozySpot[] = [
 const parties = new Map<Festival | null, readonly CozySpot[]>();
 /**
  * The party's places on a festival: as many as the classic office has for it (none on most), coming two by two there
- * too. The same spots each time: a visitor keeps theirs only while the room still offers it (visitors.ts Visits.step).
+ * too. The same spots each time: a visitor keeps theirs only while the room still offers it, so the party breaks up
+ * when the festival ends (visitors.ts Visits.step).
  */
 function partyOn(festival: Festival | null): readonly CozySpot[] {
   let spots = parties.get(festival);
@@ -65,29 +67,17 @@ function partyOn(festival: Festival | null): readonly CozySpot[] {
   return spots;
 }
 
-/** The couch's spots are its places: one a session naps on is not free. */
-const couchIndex = (spot: VisitSpot) => COUCH_PLACES.findIndex((place) => distance(tile(place.u, place.v), spot.at) < 0.01);
-
-/**
- * The spots a visitor may go to in a room: all but the couch places its nappers take, and the festival's party. A
- * session comes first: a visitor on a couch place a session then naps on gets up and leaves (visitors.ts Visits.step).
- */
-export function visitSpotsIn(room: CozyRoom | null, festival: Festival | null = null): readonly VisitSpot[] {
-  const napping = new Set(room?.couch.seats.values() ?? []);
-  return [...SPOTS.filter((spot) => spot.activity !== 'sofa' || !napping.has(couchIndex(spot))), ...partyOn(festival)];
-}
+/** The spots a visitor may go to in a project room: the room's own and, on a festival, the party's. */
+export const visitSpotsIn = (festival: Festival | null = null): readonly VisitSpot[] => [...SPOTS, ...partyOn(festival)];
 
 const viaOf = (to: Point) => [...SPOTS, ...PARTY].reduce((best, spot) => (distance(spot.at, to) < distance(best.at, to) ? spot : best)).via.map(([u, v]) => tile(u, v));
 
-/**
- * A cozy project room as the visits see it (visitors.ts VisitFloor): `room()` is the room visited now, read at each
- * step (its nappers come and go), `festival()` the festival it is dressed for.
- */
-export function cozyVisitFloor(room: () => CozyRoom | null, festival: () => Festival | null = () => null): VisitFloor {
+/** A cozy project room as the visits see it (visitors.ts VisitFloor): `festival()` is the festival it is dressed for, read at each step. */
+export function cozyVisitFloor(festival: () => Festival | null = () => null): VisitFloor {
   const door = tile(...DOOR), middle = tile(...MIDDLE);
   return {
     door,
-    layout: { get visitSpots() { return visitSpotsIn(room(), festival()); } },
+    layout: { get visitSpots() { return visitSpotsIn(festival()); } },
     route: (_from, to) => [middle, ...viaOf(to)],
     pathToDoor: (from) => [...viaOf(from).reverse(), middle, { ...door }],
   };
@@ -103,18 +93,4 @@ export function visitedRoom(rooms: readonly CozyRoom[], zoomed: string | null): 
 export function visitorFeet(position: Point, lift: number): { u: number; v: number; feet: Point; depth: number } {
   const u = position.x * VISIT_UNIT, v = position.y * VISIT_UNIT;
   return { u, v, feet: feetOf({ u, v, direction: 'down-right', lift }), depth: personDepth(u, v, lift > 0) };
-}
-
-/** The depths a visitor stands, sits or walks at: what stands in front of each is drawn over them (decor.ts occluders). */
-export const VISIT_DEPTHS: readonly number[] = [...new Set([
-  cozyDepth(...DOOR), cozyDepth(...MIDDLE),
-  ...[...SPOTS, ...PARTY].flatMap((spot) => [
-    personDepth(spot.at.x * VISIT_UNIT, spot.at.y * VISIT_UNIT, (spot.lift ?? 0) > 0),
-    ...spot.via.map(([u, v]) => cozyDepth(u, v)),
-  ]),
-])].sort((a, b) => a - b);
-
-/** The occluder for a visitor at `depth`: the nearest depth at or behind them, so nothing behind them is laid over them. */
-export function occluderDepth(depth: number): number | null {
-  return VISIT_DEPTHS.find((each) => each >= depth - 0.01) ?? null;
 }

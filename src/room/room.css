@@ -102,6 +102,7 @@
 .cp-cozy__board > .cp-room__bubbles { inset: calc(-1 * var(--cozy-band, 0px)) 0 0 0; }
 .cp-cozy__canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .cp-cozy__board[data-hovering] .cp-cozy__canvas { cursor: pointer; }
+.cp-cozy__board[data-carrying] .cp-cozy__canvas { cursor: grabbing; }
 /* a room's plate, on the front of its floor */
 .cp-cozy__plate {
   position: absolute; left: var(--plate-x); top: var(--plate-y); translate: -50% -50%; z-index: 1;
@@ -119,7 +120,6 @@
 .cp-cozy__pin[aria-pressed='true'] { color: var(--cozy-plate-hover); }
 .cp-cozy__more { padding: 1px var(--space-2); border-radius: 999px; }
 .cp-cozy__plate .cp-cozy__more { background: var(--room-more); color: var(--room-more-text); }
-.cp-cozy__asleep { padding-inline: var(--space-1) var(--space-2); opacity: 0.75; }
 .cp-cozy__list {
   position: absolute; top: calc(100% + var(--space-1)); left: 50%; translate: -50% 0; z-index: 2; min-width: 12rem;
   list-style: none; margin: 0; padding: var(--space-1); display: grid; max-height: 16rem; overflow: auto;

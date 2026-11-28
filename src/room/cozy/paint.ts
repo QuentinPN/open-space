@@ -1,25 +1,29 @@
 // One frame of the cozy rooms (src/room/cozy/): each room's art (drawn once per mood of the hour and festival,
-// decor.ts), its clock's hands (outlined under the pointer), its screens at work, its people and visitors and what
-// stands in front of them in depth order, the pet's Z's and the nappers'; the user's home its own way (home/art.ts);
-// then everyone's name tag on top, and what the visitors came for (or their birthday wish).
+// decor.ts, lounge-art.ts), its clock's hands, the white line around what is under the pointer, its screens at work,
+// its people and visitors and what stands in front of them in depth order, the pet's Z's and the nappers'; the user's
+// home its own way (home/art.ts); then everyone's name tag on top, what the visitors came for (or their birthday
+// wish), the hearts and the words of a pet just poked, and the "!" of a mod's news over the home's numbers screen.
 import type { Festival } from '../../../shared/festivals.ts';
 import { ROOM_PALETTE as P } from '../../design/room-palette.ts';
 import { t } from '../../i18n/index.ts';
 import { paintActivity } from '../activity-icons.ts';
-import { paintNameTags, paintSpeech, paintZzz, personTag, TAG_FONT, TAG_LIFT, type FrameOptions, type PlacedTag } from '../draw.ts';
+import { paintDropSeats, paintMetricsBadge, paintNameTags, paintSpeech, paintZzz, personTag, TAG_FONT, TAG_LIFT, type FrameOptions, type PlacedTag } from '../draw.ts';
 import type { Point } from '../geometry.ts';
-import { PLAYER_ID } from '../scene.ts';
+import { drawHearts, type Pet } from '../pet.ts';
+import { PLAYER_ID, type Scene, type SceneFloor } from '../scene.ts';
 import type { Pose, SpriteSource } from '../sprites.ts';
 import type { Activity } from '../visitors.ts';
 import { clockHands, clockOutline } from './clock.ts';
-import { ROOM_CLOCK, paintCode, paintIdleScreen, paintZzzAt, roomArt } from './decor.ts';
-import { CAT_SPOT, iso, type Figure } from './geometry.ts';
-import { paintHome, type HomeThing } from './home/art.ts';
-import { petPixels, petZzzAt, type CozyPet } from './pet.ts';
-import { homeThemeOf, type CallFace } from './home/index.ts';
-import type { PlacedSitter } from './people.ts';
-import { occluderDepth } from './visits.ts';
+import { ROOM_CLOCK, paintCode, paintDoor, paintIdleScreen, paintWhiteboard, paintZzzAt, roomArt } from './decor.ts';
+import type { Figure } from './geometry.ts';
+import { paintHome } from './home/art.ts';
+import { PET_SCALE, petPixels, petZzzAt, type CozyPet } from './pet.ts';
+import { homeThemeOf, metricsBadgeSpot, type CallFace } from './home/index.ts';
+import { loungeArt } from './lounge-art.ts';
+import { PERSON_SCALE, type PlacedSitter } from './people.ts';
+import { outlineOf } from './pixels.ts';
 import type { CozyRoom } from './rooms.ts';
+import { petPawsIn, type CozyThing } from './things.ts';
 
 /**
  * Someone of the crew dropping by (visits.ts): where their feet are in the overview, their pose, what they came for once
@@ -27,8 +31,15 @@ import type { CozyRoom } from './rooms.ts';
  */
 export interface PlacedVisitor extends Figure { name: string; pose: Pose; depth: number; activity: Activity | null; wish: readonly string[] | null; blinkOffset: number }
 
-/** A room of the frame: where it is (its box's top left corner), who sits in it, placed (people.ts placeSitters), who drops by. */
-export interface FrameRoom { room: CozyRoom; at: Point; sitters: readonly PlacedSitter[]; visitors: readonly PlacedVisitor[] }
+/**
+ * A room of the frame: where it is (its box's top left corner), who sits in it, placed (people.ts placeSitters,
+ * scenePeople), who drops by; `carrying`: the scene of a room opened big while someone is carried in it, whose seats
+ * they can be put on show.
+ */
+export interface FrameRoom { room: CozyRoom; at: Point; sitters: readonly PlacedSitter[]; visitors: readonly PlacedVisitor[]; carrying?: Scene<SceneFloor> | null }
+
+/** The pet just poked (things.ts), in the room it lies in: the classic cuddle's hearts and words, and how it looks sitting up. */
+export interface PetPoke { room: string; pet: Pet; awake: CozyPet | null; words: string | null }
 
 export interface CozyFrameOptions extends Pick<FrameOptions, 'hideNames' | 'tagColors' | 'hoveredId' | 'openSessionIds' | 'reducedMotion'> {
   time: number;
@@ -40,12 +51,16 @@ export interface CozyFrameOptions extends Pick<FrameOptions, 'hideNames' | 'tagC
   scale: number;
   /** a name tag's pixels' size on the canvas: the tags keep about the office's size on screen as the rooms grow */
   tagScale: number;
-  /** the room the pet sleeps in, in an office */
+  /** the room the pet sleeps in, out of the user's home (rooms.ts catRoom) */
   catRoom: string;
-  /** the user's pet (pet.ts), or none: asleep in `catRoom`, and in the homes that have a place for it */
+  /** the user's pet (pet.ts) asleep, or none: in `catRoom`, and at home */
   pet: CozyPet | null;
-  /** what is outlined under the pointer, in which room: the user's computer at home, a clock */
-  hovered: { room: string; thing: HomeThing } | null;
+  /** the pet just poked, while it sits up or its hearts float */
+  poke: PetPoke | null;
+  /** what is outlined under the pointer, in which room (things.ts) */
+  hovered: { room: string; thing: CozyThing } | null;
+  /** a mod has news and the mods are closed: a "!" over the home's numbers screen, like over the classic office's TV */
+  metricsBadge: boolean;
   /** the user's first name, on their tag */
   playerName: string;
   /** who shows in the video call on the user's screen at home (home/index.ts callFace) */
@@ -55,7 +70,26 @@ export interface CozyFrameOptions extends Pick<FrameOptions, 'hideNames' | 'tagC
 /** About 15 a second: what the screens and the pet's Z's count by. */
 const frameOf = (time: number) => Math.floor(time / (1000 / 15));
 
+/** The pet as it looks in a room: sitting up there just after a poke, else asleep. */
+const petIn = (room: CozyRoom, options: CozyFrameOptions) => (options.poke?.room === room.id && options.poke.awake ? options.poke.awake : options.pet);
+
 /** Someone seated, drawn in their room's pixels (`at`: the room's corner), with a ring under them while their session is open. */
+let free: CanvasRenderingContext2D | null = null;
+/**
+ * A layer the size of the canvas `context` draws on, set like it, to draw someone off the seats on alone: what stands
+ * in front of them is cut out of them there, so the furniture hides them and not the people drawn before them.
+ */
+function freeLayer(context: CanvasRenderingContext2D): CanvasRenderingContext2D {
+  if (!free) free = document.createElement('canvas').getContext('2d')!;
+  const { width, height } = context.canvas;
+  if (free.canvas.width !== width || free.canvas.height !== height) Object.assign(free.canvas, { width, height });
+  free.setTransform(1, 0, 0, 1, 0, 0);
+  free.clearRect(0, 0, width, height);
+  free.setTransform(context.getTransform());
+  free.imageSmoothingEnabled = false;
+  return free;
+}
+
 function paintSitter(context: CanvasRenderingContext2D, sprites: SpriteSource, placed: PlacedSitter, at: Point, options: CozyFrameOptions) {
   const feet = { x: placed.feet.x - at.x, y: placed.feet.y - at.y };
   if (options.openSessionIds.includes(placed.id)) {
@@ -68,47 +102,79 @@ function paintSitter(context: CanvasRenderingContext2D, sprites: SpriteSource, p
   sprites.draw(context, placed.id, placed.pose, feet.x, feet.y);
 }
 
-function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { room, at, sitters, visitors }: FrameRoom, options: CozyFrameOptions) {
+/** The white line around a room's things under the pointer (a home draws its own): its door, its whiteboard, its clock. */
+const OUTLINED = { door: paintDoor, board: paintWhiteboard } as const;
+
+function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { room, at, sitters, visitors, carrying }: FrameRoom, options: CozyFrameOptions) {
   const frame = options.reducedMotion ? 0 : frameOf(options.time);
   context.setTransform(options.scale, 0, 0, options.scale, at.x * options.scale, at.y * options.scale);
   const hovered = options.hovered?.room === room.id ? options.hovered.thing : null;
   if (room.kind === 'home') {
-    const home = { pet: options.pet, frame, hour: options.hour, festival: options.festival, faces: options.callFaces, hovered };
-    paintHome(context, room.home ?? homeThemeOf(undefined), home, () => { for (const placed of sitters) paintSitter(context, sprites, placed, at, options); });
+    const thing = hovered === 'computer' || hovered === 'metrics' || hovered === 'clock' ? hovered : null;
+    const home = { pet: petIn(room, options), frame, hour: options.hour, festival: options.festival, faces: options.callFaces, hovered: thing };
+    const user = sitters.find((placed) => placed.id === PLAYER_ID);
+    paintHome(context, room.home ?? homeThemeOf(undefined), home, user ? { u: user.sitter.place.u, v: user.sitter.place.v, paint: () => paintSitter(context, sprites, user, at, options) } : null);
     return;
   }
-  const pet = options.catRoom === room.id ? options.pet : null;
-  const art = roomArt(room.kind, room.lit, options.hour, options.festival, pet);
+  const art = room.kind === 'lounge' ? loungeArt(room.lit, options.hour, options.festival) : roomArt(room.kind, room.lit, options.hour, options.festival);
   context.drawImage(art.back, 0, 0);
   context.drawImage(clockHands(ROOM_CLOCK, options.hour), 0, 0);
   if (hovered === 'clock') context.drawImage(clockOutline(ROOM_CLOCK), 0, 0);
+  if (hovered === 'door' || hovered === 'board') context.drawImage(outlineOf(OUTLINED[hovered]), 0, 0);
   // the screens of the back desks, towards us: code going by while their session works
   for (const { sitter } of sitters) {
     if (sitter.desk?.kind !== 'back') continue;
     if (sitter.person?.status === 'working') paintCode(context, sitter.desk, frame);
     else paintIdleScreen(context, sitter.desk);
   }
-  if (pet && art.pet) {
-    const paws = iso(CAT_SPOT.u, CAT_SPOT.v);
-    context.drawImage(art.pet, 0, 0);
+  const pet = options.catRoom === room.id ? petIn(room, options) : null;
+  const paws = pet && petPawsIn(room, options.catRoom);
+  if (pet && paws) {
+    context.drawImage(art.petLayer(pet), 0, 0);
     const zzz = petZzzAt(pet, petPixels(pet), paws.x, paws.y);
     if (zzz) paintZzzAt(context, ...zzz, frame);
   }
+  // someone off the seats (walking, a visitor), with what stands in front of them in the room's art cut out of them
+  const hidden = (depth: number, paint: (layer: CanvasRenderingContext2D) => void) => {
+    const front = art.frontOf(depth);
+    if (!front) { paint(context); return; }
+    const layer = freeLayer(context);
+    paint(layer);
+    layer.globalCompositeOperation = 'destination-out';
+    layer.drawImage(front, 0, 0);
+    layer.globalCompositeOperation = 'source-over';
+    context.save();
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.drawImage(layer.canvas, 0, 0);
+    context.restore();
+  };
   const layers = [
     ...art.pieces.map((piece) => ({ depth: piece.depth, paint: () => context.drawImage(piece.canvas, 0, 0) })),
-    ...sitters.map((placed) => ({ depth: placed.depth, paint: () => paintSitter(context, sprites, placed, at, options) })),
-    // a visitor, then what stands in front of them in the room's art
-    ...visitors.map((visitor) => ({ depth: visitor.depth, paint: () => {
-      sprites.draw(context, visitor.id, visitor.pose, visitor.feet.x - at.x, visitor.feet.y - at.y);
-      const depth = occluderDepth(visitor.depth), front = art.occluders.find((occluder) => occluder.depth === depth);
-      if (front) context.drawImage(front.canvas, 0, 0);
-    } })),
+    ...sitters.map((placed) => ({
+      depth: placed.depth,
+      paint: () => (placed.free ? hidden(placed.depth, (layer) => paintSitter(layer, sprites, placed, at, options)) : paintSitter(context, sprites, placed, at, options)),
+    })),
+    ...visitors.map((visitor) => ({ depth: visitor.depth, paint: () => hidden(visitor.depth, (layer) => sprites.draw(layer, visitor.id, visitor.pose, visitor.feet.x - at.x, visitor.feet.y - at.y)) })),
+    // while someone is carried, the seats they can be put on, under them (they are drawn over everything)
+    ...(carrying ? [{ depth: Number.MAX_VALUE, paint: () => paintDropSeats(context, carrying, options.reducedMotion ? 0 : options.time, PERSON_SCALE) }] : []),
   ];
   for (const layer of layers.sort((a, b) => a.depth - b.depth)) layer.paint();
   context.font = TAG_FONT;
   for (const placed of sitters) {
     if (placed.sitter.napping) paintZzz(context, placed.feet.x - at.x, placed.feet.y - at.y - placed.top - 4, options.reducedMotion ? 0 : options.time, 0);
   }
+}
+
+/** The hearts and the words of the pet just poked, over its head, in the tags' pixels (`tagPixel` of them to a room pixel). */
+function paintPoke(context: CanvasRenderingContext2D, rooms: readonly FrameRoom[], options: CozyFrameOptions, tagPixel: number) {
+  const { poke } = options;
+  const placed = poke && rooms.find(({ room }) => room.id === poke.room);
+  const paws = placed && petPawsIn(placed.room, options.catRoom);
+  const pet = placed && petIn(placed.room, options);
+  if (!poke || !placed || !paws || !pet) return;
+  const x = (placed.at.x + paws.x) * tagPixel, head = (placed.at.y + paws.y - petPixels(pet).top * PET_SCALE) * tagPixel;
+  drawHearts(context, poke.pet, x, head);
+  if (poke.words) paintSpeech(context, poke.words, x, head);
 }
 
 /** The whole frame: `rooms` at their places, the canvas cleared first. */
@@ -145,6 +211,12 @@ export function paintCozy(context: CanvasRenderingContext2D, sprites: SpriteSour
     if (visitor.wish) { paintSpeech(context, t.room.birthdayWish(visitor.wish), visitor.feet.x * tagPixel, head + 4); continue; }
     const bob = options.reducedMotion ? 0 : Math.round(Math.sin((options.time + visitor.blinkOffset) / 500));
     paintActivity(context, visitor.activity, visitor.feet.x * tagPixel, head - 1 + bob);
+  }
+  paintPoke(context, rooms, options, tagPixel);
+  const home = options.metricsBadge ? rooms.find(({ room }) => room.kind === 'home') : undefined;
+  if (home) {
+    const spot = metricsBadgeSpot(home.room.home ?? homeThemeOf(undefined));
+    paintMetricsBadge(context, { x: (home.at.x + spot.x) * tagPixel, y: (home.at.y + spot.y) * tagPixel }, options.reducedMotion ? 0 : options.time);
   }
 }
 

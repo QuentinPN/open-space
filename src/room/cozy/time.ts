@@ -25,3 +25,18 @@ export const clockMinute = (hour: number) => Math.floor((((hour % 24) + 24) % 24
  * again only when this changes, not as the minutes go by.
  */
 export const sceneKey = (hour: number, festival: Festival | null) => `${cozyTimeOf(hour)}|${festival ?? ''}`;
+
+/**
+ * Art kept for a scene (sceneKey): each piece drawn the first time it is asked for, under its own key, and all of it
+ * dropped when the scene changes.
+ */
+export function sceneCache<T>(): (scene: string, key: string, make: () => T) => T {
+  const built = new Map<string, T>();
+  let builtFor = '';
+  return (scene, key, make) => {
+    if (scene !== builtFor) { built.clear(); builtFor = scene; }
+    let value = built.get(key);
+    if (value === undefined) { value = make(); built.set(key, value); }
+    return value;
+  };
+}

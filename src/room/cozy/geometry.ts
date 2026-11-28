@@ -41,6 +41,19 @@ export const ROOM_OUTLINE: readonly Point[] = [
   iso(-WALL_THICKNESS, ROOM_UNITS, WALL_HEIGHT),
 ];
 
+/**
+ * What stands on a room's floor, as people walk round it and are hidden by it: from (u0, v0) to (u1, v1), `height`
+ * pixels up (cozy/floor.ts).
+ */
+export interface Footprint { u0: number; u1: number; v0: number; v1: number; height: number }
+
+/** What stands on a footprint as drawn, as tall as it is, clockwise from the top of its back corner (like ROOM_OUTLINE). */
+export const footprintOutline = ({ u0, u1, v0, v1, height }: Footprint): Point[] =>
+  [iso(u0, v0, height), iso(u1, v0, height), iso(u1, v0), iso(u1, v1), iso(u0, v1), iso(u0, v1, height)];
+
+/** A footprint around a floor point: `half` units each way. */
+export const around = (u: number, v: number, half: number, height: number): Footprint => ({ u0: u - half, u1: u + half, v0: v - half, v1: v + half, height });
+
 /** A place in a room: on a desk's chair or on the couch, facing its desk or the room. `lift`: the seat's height, in pixels. */
 export interface Place { u: number; v: number; direction: Direction; lift: number }
 
@@ -72,8 +85,21 @@ export function deskPlace(desk: Desk): Place {
 /** Two people seated side by side are at least this far apart across the screen, in room pixels: a head's width. */
 export const PERSON_SPACING = 18;
 
+/**
+ * A couch, its back against a back wall: (u, v) its far corner, `depth` from the wall, `length` along it; along the
+ * left wall (v) unless `alongU`, along the right one.
+ */
+export interface Couch { u: number; v: number; depth: number; length: number; alongU?: boolean }
+
+/** A couch's floor point `across` from the wall and `along` it, from its far corner. */
+export const onCouchAt = (couch: Couch, across: number, along: number): [number, number] =>
+  (couch.alongU ? [couch.u + along, couch.v + across] : [couch.u + across, couch.v + along]);
+
+/** The draw order of a couch's front arm, a piece of its own in front of whoever sits at that end. */
+export const couchArmDepth = (couch: Couch) => cozyDepth(...onCouchAt(couch, 11, couch.length - 3));
+
 /** The couch along the left wall, under the window: two places at its two ends, facing the room. */
-export const COUCH = { u: 0, v: 34, depth: 18, length: 44 } as const;
+export const COUCH: Couch = { u: 0, v: 34, depth: 18, length: 44 };
 export const COUCH_PLACES: readonly Place[] = [
   { u: 12, v: 42, direction: 'down-right', lift: 9 },
   { u: 12, v: 66, direction: 'down-right', lift: 9 },
@@ -84,7 +110,7 @@ export const COUCH_PLACES: readonly Place[] = [
  * own in front of whoever sits at that end.
  */
 export const COUCH_DEPTH = cozyDepth(COUCH.u + COUCH.depth / 2, COUCH.v + COUCH.length / 2);
-export const COUCH_ARM_DEPTH = cozyDepth(COUCH.u + 11, COUCH.v + COUCH.length - 3);
+export const COUCH_ARM_DEPTH = couchArmDepth(COUCH);
 
 /** Whether a floor point is on the couch's footprint. */
 const onCouch = (u: number, v: number) => u >= COUCH.u && u <= COUCH.u + COUCH.depth && v >= COUCH.v && v <= COUCH.v + COUCH.length;

@@ -7,10 +7,11 @@ import { insideConvex, type Point } from '../../geometry.ts';
 import { clockAt, type WallClock } from '../clock.ts';
 import { ROOM_CLOCK } from '../decor.ts';
 import { iso, type Place } from '../geometry.ts';
+import { wallPoint, type Painter } from '../pixels.ts';
 import type { CozyRoom } from '../rooms.ts';
 import { chalet } from './chalet.ts';
 import { japonais } from './japonais.ts';
-import type { CallFace, HomeDesign } from './kit.ts';
+import { METRICS_SCREEN, paintMetricsScreen, type CallFace, type HomeDesign } from './kit.ts';
 import { loft } from './loft.ts';
 import { studio } from './studio.ts';
 
@@ -36,6 +37,20 @@ export function pcAt(theme: HomeTheme, point: Point): boolean {
   return HOME_DESIGNS[theme].screens.some(({ v, ua, ub, za, zb }) => insideConvex(point, [
     iso(ua - BEZEL.along, v, zb + BEZEL.up), iso(ub + BEZEL.along, v, zb + BEZEL.up), iso(ub + BEZEL.along, v, za - BEZEL.up), iso(ua - BEZEL.along, v, za - BEZEL.up),
   ]));
+}
+
+const metricsPainters = new Map<HomeTheme, Painter>();
+/** A home's numbers screen drawn alone, the same painter each time (its drawing and its outline are kept by it). */
+export function metricsPainter(theme: HomeTheme): Painter {
+  let paint = metricsPainters.get(theme);
+  if (!paint) { paint = (grid) => paintMetricsScreen(grid, HOME_DESIGNS[theme].metrics); metricsPainters.set(theme, paint); }
+  return paint;
+}
+
+/** Over the middle of a home's numbers screen, in its room's pixels: where the "!" of a mod's news points. */
+export function metricsBadgeSpot(theme: HomeTheme): Point {
+  const { wall, a, z } = HOME_DESIGNS[theme].metrics, [x, y] = wallPoint(wall, a + METRICS_SCREEN.width / 2, z + METRICS_SCREEN.height + 2);
+  return { x, y };
 }
 
 /** The clock on a room's wall: the home's own, else the offices' (the server room's too). */

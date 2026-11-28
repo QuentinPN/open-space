@@ -5,7 +5,7 @@
 // bubble) opens their session in the detail panel.
 import { inProject } from '../state/projects.ts';
 import { useProjects } from '../state/useProjects.ts';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { seatedRuns } from '../state/automata.ts';
 import { ROOM_PALETTE } from '../design/room-palette.ts';
 import { t } from '../i18n/index.ts';
@@ -32,7 +32,7 @@ import { dressRoom, themedLighting } from './themes/index.ts';
 import { SERVERS } from './themes/servers.ts';
 import { robotHead, robotLook, withRobots, type RobotLook } from './robot.ts';
 import { pixelFurniture } from './pixel-furniture.ts';
-import { PLAYER_ID, Scene, selfName, type Character } from './scene.ts';
+import { PLAYER_ID, Scene, selfName } from './scene.ts';
 import type { Pose } from './sprites.ts';
 import { modsNews, showsMetricsBadge } from './metrics.ts';
 import { useRoomFrame } from './useRoomFrame.ts';
@@ -41,14 +41,14 @@ import { ArrangeHint } from './ArrangeHint.tsx';
 import { crewLook } from './looks.ts';
 import { boardContent } from './whiteboard.ts';
 import { advanceTrip, exitsOf, through } from './pet-trip.ts';
+import { keepSeats, savedSeats } from './seats.ts';
+import { useCarry } from './useCarry.ts';
 
 /** `scale`: CSS pixels per canvas pixel. `offset`: how much of the canvas is cropped on the left (narrow screens zoom in). */
 export interface StageLayout { width: number; scale: number; offset: number }
 const PRUNE_EVERY_MS = 250;
-/** Held this long on someone, they are picked up; moved further than HOLD_SLOP canvas pixels while held, at once. */
-const HOLD_MS = 250;
-const HOLD_SLOP = 4;
-const STANDING: Pose = { direction: 'down-right', posture: 'stand', step: 0, blinking: false, smiling: false, gesture: 'none' };
+/** How tall someone is for a click: standing (both room styles). */
+export const STANDING: Pose = { direction: 'down-right', posture: 'stand', step: 0, blinking: false, smiling: false, gesture: 'none' };
 
 /** The boxes around the canvas: a click there is a click on the dark around the room. */
 const BACKDROP_CLASSES = ['cp-room', 'cp-room__fit', 'cp-room__stage', 'cp-room__zoom'];
@@ -143,13 +143,9 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     return new Scene(floor, { withVisitors: room === 'office', atDoor: enteredThroughDoor && !arrivedByPortal, atPortal: arrivedByPortal || room === 'automata' });
   });
   // the seats the user put people on, by session, kept for when they come back (and across reloads)
-  const keptSeats = useRef(new Map(Object.entries(readPreference<Record<string, number>>(`seats:${room}`, {})).filter(([, seat]) => seat < floor.seatCount)));
+  const keptSeats = useRef(savedSeats(readPreference<unknown>(`seats:${room}`, {}), floor.seatCount));
   // counts the moves by hand: the plan is drawn again from the seats they leave
   const [moves, setMoves] = useState(0);
-  const press = useRef<{ character: Character; at: { x: number; y: number }; pointer: number; timer: number } | null>(null);
-  const [carrying, setCarrying] = useState(false);
-  // the click that ends a drop must not open the session
-  const dropped = useRef(false);
   // the crew without a session, who may drop by the office
   const free = useMemo(() => availability(crew, Object.values(sessions)).filter((person) => person.place === 'free').map((person) => person.member.name), [crew, sessions]);
   const freeRef = useRef(free);
@@ -260,12 +256,23 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     const box = event.currentTarget.getBoundingClientRect();
     return { x: (event.clientX - box.left) * CANVAS_WIDTH / box.width, y: (event.clientY - box.top) * CANVAS_HEIGHT / box.height };
   };
+  // a long press on someone picks them up, to put them on another seat
+  const { carrying, handlers, consumeDrop } = useCarry(() => scene, roomPoint, {
+    onPickUp: () => { hoveredId.current = null; setHintText(null); },
+    onDrop: () => {
+      // one person per seat: whoever was kept on a seat someone now sits on loses it
+      keptSeats.current = keepSeats(keptSeats.current, scene.seats());
+      writePreference(`seats:${room}`, Object.fromEntries(keptSeats.current));
+      setMoves((count) => count + 1);
+    },
+  });
 
   // several sessions docked are a layout the user built: a stray click must not close them all (each has its cross)
   const leave = () => { if (sessionsIn(useSessions.getState().columns).length <= 1) clearDesk(); };
 
   const onClick = (event: MouseEvent<HTMLCanvasElement>) => {
-    if (dropped.current) { dropped.current = false; return; }
+    // the click that ends a drop must not open the session
+    if (consumeDrop()) return;
     const point = roomPoint(event);
     if (useSessions.getState().preferences.pet.kind !== 'none' && scene.pokePet(point)) return;
     const character = scene.characterAt(point);
@@ -310,50 +317,6 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     if (!card || !text) return;
     placeHintCard(card, stage.current!, event);
   };
-  const pickUp = (canvasElement: HTMLCanvasElement) => {
-    const held = press.current;
-    if (!held) return;
-    window.clearTimeout(held.timer);
-    press.current = null;
-    if (!scene.pickUp(held.character)) return;
-    canvasElement.setPointerCapture(held.pointer);
-    scene.carryTo(held.at);
-    hoveredId.current = null;
-    setHintText(null);
-    setCarrying(true);
-  };
-
-  // a long press on someone picks them up (⌥ drags the window instead)
-  const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (event.button !== 0 || event.altKey || scene.carried) return;
-    const point = roomPoint(event);
-    const character = scene.characterAt(point);
-    if (!character) return;
-    const element = event.currentTarget;
-    press.current = { character, at: point, pointer: event.pointerId, timer: window.setTimeout(() => pickUp(element), HOLD_MS) };
-  };
-
-  const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    const point = roomPoint(event);
-    if (scene.carried) { scene.carryTo(point); return; }
-    const held = press.current;
-    if (held && Math.hypot(point.x - held.at.x, point.y - held.at.y) > HOLD_SLOP) { held.at = point; pickUp(event.currentTarget); }
-  };
-
-  const onPointerUp = () => {
-    if (press.current) { window.clearTimeout(press.current.timer); press.current = null; }
-    if (!scene.carried) return;
-    dropped.current = true;
-    setCarrying(false);
-    if (!scene.drop()) return;
-    // one person per seat: whoever was kept on a seat someone now sits on loses it
-    const bySeat = new Map([...keptSeats.current].map(([id, seat]) => [seat, id]));
-    for (const [id, seat] of scene.seats()) bySeat.set(seat, id);
-    keptSeats.current = new Map([...bySeat].map(([seat, id]) => [id, seat]));
-    writePreference(`seats:${room}`, Object.fromEntries(keptSeats.current));
-    setMoves((count) => count + 1);
-  };
-
   // the dark around the canvas, on a wide or tall panel: the same as the dark around the room in it
   const onBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target instanceof Element && BACKDROP_CLASSES.some((name) => (event.target as Element).classList.contains(name))) leave();
@@ -370,7 +333,7 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
             <canvas
               ref={canvas} className="cp-room__canvas" width={CANVAS_WIDTH * RENDER_SCALE} height={CANVAS_HEIGHT * RENDER_SCALE} onClick={onClick}
               onMouseMove={onMouseMove} onMouseLeave={onMouseLeave}
-              onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+              {...handlers}
               role="img" aria-label={description}
             />
           </div>

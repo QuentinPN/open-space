@@ -35,6 +35,15 @@ export function route(from: Point, to: Point, isFreeTile: (x: number, y: number)
   return tiles.length ? tiles : [tileCenter(goal)];
 }
 
+/**
+ * A route through the aisles: over the free tiles, never across an `avoided` one (a chair, a sofa: tiles one sits on
+ * but does not walk through) except the one it starts or ends on. Both room styles.
+ */
+export function aisleRoute(from: Point, to: Point, isFreeTile: (x: number, y: number) => boolean, avoided: ReadonlySet<string>): Point[] {
+  const ends = new Set([key(Math.floor(from.x), Math.floor(from.y)), key(Math.floor(to.x), Math.floor(to.y))]);
+  return route(from, to, (x, y) => isFreeTile(x, y) && (!avoided.has(key(x, y)) || ends.has(key(x, y))));
+}
+
 /** Something that walks: where it is, where it looks, and the points still to reach. */
 export interface Mover { position: Point; heading: Point; path: Point[] }
 

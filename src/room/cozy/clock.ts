@@ -5,7 +5,7 @@
 import { COZY_PALETTE as C } from '../../design/room-palette.ts';
 import type { Point } from '../geometry.ts';
 import { ROOM_BOX } from './geometry.ts';
-import { PixelGrid, canvasTarget, hoverOutline, wallEllipse, wallPixel, type PixelTarget, type Wall } from './pixels.ts';
+import { canvasTarget, outlineOf, paintedAt, wallEllipse, wallPixel, type Painter, type PixelGrid, type PixelTarget, type Wall } from './pixels.ts';
 import { clockMinute } from './time.ts';
 
 /**
@@ -51,29 +51,19 @@ function paintWholeClock(grid: PixelGrid, clock: WallClock) {
   else paintClockFace(grid, clock);
 }
 
-const grids = new WeakMap<WallClock, PixelGrid>();
+const painters = new WeakMap<WallClock, Painter>();
+/** The clock drawn alone, the same painter each time (pixels.ts keeps its drawing and its outline by it). */
+const painterOf = (clock: WallClock): Painter => {
+  let paint = painters.get(clock);
+  if (!paint) { paint = (grid) => paintWholeClock(grid, clock); painters.set(clock, paint); }
+  return paint;
+};
 
 /** Whether a point of a room (in its pixels) falls on its clock, or a pixel beside it (they are small). */
-export function clockAt(clock: WallClock, point: Point): boolean {
-  let grid = grids.get(clock);
-  if (!grid) {
-    grid = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
-    paintWholeClock(grid, clock);
-    grids.set(clock, grid);
-  }
-  const x = Math.floor(point.x), y = Math.floor(point.y);
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (grid.get(x + dx, y + dy)) return true;
-  return false;
-}
-
-const outlines = new WeakMap<WallClock, HTMLCanvasElement>();
+export const clockAt = (clock: WallClock, point: Point): boolean => paintedAt(painterOf(clock), point);
 
 /** The white line around a clock under the pointer, on a layer the size of a room. */
-export function clockOutline(clock: WallClock): HTMLCanvasElement {
-  let canvas = outlines.get(clock);
-  if (!canvas) { canvas = hoverOutline((grid) => paintWholeClock(grid, clock)); outlines.set(clock, canvas); }
-  return canvas;
-}
+export const clockOutline = (clock: WallClock): HTMLCanvasElement => outlineOf(painterOf(clock));
 
 const hands = new Map<string, { minute: number; canvas: HTMLCanvasElement }>();
 

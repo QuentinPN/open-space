@@ -31,7 +31,7 @@ export const room: Dictionary['room'] = {
     show: { label: 'Rooms shown', active: 'Active', recent: 'Recent + pinned' },
     pin: (project) => `Pin ${project}`,
     unpin: (project) => `Unpin ${project}`,
-    asleep: (count) => `${plural(count, 'more session sleeps', 'more sessions sleep')} here`,
+    lounge: 'Break room',
     description: (rooms, sessions) => `${plural(rooms, 'room', 'rooms')}, ${plural(sessions, 'session', 'sessions')}.`,
     clock: { hint: 'See the time', time: (time) => `It is ${time}` },
   },

@@ -1,10 +1,10 @@
 // A room as it moves: people walking in through the door to their seat, sitting, walking out, the player's avatar
 // going where it is sent (or back to a seat of theirs), and the pet while it is in this room. No drawing and no DOM here;
 // RoomView steps it and draw.ts paints it.
-import type { PlayerSpot } from '../../shared/room-layout.ts';
+import type { Layout, PlayerSpot } from '../../shared/room-layout.ts';
 import { t } from '../i18n/index.ts';
 import type { Person, RoomPlan } from './cast.ts';
-import { createPet, cuddle, petHere, stepPet, type Pet } from './pet.ts';
+import { createPet, cuddle, isOnPet, petHere, stepPet, type Pet } from './pet.ts';
 import type { Passage } from './pet-trip.ts';
 import { BEAM_MS, beamProgress } from './portal.ts';
 import type { Floor } from './floor.ts';
@@ -24,10 +24,20 @@ export interface Walker { position: Point; heading: Point; path: Point[]; blinkO
 
 export type Phase = 'entering' | 'seated' | 'leaving' | 'carried';
 
-/** How far below the pointer the feet of someone carried hang, in canvas pixels: the pointer holds them by the chest. */
-const CARRY_HANG = 22;
-/** How near a seat (canvas pixels) the feet of someone carried must be for it to take them when let go. */
-const DROP_REACH = 30;
+/**
+ * How a room's floor is seen on its canvas: floor points (tiles) to canvas points and back, how far below the pointer
+ * the feet of someone carried hang (the pointer holds them by the chest), and how near a seat their feet must be for
+ * it to take them when let go, in canvas pixels. The classic room's, or a cozy room's (cozy/floor.ts).
+ */
+export interface SceneView { toScreen(tile: Point): Point; toTile(screen: Point): Point; carryHang: number; dropReach: number }
+export const CLASSIC_VIEW: SceneView = { toScreen, toTile, carryHang: 22, dropReach: 30 };
+
+/**
+ * What a scene reads of its floor: the classic Floor (floor.ts), or a cozy room's (cozy/floor.ts). The pet and the
+ * visitors read what they need of it too (pet.ts PetFloor, visitors.ts VisitFloor).
+ */
+export type SceneFloor = Pick<Floor, 'door' | 'inside' | 'portal' | 'portalFront' | 'isFreeTile' | 'seatPosition' | 'seatFacing' | 'seatLift' | 'route' | 'pathToSeat' | 'pathToDoor' | 'pathIntoPortal'>
+  & { readonly layout: Pick<Layout, 'seats' | 'playerSpots' | 'visitSpots'> };
 
 export interface Character extends Walker { person: Person; seat: number; phase: Phase }
 
@@ -43,8 +53,9 @@ export function directionOf(heading: Point): Direction {
 /** Moves a walker along its path at walking speed. Returns true when it reached the end of its path. */
 const advance = (walker: Walker, ms: number) => advanceAlong(walker, WALK_SPEED * ms / 1000);
 
-export class Scene {
-  readonly floor: Floor;
+export class Scene<F extends SceneFloor = Floor> {
+  readonly floor: F;
+  readonly view: SceneView;
   readonly characters = new Map<string, Character>();
   /** the user starts seated at the room's first spot (in the office, behind the boss's desk), facing the room */
   readonly player: Walker;
@@ -77,8 +88,9 @@ export class Scene {
    * `atDoor`: the user comes in through the door (from the other room) instead of sitting at the room's first spot;
    * `atPortal`: they come in through the teleporter, in its column of light.
    */
-  constructor(floor: Floor, { atDoor = false, atPortal = false, withVisitors = false }: { atDoor?: boolean; atPortal?: boolean; withVisitors?: boolean } = {}) {
+  constructor(floor: F, { atDoor = false, atPortal = false, withVisitors = false, view = CLASSIC_VIEW }: { atDoor?: boolean; atPortal?: boolean; withVisitors?: boolean; view?: SceneView } = {}) {
     this.floor = floor;
+    this.view = view;
     const start = floor.layout.playerSpots[0];
     const portal = floor.portal;
     const beamedIn = atPortal && portal !== null;
@@ -180,7 +192,7 @@ export class Scene {
 
   /** Moves whoever is carried under the canvas point of the pointer. */
   carryTo(point: Point) {
-    if (this.carried) this.carried.position = toTile({ x: point.x, y: point.y + CARRY_HANG });
+    if (this.carried) this.carried.position = this.view.toTile({ x: point.x, y: point.y + this.view.carryHang });
   }
 
   /** The seats someone carried can be put on: their own, and those nobody else (the user included) has or walks to. */
@@ -192,18 +204,18 @@ export class Scene {
 
   /** Where a seat's sitter has their feet on the canvas. */
   seatScreenPosition(seat: number): Point {
-    const feet = toScreen(this.floor.seatPosition(seat));
+    const feet = this.view.toScreen(this.floor.seatPosition(seat));
     return { x: feet.x, y: feet.y - this.floor.seatLift(seat) };
   }
 
   /** The seat the carried person would land on if let go now (someone else's means a swap), or null (back to theirs). */
   dropSeat(): number | null {
     if (!this.carried) return null;
-    const feet = toScreen(this.carried.position);
+    const feet = this.view.toScreen(this.carried.position);
     const player = this.playerSeats();
     const near = this.floor.layout.seats.map((_, seat) => seat).filter((seat) => !player.has(seat))
       .map((seat) => ({ seat, gap: distance(this.seatScreenPosition(seat), feet) }))
-      .filter(({ gap }) => gap <= DROP_REACH)
+      .filter(({ gap }) => gap <= this.view.dropReach)
       .sort((a, b) => a.gap - b.gap);
     return near[0]?.seat ?? null;
   }
@@ -233,7 +245,7 @@ export class Scene {
 
   /** A canvas point on someone, their sprite's box above their feet, raised as high as they sit. */
   private covers(walker: Walker, personId: string, lift: number, point: Point): boolean {
-    return onFigure(toScreen(walker.position), point, lift + this.heightOf(personId));
+    return onFigure(this.view.toScreen(walker.position), point, lift + this.heightOf(personId));
   }
 
   private coversCharacter(character: Character, point: Point): boolean {
@@ -327,8 +339,7 @@ export class Scene {
   /** True when a canvas point falls on the pet, with no one in front of it there; it gets a cuddle (it speaks, and hearts float up). */
   pokePet(point: Point): boolean {
     if (!this.pet || !petHere(this.pet)) return false;
-    const paws = toScreen(this.pet.position);
-    if (Math.abs(point.x - paws.x) > 16 || point.y < paws.y - 28 || point.y > paws.y + 4) return false;
+    if (!isOnPet(this.view.toScreen(this.pet.position), point)) return false;
     const depth = depthOf(this.pet.position);
     const front = [this.characterAt(point), this.visitorAt(point)].some((someone) => someone && depthOf(someone.position) > depth);
     if (front) return false;
@@ -339,6 +350,6 @@ export class Scene {
   /** Canvas position of someone's feet (PLAYER_ID for the player), or null when they are not in the room. */
   screenPositionOf(personId: string): Point | null {
     const walker = personId === PLAYER_ID ? this.player : this.characters.get(personId);
-    return walker ? toScreen(walker.position) : null;
+    return walker ? this.view.toScreen(walker.position) : null;
   }
 }

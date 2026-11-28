@@ -6,7 +6,7 @@ import { ROOM_PALETTE as P } from '../design/room-palette.ts';
 import { SERVERS_FURNITURE as SF } from '../design/theme-servers.ts';
 import { t } from '../i18n/index.ts';
 import type { Agent, Person, Status } from './cast.ts';
-import { drawHearts, drawPet, isSpeaking, petBeam, petHeight, petHere, petWords } from './pet.ts';
+import { PET_HEIGHT, drawHearts, drawPet, isSpeaking, petBeam, petHeight, petHere, petWords } from './pet.ts';
 import type { PetChoice } from '../../shared/pets.ts';
 import type { Festival } from '../../shared/festivals.ts';
 import { ROOM, isMetricsPiece, type FurniturePiece, type Layout } from '../../shared/room-layout.ts';
@@ -24,7 +24,7 @@ import { PORTAL, PORTAL_MIDDLE_UP, bobOf, furnitureDepth, portalFace, portalPoin
 import { ORB_FLOAT, ORB_SHAPE } from './server-furniture.ts';
 import { cordEnd, cordPath, orbCenter, orbFloorY, packetsOn, waitingSign } from './server-room.ts';
 import { beamGlow, hiddenInBeam, portalParticles, vortex, type ParticleShape } from './portal.ts';
-import { PLAYER_ID, directionOf, type Character, type Scene, type Walker } from './scene.ts';
+import { PLAYER_ID, directionOf, type Character, type Scene, type SceneFloor, type Walker } from './scene.ts';
 import { hash, type Gesture, type Pose, type SpriteSource } from './sprites.ts';
 import { paintActivity } from './activity-icons.ts';
 import { Visits, birthdayWishOf, type Visitor } from './visitors.ts';
@@ -334,7 +334,8 @@ function paintSteam(context: Context, time: number, pieces: readonly FurniturePi
 
 /* People */
 
-function poseOf(walker: Walker, seated: boolean, smiling: boolean, gesture: Gesture, options: Pick<FrameOptions, 'time' | 'reducedMotion'>): Pose {
+/** Someone walking, standing or seated (the classic room's people, and the cozy rooms' walking ones). */
+export function poseOf(walker: Walker, seated: boolean, smiling: boolean, gesture: Gesture, options: Pick<FrameOptions, 'time' | 'reducedMotion'>): Pose {
   const moving = walker.path.length > 0;
   const beat = gesture === 'typing' ? 170 : gesture === 'raising' ? 380 : 120;
   return {
@@ -348,7 +349,7 @@ function poseOf(walker: Walker, seated: boolean, smiling: boolean, gesture: Gest
 }
 
 /** Seated, someone types while their session works and raises an arm when it waits for a permission or an answer. */
-function characterPose(character: Character, options: FrameOptions, standing = false): Pose {
+export function characterPose(character: Character, options: Pick<FrameOptions, 'time' | 'reducedMotion' | 'dozing'>, standing = false): Pose {
   // held up by the user: legs and arms going, fast
   if (character.phase === 'carried') return { ...poseOf(character, false, false, 'none', options), posture: 'walk', step: !options.reducedMotion && Math.floor(options.time / 90) % 2 === 1 ? 1 : 0 };
   const { status } = character.person;
@@ -386,13 +387,16 @@ function paintPerson(context: Context, sprites: SpriteSource, id: string, walker
   sprites.draw(context, id, pose, feet.x, feet.y);
 }
 
-/** On each free seat while someone is carried, a ring and an arrow above the chair; both stronger on the one they would land on, taken or not. */
-function paintDropSeats(context: Context, scene: Scene, time: number) {
+/**
+ * On each free seat while someone is carried, a ring and an arrow above the chair; both stronger on the one they would
+ * land on, taken or not. `size`: how large the people are drawn there, against the classic office's (both room styles).
+ */
+export function paintDropSeats(context: Context, scene: Scene<SceneFloor>, time: number, size = 1) {
   const target = scene.dropSeat();
-  const bob = Math.round(Math.sin(time / 160) * 1.5);
+  const bob = Math.round(Math.sin(time / 160) * 1.5 * size);
   context.strokeStyle = P.selection;
   context.fillStyle = P.selection;
-  context.lineWidth = 1.5;
+  context.lineWidth = 1.5 * size;
   // someone else's seat only shows while aimed at: dropping there swaps the two
   const seats = target === null || scene.freeSeats().includes(target) ? scene.freeSeats() : [...scene.freeSeats(), target];
   for (const seat of seats) {
@@ -400,9 +404,9 @@ function paintDropSeats(context: Context, scene: Scene, time: number) {
     const feet = scene.seatScreenPosition(seat);
     context.globalAlpha = aimed ? 1 : 0.7;
     context.beginPath();
-    context.ellipse(feet.x, feet.y, 13, 5.5, 0, 0, Math.PI * 2);
+    context.ellipse(feet.x, feet.y, 13 * size, 5.5 * size, 0, 0, Math.PI * 2);
     context.stroke();
-    const tip = feet.y - 36 + (aimed ? bob : 0), half = aimed ? 5 : 3.5;
+    const tip = feet.y - 36 * size + (aimed ? bob : 0), half = (aimed ? 5 : 3.5) * size;
     context.beginPath();
     context.moveTo(feet.x - half, tip - half * 1.4);
     context.lineTo(feet.x + half, tip - half * 1.4);
@@ -410,14 +414,14 @@ function paintDropSeats(context: Context, scene: Scene, time: number) {
     context.closePath();
     context.fill();
     context.strokeStyle = P.outline;
-    context.lineWidth = 1;
+    context.lineWidth = size;
     context.stroke();
     context.strokeStyle = P.selection;
-    context.lineWidth = 1.5;
+    context.lineWidth = 1.5 * size;
     if (aimed) {
       context.globalAlpha = 0.35;
       context.beginPath();
-      context.ellipse(feet.x, feet.y, 13, 5.5, 0, 0, Math.PI * 2);
+      context.ellipse(feet.x, feet.y, 13 * size, 5.5 * size, 0, 0, Math.PI * 2);
       context.fill();
     }
   }
@@ -657,7 +661,8 @@ function paintIconBubble(context: Context, x: number, y: number, colour: string,
 }
 
 /** The badge over the numbers object while something new waits in its file: a dark "!" in a yellow bubble, half as big again, bobbing, its tail on `at`. */
-function paintMetricsBadge(context: Context, at: Point, time: number) {
+/** The "!" over the numbers object while a mod has news: both room styles. */
+export function paintMetricsBadge(context: Context, at: Point, time: number) {
   const bob = Math.round(Math.sin(time / 260));
   paintIconBubble(context, at.x, at.y - 12 + bob, P.metricsBadge, EXCLAMATION, 1.5, P.outline);
 }
@@ -966,7 +971,7 @@ export function paintFrame(context: Context, backdrop: HTMLCanvasElement, scene:
   paintNameTags(context, sprites, tags, options.time, options.reducedMotion);
   if (pet && choice) {
     const paws = toScreen(pet.position);
-    drawHearts(context, pet, paws.x, paws.y);
+    drawHearts(context, pet, paws.x, paws.y - PET_HEIGHT);
     if (isSpeaking(pet)) paintSpeech(context, petWords(pet, choice.kind), paws.x, paws.y - petHeight(choice));
   }
   // what a visitor does, in a bubble once they are there, and their name only under the pointer: they are not sessions

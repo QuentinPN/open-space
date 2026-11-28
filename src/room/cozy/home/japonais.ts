@@ -15,6 +15,8 @@ const SCREEN: Screen = { v: 50, ua: 53, ub: 75, za: 15, zb: 31 };
 const CUP = iso(82, 54, 13);
 /** The pet's own zabuton, by the kotatsu's warm side, and the pet asleep on it. */
 const CUSHION = { u: 93, v: 66 } as const;
+/** A guest's zabuton, at the kotatsu's left end. */
+const GUEST = { u: 22, v: 42 } as const;
 const PET = iso(CUSHION.u + 6, CUSHION.v + 6, 4);
 const LANTERN = iso(104, 64, 74);
 /** The tatami mats: from u0 to u1 and v0 to v1, laid along u or along v. */
@@ -121,10 +123,17 @@ export const japonais: HomeDesign = {
   },
   outside: { mood: 'day', sky: G.sky, shade: [G.fuji, G.fujiSnow, G.hills, G.branch, ...G.blossom] },
   clock: { wall: 'right', a: 100, z: 87, radius: 6 },
+  metrics: { wall: 'left', a: 98, z: 46 },
   festiveSpot: { u: 112, v: 40 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: { screen: [H.screen], outside: [...G.sky, G.fuji, G.fujiSnow, G.branch, ...G.blossom] },
   petSpot: PET,
+  furniture: [
+    { u0: 0, u1: 4, v0: 25, v1: 93, height: 18 }, { u0: 6, u1: 44, v0: 0, v1: 12, height: 10 }, { u0: 3, u1: 15, v0: 99, v1: 111, height: 28 },
+    { u0: 37, u1: 89, v0: 31, v1: 65, height: 14 }, { u0: CUSHION.u, u1: CUSHION.u + 12, v0: CUSHION.v, v1: CUSHION.v + 12, height: 4 },
+  ],
+  // the guest's zabuton, at the kotatsu's other side
+  spots: [{ u: GUEST.u + 6, v: GUEST.v + 6, direction: 'down-right', lift: SEAT.z }],
   computer: paintLaptop,
   back(grid, pet) {
     paintTatami(grid);
@@ -160,14 +169,14 @@ export const japonais: HomeDesign = {
     });
     const Q = J.cup;
     art(grid, (layer) => { layer.rect(CUP.x - 2, CUP.y - 4, 4, 4, Q.body); layer.rect(CUP.x + 1, CUP.y - 4, 1, 4, Q.shade); layer.rect(CUP.x - 2, CUP.y - 4, 4, 1, Q.tea); });
-    // the zabuton the user sits on, and the pet's
-    for (const [u0, v0] of [[54, 63], [CUSHION.u, CUSHION.v]]) {
+    // the zabuton the user sits on, the pet's and a guest's
+    for (const [u0, v0] of [[54, 63], [CUSHION.u, CUSHION.v], [GUEST.u, GUEST.v]]) {
       ob(grid, u0, u0 + 12, v0, v0 + 12, 0, 4, J.zabuton, J.zabutonEdge);
       for (const [u, v] of [[u0, v0], [u0 + 12, v0], [u0, v0 + 12], [u0 + 12, v0 + 12]]) { const { x, y } = iso(u, v, 4); grid.set(x, y, J.tassel); grid.set(x, y + 1, J.tasselShade); }
     }
     if (pet) paintPet(grid, pet, PET.x, PET.y);
   },
-  front(grid) {
+  overhead(grid) {
     // the paper lantern hanging from the ceiling
     const { x, y } = LANTERN, top = ceilingAt(x), L = G.lantern;
     grid.rect(x, top, 1, y - 8 - top, J.lanternCord);

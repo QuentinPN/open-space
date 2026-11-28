@@ -3,7 +3,7 @@
 // bulbs hanging from the ceiling, dust floating in the sun.
 import { COZY_HOME_PALETTE as H } from '../../../design/room-palette.ts';
 import { paintPlanks, shadeAlongWalls } from '../decor.ts';
-import { ROOM_UNITS as ROOM, WALL_HEIGHT, iso } from '../geometry.ts';
+import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso } from '../geometry.ts';
 import { paintPet } from '../pet.ts';
 import { box, fillLeftFace, fillRightFace, fillTop, fillWall, patchOnRightFace, tint, wallPatch, wallPixel, type PixelGrid } from '../pixels.ts';
 import {
@@ -38,10 +38,18 @@ export const loft: HomeDesign = {
   },
   outside: { mood: 'day', sky: G.sky, shade: [G.far, G.near, G.tower] },
   clock: { wall: 'right', a: 96, z: 62, radius: 7 },
+  metrics: { wall: 'right', a: 106, z: 46 },
   festiveSpot: { u: 122, v: 60 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: { screen: [H.screen] },
   petSpot: PET,
+  furniture: [
+    around(12, 13, 6, 40), { u0: 5, u1: 67, v0: 0, v1: 5, height: 8 }, { u0: 0, u1: 15, v0: 17, v1: 61, height: 40 }, { u0: 68, u1: 120, v0: 2, v1: 22, height: 40 },
+    { u0: 0, u1: 8, v0: 74, v1: 122, height: 26 }, { u0: 4, u1: 20, v0: 74, v1: 81, height: 16 }, { u0: 7, u1: 20, v0: 80, v1: 116, height: 13 }, { u0: 4, u1: 20, v0: 115, v1: 122, height: 16 },
+    { u0: 30, u1: 54, v0: 86, v1: 106, height: 14 },
+  ],
+  // the sofa's two cushions
+  spots: [{ u: 14, v: 90, direction: 'down-right', lift: 13 }, { u: 14, v: 107, direction: 'down-right', lift: 13 }],
   computer: paintComputer,
   back(grid, pet) {
     paintPlanks(grid, { tones: L.planks, seam: L.plankSeam, joint: L.plankJoint, width: 5, length: 60, alongV: true });
@@ -159,8 +167,8 @@ export const loft: HomeDesign = {
     });
     chairSeat(grid, SEAT, L.chair, L.black);
   },
-  front(grid) {
-    chairBack(grid, SEAT, L.chair, L.black);
+  front(grid) { chairBack(grid, SEAT, L.chair, L.black); },
+  overhead(grid) {
     for (const [u, v, z] of HANGING) {
       const { x, y } = iso(u, v, z), top = ceilingAt(x);
       grid.rect(x, top, 1, y - 6 - top, L.cord);

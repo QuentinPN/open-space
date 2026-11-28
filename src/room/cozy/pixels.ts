@@ -279,6 +279,31 @@ export function hoverOutline(paint: (grid: PixelGrid) => void): HTMLCanvasElemen
   return ring(canvas, ROOM_PALETTE.furniture.highlight);
 }
 
+/** Something a click opens, drawn alone: the same function each time, its drawing and its outline are kept. */
+export type Painter = (grid: PixelGrid) => void;
+
+const shapes = new WeakMap<Painter, PixelGrid>();
+/** Whether a point of a room (in its pixels) falls on what `paint` draws, or on a pixel beside it (small things stay easy to hit). */
+export function paintedAt(paint: Painter, point: { x: number; y: number }): boolean {
+  let grid = shapes.get(paint);
+  if (!grid) {
+    grid = new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
+    paint(grid);
+    shapes.set(paint, grid);
+  }
+  const x = Math.floor(point.x), y = Math.floor(point.y);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (grid.get(x + dx, y + dy)) return true;
+  return false;
+}
+
+const outlines = new WeakMap<Painter, HTMLCanvasElement>();
+/** The white line around what `paint` draws (hoverOutline), drawn once. */
+export function outlineOf(paint: Painter): HTMLCanvasElement {
+  let canvas = outlines.get(paint);
+  if (!canvas) { canvas = hoverOutline(paint); outlines.set(paint, canvas); }
+  return canvas;
+}
+
 /** Single pixels on a canvas, in the room's pixels (its transform is set by the caller). */
 export const canvasTarget = (context: CanvasRenderingContext2D): PixelTarget => ({
   set(x, y, colour) { context.fillStyle = colour; context.fillRect(x, y, 1, 1); },

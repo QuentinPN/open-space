@@ -297,6 +297,25 @@ export const COZY_PALETTE = {
   lamp: { base: '#8a7a6a', baseLight: '#a8988a', pole: '#6b5a4a', shade: '#ffd968', shadeLight: '#fff0b0', shadeDark: '#e8b84a', shadeRim: '#d9a63a' },
   cat: { zzz: '#8f7fc0', zzzFading: '#c4b8e6' },
   rack: { body: ['#6a7182', '#525868', '#3e4350'], face: '#2c303a', on: '#7cdb8f', busy: '#f5b84a', link: '#5fb2e3', off: '#4a4e5a' },
+  /** the door of a project room to the break room, and of the break room back (cozy/decor.ts) */
+  door: {
+    frame: '#9a6640', frameLight: '#c0865a', leaf: '#d9a066', leafLight: '#e8b77e', leafShade: '#c08a52', panel: '#c48f58', panelLight: '#f0c690',
+    knob: '#ffd968', knobShade: '#d9a63a', sign: '#fff7e6', signInk: '#8f7fc0', mat: ['#c4b1ee', '#a691da', '#8f7fc0'],
+  },
+  /** the break room (cozy/lounge-art.ts): its two sofas, the bookshelf, the coffee table and its console, the tea corner, the arcade */
+  lounge: {
+    sage: { body: ['#cfe8d8', '#a9d3bb', '#86b99c'], edge: '#e6f5ec', cushion: ['#e2f3e9', '#bfe0cc', '#9cc8ae'], cushionEdge: '#f3fbf6' },
+    peach: { body: ['#ffe0c7', '#f7c39c', '#e2a274'], edge: '#fff0e2', cushion: ['#fff0e2', '#fbd3b3', '#eab48a'], cushionEdge: '#fff8f0' },
+    shelf: ['#c98f5a', '#b07a4c', '#94633a'], shelfBack: '#7f5232', shelfEdge: '#ddaa76',
+    table: ['#f1c38a', '#d9a26a', '#c08a55'], tableEdge: '#ffd9a6', tableLeg: ['#c08a55', '#a87440', '#8a5f34'],
+    console: ['#f6f2ea', '#e9e3d7', '#d2cabb'], padLeft: '#5b8def', padRight: '#ef6b8a', padButton: '#ffd23f',
+    rug: { edgeShade: '#86b99c', edge: '#a9d3bb', base: '#cfe8d8', ring: '#e2f3e9', middle: '#f3fbf6', dots: '#ffffff', leaf: '#86b99c' },
+    tea: { kettle: ['#f7f4ee', '#e4ded2', '#cbc3b5'], spout: '#a39b8d', teapot: '#f7a8bc', teapotShade: '#e1869d', lid: '#fde4ec', jar: '#c9e7f7', cookie: '#d7924f', steam: '#ffffff' },
+    arcade: { body: ['#b9a3e3', '#9a86d0', '#7c68b8'], edge: '#d4c3f2', marquee: '#ffd23f', marqueeLight: '#fff0a0', screen: '#27304d', pixel: ['#7cdb8f', '#ef6b8a', '#5fb2e3', '#ffd23f'], stick: '#3b2620', buttons: ['#ef6b8a', '#7cdb8f', '#5fb2e3'] },
+    picture: { frame: '#b07a4c', frameLight: '#d9a066', sky: '#bce6f6', hill: '#9be27a', hillShade: '#62b24d', sun: '#ffcf4d', mat: '#fffaf0', heart: '#f7a8bc' },
+  },
+  /** the numbers screen on a wall at home (cozy/home/kit.ts): a click opens the mods, like the classic office's TV */
+  metricsScreen: { body: ['#5a5a66', '#46464f', '#34343c'], edge: '#7a7a88', screen: '#27304d', grid: '#33406a', bars: ['#7cdb8f', '#5fb2e3', '#f5b84a', '#ef6b8a'], line: '#ffffff', led: '#7cdb8f' },
   shadow: 'rgba(120, 64, 30, 0.22)',
   /** the room's plate under it in the overview (HTML, cozy/CozyView.tsx), and its "+N" */
   plate: 'rgba(59, 38, 32, 0.86)',

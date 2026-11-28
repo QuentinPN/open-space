@@ -204,6 +204,7 @@ export const chalet: HomeDesign = {
   outside: { mood: 'night', sky: G.night, body: [G.moon, G.moonShade], stars: [G.star], shade: [G.pine, G.pineLight, G.snow, G.snowShade] },
   // the cuckoo clock, its own drawing
   clock: { wall: 'right', a: 20, z: 52, radius: 3, shape: paintCuckoo },
+  metrics: { wall: 'left', a: 92, z: 44 },
   festiveSpot: { u: 110, v: 50 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: {
@@ -211,6 +212,13 @@ export const chalet: HomeDesign = {
     glass: [...G.night, G.pine, G.pineLight, G.snow, G.snowShade, G.moon, G.moonShade, G.star],
   },
   petSpot: PET,
+  furniture: [
+    { u0: 83, u1: 123, v0: 0, v1: 6, height: 30 }, { u0: 2, u1: 14, v0: 27, v1: 39, height: 8 }, { u0: 0, u1: 28, v0: 42, v1: 84, height: 48 },
+    { u0: 0, u1: 9, v0: 90, v1: 118, height: 30 }, { u0: 7, u1: 30, v0: 90, v1: 97, height: 18 }, { u0: 8, u1: 30, v0: 96, v1: 112, height: 14 }, { u0: 7, u1: 30, v0: 111, v1: 118, height: 18 },
+    { u0: 88, u1: 116, v0: 3, v1: 17, height: 16 }, { u0: 119, u1: 126, v0: 1, v1: 3, height: 52 }, { u0: 34, u1: 84, v0: 2, v1: 22, height: 40 },
+  ],
+  // the armchair by the fire
+  spots: [{ u: 25, v: 104, direction: 'down-right', lift: 14 }],
   computer: paintComputer,
   back(grid, pet) {
     paintPlanks(grid, { tones: K.planks, seam: K.plankSeam, joint: K.plankJoint, width: 6, length: 64 });

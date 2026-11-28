@@ -4,7 +4,7 @@
 import { COZY_HOME_PALETTE as H, COZY_PALETTE as C, hueColour } from '../../../design/room-palette.ts';
 import { paintPlanks, shadeAlongWalls } from '../decor.ts';
 import { paintPet, type PetPixels } from '../pet.ts';
-import { ROOM_UNITS as ROOM, WALL_HEIGHT, iso } from '../geometry.ts';
+import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso } from '../geometry.ts';
 import { box, fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from '../pixels.ts';
 import {
   art, cabinet, chairBack, chairSeat, coloursOf, desk, hash, lamp, masked, monitor, monstera, ob, paintScreen, roundRug, screenOf, walls, webcam, type HomeDesign,
@@ -110,10 +110,17 @@ export const studio: HomeDesign = {
   },
   outside: { mood: 'dusk', sky: G.sky, body: [G.sun, G.sunLight], stars: [G.star], lights: { on: G.cityWindow, off: G.city }, shade: [G.city] },
   clock: { wall: 'right', a: 30, z: 68, radius: 6 },
+  metrics: { wall: 'right', a: 50, z: 58 },
   festiveSpot: { u: 118, v: 30 },
   glow: [...coloursOf(G), H.screen, H.webcam.on],
   masks: { screen: [H.screen], led: [G.led], fan: [G.fan] },
   petSpot: CAT,
+  furniture: [
+    around(12, 12, 6, 40), { u0: 0, u1: 6, v0: 19, v1: 61, height: 29 }, { u0: 38, u1: 108, v0: 2, v1: 22, height: 41 }, { u0: 2, u1: 13, v0: 57, v1: 67, height: 30 },
+    { u0: 0, u1: 4, v0: 70, v1: 106, height: 26 }, { u0: 4, u1: 53, v0: 69, v1: 107, height: 14 }, { u0: 92, u1: 112, v0: 86, v1: 102, height: 20 },
+  ],
+  // the bed's edge by its pillows (the pet sleeps at its foot), facing the room, and the bean bag, its back to the right wall
+  spots: [{ u: 48, v: 76, direction: 'down-right', lift: 14 }, { u: 100, v: 94, direction: 'down-left', lift: 8 }],
   computer: paintComputer,
   back(grid, pet) {
     paintPlanks(grid, { tones: S.planks, seam: S.plankSeam, joint: S.plankJoint, width: 4, length: 52 });

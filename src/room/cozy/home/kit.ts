@@ -3,11 +3,11 @@
 // steam of a hot drink). The homes are drawn like the other cozy rooms (pixels.ts, decor.ts), in the same box.
 import { COZY_HOME_PALETTE as H, COZY_PALETTE as C } from '../../../design/room-palette.ts';
 import { CODE_LINES, paintChairSeat, paintDrawers, paintMonstera, paintWallBoxes } from '../decor.ts';
-import { ORIGIN, ROOM_BOX, WALL_HEIGHT, WALL_THICKNESS, iso } from '../geometry.ts';
+import { ORIGIN, ROOM_BOX, WALL_HEIGHT, WALL_THICKNESS, iso, type Footprint, type Place } from '../geometry.ts';
 import type { Lighting, Outside } from '../light.ts';
 import type { CozyTime } from '../time.ts';
 import type { WallClock } from '../clock.ts';
-import { PixelGrid, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, type PixelTarget, type Tones } from '../pixels.ts';
+import { PixelGrid, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, wallPatch, wallPixel, type PixelTarget, type Tones, type Wall } from '../pixels.ts';
 import type { PetPixels } from '../pet.ts';
 import type { Point } from '../../geometry.ts';
 
@@ -54,6 +54,8 @@ export interface HomeDesign {
   outside: Outside;
   /** its clock on a wall */
   clock: WallClock;
+  /** where its numbers screen hangs (paintMetricsScreen): a click there opens the mods, like the classic office's TV */
+  metrics: WallSpot;
   /** a free corner of its floor, for a festival's tree, pumpkins or balloons (festive.ts) */
   festiveSpot: { u: number; v: number };
   /** the colours that shine by themselves: never darkened by the light */
@@ -66,12 +68,41 @@ export interface HomeDesign {
   back(grid: PixelGrid, pet: PetPixels | null): void;
   /** the user's computer alone, as `back` draws it: outlined under the pointer, as a click there opens a terminal */
   computer(grid: PixelGrid): void;
-  /** what is in front of the user (the chair's back, a lamp hanging from the ceiling) */
+  /** what stands on its floor, as the user walks round it and is hidden behind it (cozy/floor.ts); its desk's chair is a seat */
+  furniture: readonly Footprint[];
+  /** where else the user can sit, beside their desk's chair: the bed's edge, a sofa, an armchair, a cushion */
+  spots: readonly Place[];
+  /** the back of the desk's chair, just behind the user seated there: in front of them while they are behind it (chairBackOf) */
   front?(grid: PixelGrid): void;
+  /** what hangs from the ceiling (a lamp, a lantern): in front of everything */
+  overhead?(grid: PixelGrid): void;
   /** each frame, behind the user */
   animate(context: CanvasRenderingContext2D, frame: number, scene: HomeScene): void;
   /** each frame, in front of everything */
   animateFront?(context: CanvasRenderingContext2D, frame: number): void;
+}
+
+/** A spot on a back wall: `a` along it, `z` up (the bottom left corner of what hangs there, as the wall runs). */
+export interface WallSpot { wall: Wall; a: number; z: number }
+
+/** The numbers screen's size on its wall: units along it, pixels up. */
+export const METRICS_SCREEN = { width: 20, height: 13 } as const;
+
+/** What the numbers screen shines in, never darkened by a home's light. */
+export const METRICS_GLOW: readonly string[] = [C.metricsScreen.screen, C.metricsScreen.grid, ...C.metricsScreen.bars, C.metricsScreen.line, C.metricsScreen.led];
+
+/** The numbers screen on a wall: a small dark frame, a bar chart and its line over a grid, a green light. */
+export function paintMetricsScreen(grid: PixelTarget, { wall, a, z }: WallSpot) {
+  const M = C.metricsScreen, { width, height } = METRICS_SCREEN;
+  wallPatch(grid, wall, a - 1, a + width + 1, z - 1, z + height + 1, OUTLINE);
+  wallPatch(grid, wall, a, a + width, z, z + height, M.body[1]);
+  wallPatch(grid, wall, a, a + width, z + height - 1, z + height, M.edge);
+  wallPatch(grid, wall, a, a + width, z, z + 1, M.body[2]);
+  wallPatch(grid, wall, a + 2, a + width - 2, z + 2, z + height - 2, M.screen);
+  for (const line of [z + 5, z + 8]) wallPatch(grid, wall, a + 2, a + width - 2, line, line + 1, M.grid);
+  M.bars.forEach((colour, index) => { wallPatch(grid, wall, a + 3 + index * 4, a + 5 + index * 4, z + 2, z + 4 + index + (index % 2) * 2, colour); });
+  [6, 7, 6, 8, 8, 9, 10].forEach((up, index) => { wallPixel(grid, wall, a + 3 + index * 2, z + up, M.line); });
+  wallPixel(grid, wall, a + width - 2, z, M.led);
 }
 
 /** Every colour of a palette group (strings, lists of them, groups of them): a home's glowing colours. */
@@ -203,6 +234,9 @@ export function webcam(grid: PixelGrid, u: number, v1: number, z: number) {
 
 /** The user's chair: its seat (behind them), in `seat` on a pole and a star base in `base`. */
 export const chairSeat = (grid: PixelGrid, { u, v }: HomeSeat, seat: Tones, base: Tones) => paintChairSeat(grid, u, v, seat, base, [tint(base[0], 1.1), base[1], base[2]]);
+
+/** Where the back of the chair at `seat` stands (chairBack): the user walking in front of it is drawn over it. */
+export const chairBackOf = ({ u, v }: HomeSeat): Footprint => ({ u0: u, u1: u + 12, v0: v + 5, v1: v + 8, height: 19 });
 
 /** The chair's back, just behind the user (in front of them on screen). */
 export function chairBack(grid: PixelGrid, { u, v }: HomeSeat, tones: Tones, base: Tones, z = 12, height = 5) {

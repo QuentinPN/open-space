@@ -37,7 +37,7 @@ export const room = {
     show: { label: 'Pièces montrées', active: 'Actifs', recent: 'Récents + épinglés' },
     pin: (project: string) => `Épingler ${project}`,
     unpin: (project: string) => `Désépingler ${project}`,
-    asleep: (count: number) => `${plural(count, 'autre session dort', 'autres sessions dorment')} ici`,
+    lounge: 'Salle de repos',
     description: (rooms: number, sessions: number) => `${plural(rooms, 'pièce', 'pièces')}, ${plural(sessions, 'session', 'sessions')}.`,
     /** a room's clock: what a click on it does, and the time it then tells */
     clock: { hint: 'Voir l’heure', time: (time: string) => `Il est ${time}` },

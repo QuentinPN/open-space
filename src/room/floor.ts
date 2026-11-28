@@ -3,7 +3,7 @@
 import type { Festival } from '../../shared/festivals.ts';
 import { blockedTiles, isMetricsPiece, layoutOn, withAutomataAccess, withMetrics, type Layout, type MetricsKind, type PlayerSpot } from '../../shared/room-layout.ts';
 import { DOOR_SIZE, ROOM, boxOutline, facingVector, insideConvex, onLeftWall, tileCenter, type Box, type Point } from './geometry.ts';
-import { route } from './paths.ts';
+import { aisleRoute } from './paths.ts';
 import { PORTAL, portalFace, portalPoint } from './pixel-furniture.ts';
 
 /** Clicks closer than this to the walls are ignored. */
@@ -109,8 +109,7 @@ export class Floor {
 
   /** A route through the aisles: past the chairs and sofas, never over them, except the one it starts or ends on. */
   route(from: Point, to: Point): Point[] {
-    const ends = new Set([`${Math.floor(from.x)},${Math.floor(from.y)}`, `${Math.floor(to.x)},${Math.floor(to.y)}`]);
-    return route(from, to, (x, y) => this.isFreeTile(x, y) && (!this.avoided.has(`${x},${y}`) || ends.has(`${x},${y}`)));
+    return aisleRoute(from, to, this.isFreeTile, this.avoided);
   }
   /** From anywhere (the door, or halfway out) to a seat, sitting down at its own spot. */
   pathToSeat(from: Point, seat: number): Point[] {

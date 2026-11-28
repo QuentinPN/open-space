@@ -105,8 +105,8 @@ export class Visits {
 
   /**
    * Moves the visitors, and sends someone in when it is time. `free`: the crew members without a session (a visitor
-   * who gets one leaves, as does one whose spot the floor no longer offers: a sofa a session now takes); `hour`: the
-   * hour shown; `blocked`: a floor point taken by the user (a sofa they sit on).
+   * who gets one leaves, as does one whose spot the floor no longer offers: a cozy room's party once its festival is
+   * over); `hour`: the hour shown; `blocked`: a floor point taken by the user (a sofa they sit on).
    */
   step(ms: number, { free, hour, enabled, blocked }: { free: readonly string[]; hour: number; enabled: boolean; blocked: Point | null }) {
     const stillFree = new Set(enabled ? free : []);

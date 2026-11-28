@@ -1,25 +1,25 @@
 // What a cozy room is made of (src/room/cozy/), drawn once per kind of room and per light: cream walls with a wainscot,
 // honey planks, a window with lavender curtains, hanging plants, a monstera, the couch with its star pillow, the coffee
-// counter, the water cooler, the whiteboard, a pink rug, pastel drawers, and white desks with their screens. Everything
-// behind the people goes on one canvas (`back`); what can stand in front of someone (a chair's back, a desk seen from
-// behind its person, the couch's arm) is a piece of its own, drawn in depth order with the people.
+// counter, the water cooler, the whiteboard, the door to the break room, a pink rug, pastel drawers, and white desks
+// with their screens. Everything behind the people goes on one canvas (`back`); what can stand in front of someone (a
+// chair's back, a desk seen from behind its person, the couch's arm) is a piece of its own, drawn in depth order with
+// the people. The break room is made of the same pieces (lounge-art.ts).
 import type { Festival } from '../../../shared/festivals.ts';
 import { COZY_PALETTE as C } from '../../design/room-palette.ts';
 import { paintClockFace, type WallClock } from './clock.ts';
 import { FESTIVE_DECOR, FESTIVE_GLOW, paintFestiveFloor, paintFestiveWalls } from './festive.ts';
 import { SKY_GLOW, lamp, lightingOf } from './light.ts';
 import type { CozyRoomKind } from './rooms.ts';
-import { cozyTimeOf, sceneKey, type CozyTime } from './time.ts';
-import { VISIT_DEPTHS } from './visits.ts';
-import { COUCH, COUCH_ARM_DEPTH, DESKS, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, CAT_SPOT, cozyDepth, deskPlace, iso, type Desk } from './geometry.ts';
+import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
+import { COUCH, COUCH_ARM_DEPTH, DESKS, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, CAT_SPOT, around, cozyDepth, deskPlace, iso, onCouchAt, type Couch, type Desk, type Footprint } from './geometry.ts';
 import { paintPet, petKey, petPixels, type CozyPet } from './pet.ts';
 import {
   PixelGrid, box, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, shadeFloor, tint, wallEllipse, wallPatch, wallPixel, wallPoint,
-  canvasTarget, type Tones, type Wall,
+  canvasTarget, type Painter, type Tones, type Wall,
 } from './pixels.ts';
 
 const O = C.outline;
-const newGrid = () => new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
+export const newGrid = () => new PixelGrid(0, 0, ROOM_BOX.width, ROOM_BOX.height);
 const ob = (grid: PixelGrid, u0: number, u1: number, v0: number, v1: number, z: number, height: number, tones: Tones, edge?: string) => outlinedBox(grid, u0, u1, v0, v1, z, height, tones, O, edge);
 const art = (draw: (layer: PixelGrid) => void, grid: PixelGrid, colour: string = O) => outlined(grid, draw, colour);
 
@@ -46,7 +46,7 @@ export function shadeAlongWalls(grid: PixelGrid) {
   shadeFloor(grid, 0, 3, 0, ROOM_UNITS, 0.92); shadeFloor(grid, 0, ROOM_UNITS, 0, 3, 0.92);
 }
 
-function paintFloor(grid: PixelGrid) {
+export function paintFloor(grid: PixelGrid) {
   paintPlanks(grid, { tones: C.planks, seam: C.plankSeam, joint: C.plankJoint, width: 4, length: 52 });
   shadeAlongWalls(grid);
 }
@@ -62,7 +62,7 @@ export function paintWallBoxes(grid: PixelGrid, W: WallTones) {
   }, grid);
 }
 
-function paintWalls(grid: PixelGrid) {
+export function paintWalls(grid: PixelGrid) {
   const W = C.wall, P = C.wainscot;
   paintWallBoxes(grid, W);
   for (const [wall, wainscot, panel, light, top] of [['left', P.left, P.panelLeft, P.lightLeft, W.topLeft], ['right', P.right, P.panelRight, P.lightRight, W.topRight]] as const) {
@@ -98,7 +98,7 @@ function paintPanes(grid: PixelGrid, time: CozyTime) {
   }
 }
 
-function paintWindow(grid: PixelGrid, time: CozyTime) {
+export function paintWindow(grid: PixelGrid, time: CozyTime) {
   const wall: Wall = 'left', S = C.window, F = C.sunflower;
   wallPatch(grid, wall, 32, 80, 42, 88, S.frame);
   wallPatch(grid, wall, 33, 79, 43, 87, S.pane);
@@ -128,7 +128,8 @@ function paintWindow(grid: PixelGrid, time: CozyTime) {
   wallPatch(grid, wall, 24, 88, 91, 92, C.curtainRod);
 }
 
-function paintWhiteboard(grid: PixelGrid) {
+/** The whiteboard on the right wall, its tray and its pens: a click opens the board and its notes, like the classic one. */
+export const paintWhiteboard: Painter = (grid) => {
   const wall: Wall = 'right', B = C.whiteboard;
   wallPatch(grid, wall, 74, 122, 46, 86, B.frame); wallPatch(grid, wall, 75, 121, 47, 85, B.frameLight); wallPatch(grid, wall, 77, 119, 49, 83, B.surface);
   wallPatch(grid, wall, 77, 119, 49, 50, B.surfaceTop);
@@ -144,10 +145,40 @@ function paintWhiteboard(grid: PixelGrid) {
     layer.points([[x, y - 2], [x - 1, y - 1], [x - 2, y]], B.starLight);
   }, grid);
   art((layer) => { layer.pattern(x + 7, y - 2, ['.rr.rr', 'rrrrrr', 'rrrrrr', '.rrrr.', '..rr..'], { r: B.heart }); layer.set(x + 8, y - 1, B.heartLight); }, grid);
+};
+
+/** The door to the break room (in the break room, back to the offices): on the left wall, near the front of the room. */
+export const DOOR = { wall: 'left', a0: 102, a1: 122, height: 62 } as const satisfies { wall: Wall; a0: number; a1: number; height: number };
+
+/** The door in its frame, two panels, its knob and a little moon on a plaque: a click goes through it, like the classic room's. */
+export const paintDoor: Painter = (grid) => {
+  const D = C.door, { wall, a0, a1, height } = DOOR;
+  wallPatch(grid, wall, a0 - 2, a1 + 2, 0, height + 3, O);
+  wallPatch(grid, wall, a0 - 1, a1 + 1, 0, height + 2, D.frame);
+  wallPatch(grid, wall, a0 - 1, a1 + 1, height + 1, height + 2, D.frameLight);
+  wallPatch(grid, wall, a0, a1, 0, height, D.leaf);
+  wallPatch(grid, wall, a0, a0 + 1, 0, height, D.leafLight);
+  wallPatch(grid, wall, a1 - 1, a1, 0, height, D.leafShade);
+  for (const [z0, z1] of [[6, 26], [32, height - 6]]) {
+    wallPatch(grid, wall, a0 + 3, a1 - 3, z0, z1, D.panel);
+    wallPatch(grid, wall, a0 + 3, a1 - 3, z1 - 1, z1, D.panelLight);
+    wallPatch(grid, wall, a0 + 3, a0 + 4, z0, z1, D.panelLight);
+  }
+  // the knob on the side away from the hinges, and a plaque with a moon: where one goes to rest
+  wallPatch(grid, wall, a1 - 5, a1 - 3, 28, 30, D.knob); wallPixel(grid, wall, a1 - 4, 28, D.knobShade);
+  const middle = (a0 + a1) >> 1;
+  wallPatch(grid, wall, middle - 4, middle + 4, height - 20, height - 13, D.sign);
+  wallEllipse(grid, wall, middle + 0.5, height - 16, 2.2, 2.2, D.signInk); wallEllipse(grid, wall, middle + 1.6, height - 15.4, 1.8, 1.8, D.sign);
+};
+
+/** The doormat in front of the door, on the floor. */
+export function paintDoormat(grid: PixelGrid) {
+  const { a0, a1 } = DOOR, M = C.door.mat;
+  fillTop(grid, 1, 12, a0 + 1, a1 - 1, 0, (u, v) => (u === 1 || u === 11 || v === a0 + 1 || v === a1 - 2 ? M[2] : (u + v) % 4 === 0 ? M[0] : M[1]));
 }
 
 /** A plant in a macramé hanger from the top of a wall. */
-function paintHangingPlant(grid: PixelGrid, [hx, hy]: [number, number], length: number, lean: number) {
+export function paintHangingPlant(grid: PixelGrid, [hx, hy]: [number, number], length: number, lean: number) {
   const M = C.macrame, L = C.leaves, x = hx + lean, y = hy + length;
   art((layer) => {
     for (const dx of [-5, 0, 5]) layer.line(hx, hy, x + dx, y, M.cord);
@@ -335,32 +366,37 @@ const books: Topper = (layer, x, y) => {
   layer.rect(x - 5, y - 3, 10, 3, B.blue); layer.rect(x - 5, y - 1, 10, 1, B.blueShade); layer.rect(x - 4, y - 6, 9, 3, B.red); layer.rect(x - 4, y - 4, 9, 1, B.redShade);
   layer.set(x - 4, y - 5, B.page); layer.set(x - 5, y - 2, B.page); layer.rect(x - 3, y - 9, 6, 3, B.yellow); layer.rect(x - 3, y - 7, 6, 1, B.yellowShade);
 };
-const clock: Topper = (layer, x, y) => {
-  const K = C.clock;
-  layer.ellipse(x, y - 5, 4.2, 4.2, K.body); layer.ellipse(x, y - 5, 3, 3, K.face); layer.points([[x, y - 7], [x, y - 6], [x, y - 5], [x + 1, y - 5]], O);
-  layer.points([[x - 4, y - 9], [x - 3, y - 9], [x + 3, y - 9], [x + 4, y - 9]], K.feet); layer.points([[x - 3, y], [x + 3, y]], K.feet);
-};
-
 /** Where the monstera's pot and the floor lamp stand. */
 const MONSTERA = { u: 12, v: 12 } as const;
 const LAMP = { u: 10, v: 100 } as const;
 
+/** The drawers of a project room; the front of the left wall is the door's. */
 const DRAWERS: readonly Drawers[] = [
   { u0: 78, u1: 90, v0: 2, v1: 12, height: 22, tones: C.drawer.lemon, face: 'left', topper: cactus },
   { u0: 2, u1: 14, v0: 82, v1: 96, height: 18, tones: C.drawer.mint, face: 'right', topper: books },
-  { u0: 2, u1: 14, v0: 106, v1: 120, height: 18, tones: C.drawer.lilac, face: 'right', topper: clock },
 ];
 
-/** The couch along the left wall, but its front arm (a piece of its own: it is in front of whoever naps at that end). */
-function paintCouch(grid: PixelGrid) {
-  const K = C.couch, { u, v, depth, length } = COUCH;
-  ob(grid, u, u + 7, v, v + length, 0, 26, K.body, K.edge);
-  ob(grid, u + 4, u + depth, v, v + 7, 0, 16, K.body, K.edge);
-  ob(grid, u + 6, u + depth, v + 6, v + length - 6, 0, 9, K.body);
-  ob(grid, u + 7, u + depth, v + 7, v + 22, 9, 4, K.cushion, K.cushionEdge);
-  ob(grid, u + 7, u + depth, v + 23, v + 38, 9, 4, K.cushion, K.cushionEdge);
+/** A couch's colours: its body and its cushions. */
+export interface CouchTones { body: Tones; edge: string; cushion: Tones; cushionEdge: string }
+
+/** A box of a couch, `across` from the wall and `along` it from its far end (geometry.ts onCouchAt). */
+function couchBox(grid: PixelGrid, couch: Couch, across: [number, number], along: [number, number], z: number, height: number, tones: Tones, edge?: string) {
+  const [u0, v0] = onCouchAt(couch, across[0], along[0]), [u1, v1] = onCouchAt(couch, across[1], along[1]);
+  ob(grid, u0, u1, v0, v1, z, height, tones, edge);
+}
+
+/**
+ * A couch against a wall, but its front arm (a piece of its own: it is in front of whoever naps at that end): `seats`
+ * cushions, and the star pillow `pillow` units from its far end.
+ */
+export function paintCouch(grid: PixelGrid, couch: Couch = COUCH, tones: CouchTones = C.couch, seats = 2, pillow = 16) {
+  const K = C.couch, { depth, length } = couch, slot = Math.floor((length - 12) / seats);
+  couchBox(grid, couch, [0, 7], [0, length], 0, 26, tones.body, tones.edge);
+  couchBox(grid, couch, [4, depth], [0, 7], 0, 16, tones.body, tones.edge);
+  couchBox(grid, couch, [6, depth], [6, length - 6], 0, 9, tones.body);
+  for (let seat = 0; seat < seats; seat++) couchBox(grid, couch, [7, depth], [7 + seat * slot, 6 + (seat + 1) * slot], 9, 4, tones.cushion, tones.cushionEdge);
   art((layer) => {
-    const { x, y } = iso(u + 10, v + 16, 13);
+    const { x, y } = iso(...onCouchAt(couch, 10, pillow), 13);
     layer.pattern(x - 6, y - 10, ['......y......', '.....yyy.....', '....yyyyy....', 'yyyyyyyyyyyyy', '.yyyyyyyyyyy.', '..yyyyyyyyy..', '...yyyyyyy...', '..yyyyyyyyy..', '..yyyy.yyyy..', '.yyy.....yyy.', '.yy.......yy.'], { y: K.star });
     for (let index = 0; index < 4; index++) layer.set(x - 3 + index, y - 7 + (index >> 1), K.starLight);
     layer.points([[x + 2, y - 4], [x + 3, y - 4], [x + 4, y - 5], [x + 4, y - 3], [x + 3, y - 3]], K.starShade);
@@ -368,9 +404,8 @@ function paintCouch(grid: PixelGrid) {
   }, grid);
 }
 
-function paintCouchArm(grid: PixelGrid) {
-  const K = C.couch, { u, v, depth, length } = COUCH;
-  ob(grid, u + 4, u + depth, v + length - 7, v + length, 0, 16, K.body, K.edge);
+export function paintCouchArm(grid: PixelGrid, couch: Couch = COUCH, tones: CouchTones = C.couch) {
+  couchBox(grid, couch, [4, couch.depth], [couch.length - 7, couch.length], 0, 16, tones.body, tones.edge);
 }
 
 /** A monstera's pot: its tones, light to dark, and its rim; `face`: the offices' little face on it. */
@@ -408,8 +443,8 @@ export function paintMonstera(grid: PixelGrid, u: number = MONSTERA.u, v: number
   }, grid);
 }
 
-function paintLamp(grid: PixelGrid) {
-  const L = C.lamp, { x, y } = iso(LAMP.u, LAMP.v);
+export function paintLamp(grid: PixelGrid, at: { u: number; v: number } = LAMP) {
+  const L = C.lamp, { x, y } = iso(at.u, at.v);
   art((layer) => { layer.ellipse(x, y - 1, 5, 2, L.base); layer.ellipse(x, y - 2, 4, 1.4, L.baseLight); layer.rect(x, y - 38, 1, 37, L.pole); }, grid);
   art((layer) => {
     for (let row = 0; row < 11; row++) { const half = 4 + Math.floor(row / 2); for (let dx = -half; dx <= half; dx++) layer.set(x + dx, y - 49 + row, dx < -half + 2 ? L.shadeLight : dx > half - 3 ? L.shadeDark : L.shade); }
@@ -447,10 +482,13 @@ export interface RoomArt {
   back: HTMLCanvasElement;
   /** the pieces that may be in front of someone */
   pieces: Piece[];
-  /** the user's pet asleep on the rug (drawn in the room it is in, over the back layer but under what stands in front of it); null for none */
-  pet: HTMLCanvasElement | null;
-  /** what stands in front of a visitor (project rooms), by the depths they are drawn at */
-  occluders: readonly Occluder[];
+  /**
+   * The user's pet on the room's rug, asleep or woken by a poke (drawn in the room it is in, over the back layer but
+   * under what stands in front of it), each look drawn the first time it is asked for.
+   */
+  petLayer: (pet: CozyPet) => HTMLCanvasElement;
+  /** what stands in front of someone standing or walking at a depth, on a layer of its own (null: nothing does) */
+  frontOf: (depth: number) => HTMLCanvasElement | null;
 }
 
 const SEAT_TONES = C.chair.seats as readonly Tones[];
@@ -459,14 +497,14 @@ const SEAT_TONES = C.chair.seats as readonly Tones[];
  * Something standing on the floor of the back layer, from (u0, v0) to (u1, v1): they are painted from the back to the
  * front, so that one in front covers one behind wherever they meet on the screen, whatever order they are listed in.
  */
-interface Standing { depth: number; paint: (grid: PixelGrid) => void }
-const standing = (u0: number, u1: number, v0: number, v1: number, paint: (grid: PixelGrid) => void): Standing => ({ depth: cozyDepth((u0 + u1) / 2, (v0 + v1) / 2), paint });
+export interface Standing { depth: number; paint: (grid: PixelGrid) => void }
+export const standing = (u0: number, u1: number, v0: number, v1: number, paint: (grid: PixelGrid) => void): Standing => ({ depth: cozyDepth((u0 + u1) / 2, (v0 + v1) / 2), paint });
 
 /**
  * A piece on a layer of its own (it is laid over the back layer and the people), and over it, where they meet, what
  * stands in front of it in the back layer: a piece never covers something nearer than itself.
  */
-function pieceGrid(depth: number, paint: (grid: PixelGrid) => void, floor: readonly Standing[]): PixelGrid {
+export function pieceGrid(depth: number, paint: (grid: PixelGrid) => void, floor: readonly Standing[]): PixelGrid {
   const grid = newGrid(), front = newGrid();
   paint(grid);
   for (const thing of floor) if (thing.depth > depth) thing.paint(front);
@@ -474,7 +512,10 @@ function pieceGrid(depth: number, paint: (grid: PixelGrid) => void, floor: reado
   return grid;
 }
 
-function toCanvas(grid: PixelGrid, light: ((colour: string, x: number, y: number) => string) | null): HTMLCanvasElement {
+/** How a room's light changes a colour at (x, y) (light.ts lightingOf); null: as drawn. */
+export type RoomLight = ((colour: string, x: number, y: number) => string) | null;
+
+export function toCanvas(grid: PixelGrid, light: RoomLight): HTMLCanvasElement {
   if (light) grid.recolour(light);
   const canvas = document.createElement('canvas');
   canvas.width = ROOM_BOX.width;
@@ -489,45 +530,96 @@ export const desksOf = (kind: CozyRoomKind): readonly Desk[] => (kind === 'proje
 /** The clock of the offices, on the right wall above the coffee counter. */
 export const ROOM_CLOCK: WallClock = { wall: 'right', a: 52, z: 70, radius: 6 };
 /** Where a festival's tree, pumpkins or balloons stand: by the water cooler, under the whiteboard. */
-const FESTIVE_SPOT = { u: 100, v: 8 } as const;
+export const FESTIVE_SPOT = { u: 100, v: 8 } as const;
+
+/** The coffee counter along the right wall, between the back desks and the wall. */
+const COUNTER = { u0: 33, u1: 71, v0: 0, v1: 15 } as const;
+
+/** What people walk round in a project room (cozy/floor.ts), its festival's decoration aside; its chairs are seats. */
+export const ROOM_FOOTPRINTS: readonly Footprint[] = [
+  around(MONSTERA.u, MONSTERA.v, 6, 40),
+  { ...COUNTER, height: 38 },
+  { u0: COOLER.u, u1: COOLER.u + COOLER.width, v0: COOLER.v, v1: COOLER.v + COOLER.width, height: 40 },
+  ...DRAWERS.map(({ u0, u1, v0, v1, height }) => ({ u0, u1, v0, v1, height: height + 12 })),
+  { u0: COUCH.u, u1: COUCH.u + COUCH.depth, v0: COUCH.v, v1: COUCH.v + COUCH.length, height: 20 },
+  around(LAMP.u, LAMP.v, 3, 50),
+  ...DESKS.map((desk): Footprint => (desk.kind === 'back'
+    ? { u0: desk.u, u1: desk.u + desk.length, v0: desk.v, v1: desk.v + 14, height: 36 }
+    : { u0: desk.u, u1: desk.u + 14, v0: desk.v, v1: desk.v + desk.length, height: 36 })),
+];
 
 /**
- * A room's light at a mood of the hour, its lights on (someone works there) or off: through the window by day; at dusk
- * and at night the floor lamp lit and, at the desks, the screens' blue glow; what shines by itself left as it is.
+ * A room's light at a mood of the hour, its lights on (someone is there) or off: through the window by day; at dusk
+ * and at night the floor lamp at `lampAt` lit and, at night, the `screens`' blue glow; what shines by itself
+ * (`shining`, while the lights are on) left as it is.
  */
-function roomLight(kind: CozyRoomKind, lit: boolean, time: CozyTime): ((colour: string, x: number, y: number) => string) | null {
+export function roomLight(lit: boolean, time: CozyTime, lampAt: { u: number; v: number }, screens: readonly { u: number; v: number }[], shining: readonly string[]): RoomLight {
   const L = C.light;
   if (lit && time === 'day') return null;
   const lampsOn = lit && time !== 'day';
   const lamps = lampsOn ? [
-    lamp(LAMP.u, LAMP.v, 44, L.lamp[time as 'dusk' | 'night'], 74, 0.6, 4),
-    ...(time === 'night' ? desksOf(kind).filter((desk) => desk.kind === 'back').map((desk) => lamp(desk.u + 21, desk.v + 6, 26, L.screen, 32)) : []),
+    lamp(lampAt.u, lampAt.v, 44, L.lamp[time as 'dusk' | 'night'], 74, 0.6, 4),
+    ...(time === 'night' ? screens.map((screen) => lamp(screen.u, screen.v, 26, L.screen, 32)) : []),
   ] : [];
-  const glow = [
-    ...SKY_GLOW, ...FESTIVE_GLOW,
-    ...(lit ? [C.screen, C.screenTop, C.screenGlow, C.led, C.rack.on, C.rack.busy, C.rack.link, C.counter.red, C.counter.green] : []),
-    ...(lampsOn ? [C.lamp.shade, C.lamp.shadeLight, C.lamp.shadeDark] : []),
-  ];
+  const glow = [...SKY_GLOW, ...FESTIVE_GLOW, ...(lit ? shining : []), ...(lampsOn ? [C.lamp.shade, C.lamp.shadeLight, C.lamp.shadeDark] : [])];
   return lightingOf({ ambient: L[lit ? 'on' : 'off'][time], lamps }, new Set(glow));
 }
 
-/** What stands in front of a visitor of the office life drawn at a depth (visits.ts VISIT_DEPTHS), on a layer of its own. */
-export interface Occluder { depth: number; canvas: HTMLCanvasElement }
+/**
+ * The user's pet on a room's floor at `spot`, asleep or awake, on a layer of its own lit like the room, with what
+ * stands in front of it there laid over it: each look drawn the first time it is asked for.
+ */
+export function petLayers(floor: readonly Standing[], light: RoomLight, spot: { u: number; v: number }): (pet: CozyPet) => HTMLCanvasElement {
+  const made = new Map<string, HTMLCanvasElement>();
+  return (pet) => {
+    const key = petKey(pet);
+    let canvas = made.get(key);
+    if (!canvas) {
+      const { x, y } = iso(spot.u, spot.v);
+      canvas = toCanvas(pieceGrid(cozyDepth(spot.u, spot.v), (grid) => paintPet(grid, petPixels(pet), x, y), floor), light);
+      made.set(key, canvas);
+    }
+    return canvas;
+  };
+}
 
-function build(kind: CozyRoomKind, lit: boolean, time: CozyTime, festival: Festival | null, pet: CozyPet | null): RoomArt {
+/**
+ * What stands in front of someone at a depth (a visitor, someone walking), on a layer of its own lit like the room,
+ * laid over them: what is deeper than them of `floor` (sorted back to front), each such layer drawn the first time it
+ * is asked for.
+ */
+export function frontLayers(floor: readonly Standing[], light: RoomLight): (depth: number) => HTMLCanvasElement | null {
+  const made = new Map<number, HTMLCanvasElement>();
+  return (depth) => {
+    const first = floor.findIndex((thing) => thing.depth > depth);
+    if (first < 0) return null;
+    let canvas = made.get(first);
+    if (!canvas) {
+      const front = newGrid();
+      for (const thing of floor.slice(first)) thing.paint(front);
+      canvas = toCanvas(front, light);
+      made.set(first, canvas);
+    }
+    return canvas;
+  };
+}
+
+function build(kind: CozyRoomKind, lit: boolean, time: CozyTime, festival: Festival | null): RoomArt {
   const back = newGrid();
   paintFloor(back);
   paintWalls(back);
   paintWindow(back, time);
   paintWhiteboard(back);
+  paintDoor(back);
   paintClockFace(back, ROOM_CLOCK);
   if (festival) paintFestiveWalls(back, festival);
   paintHangingPlant(back, wallPoint('right', 22, 100), 26, 6);
-  paintHangingPlant(back, wallPoint('left', 121, 100), 24, -2);
+  paintHangingPlant(back, wallPoint('left', 121, 100), 16, -2);
   paintRug(back);
+  paintDoormat(back);
   const floor: Standing[] = [
     standing(MONSTERA.u, MONSTERA.u, MONSTERA.v, MONSTERA.v, (grid) => paintMonstera(grid)),
-    standing(33, 71, 0, 15, paintCounter),
+    standing(COUNTER.u0, COUNTER.u1, COUNTER.v0, COUNTER.v1, paintCounter),
     standing(COOLER.u, COOLER.u + COOLER.width, COOLER.v, COOLER.v + COOLER.width, paintCooler),
     ...DRAWERS.map((drawers) => standing(drawers.u0, drawers.u1, drawers.v0, drawers.v1, (grid) => paintDrawers(grid, drawers))),
     standing(COUCH.u, COUCH.u + COUCH.depth, COUCH.v, COUCH.v + COUCH.length, paintCouch),
@@ -551,33 +643,23 @@ function build(kind: CozyRoomKind, lit: boolean, time: CozyTime, festival: Festi
   piece(COUCH_ARM_DEPTH, paintCouchArm);
   floor.sort((a, b) => a.depth - b.depth);
   for (const { paint } of floor) paint(back);
-  const light = roomLight(kind, lit, time);
-  // what stands in front of a visitor at each depth they are drawn at, on a layer of its own (empty cells elsewhere)
-  const occluders = kind === 'project' ? VISIT_DEPTHS.map((depth) => {
-    const front = newGrid();
-    for (const thing of floor) if (thing.depth > depth) thing.paint(front);
-    return { depth, canvas: toCanvas(front, light) };
-  }) : [];
+  const screens = desksOf(kind).filter((desk) => desk.kind === 'back').map((desk) => ({ u: desk.u + 21, v: desk.v + 6 }));
+  const light = roomLight(lit, time, LAMP, screens, [C.screen, C.screenTop, C.screenGlow, C.led, C.rack.on, C.rack.busy, C.rack.link, C.counter.red, C.counter.green]);
   return {
     back: toCanvas(back, light),
     pieces: pieces.map(({ depth, paint }) => ({ depth, canvas: toCanvas(pieceGrid(depth, paint, floor), light) })),
-    pet: pet && toCanvas(pieceGrid(cozyDepth(CAT_SPOT.u, CAT_SPOT.v), (grid) => { const { x, y } = iso(CAT_SPOT.u, CAT_SPOT.v); paintPet(grid, petPixels(pet), x, y); }, floor), light),
-    occluders,
+    petLayer: petLayers(floor, light, CAT_SPOT),
+    frontOf: frontLayers(floor, light),
   };
 }
 
-const built = new Map<string, RoomArt>();
-let builtFor = '';
+const built = sceneCache<RoomArt>();
 /**
  * A kind of room with its lights on or off at an hour (its mood, time.ts) and on a festival (none in the server room,
- * which keeps its own look, like the classic one), with the user's pet (pet.ts) or none, drawn the first time it is
- * asked for and kept until the mood or the festival changes.
+ * which keeps its own look, like the classic one), drawn the first time it is asked for and kept until the mood or the
+ * festival changes.
  */
-export function roomArt(kind: CozyRoomKind, lit: boolean, hour: number, festival: Festival | null, pet: CozyPet | null): RoomArt {
-  const shown = kind === 'servers' ? null : festival, scene = sceneKey(hour, festival);
-  if (scene !== builtFor) { built.clear(); builtFor = scene; }
-  const key = `${kind}:${lit}:${shown ?? ''}:${petKey(pet)}`;
-  let value = built.get(key);
-  if (!value) { value = build(kind, lit, cozyTimeOf(hour), shown, pet); built.set(key, value); }
-  return value;
+export function roomArt(kind: CozyRoomKind, lit: boolean, hour: number, festival: Festival | null): RoomArt {
+  const shown = kind === 'servers' ? null : festival;
+  return built(sceneKey(hour, festival), `${kind}:${lit}:${shown ?? ''}`, () => build(kind, lit, cozyTimeOf(hour), shown));
 }
