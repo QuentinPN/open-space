@@ -64,9 +64,9 @@ export interface Place { u: number; v: number; direction: Direction; lift: numbe
  * whole seated person lower than the other.
  */
 export const DESKS = [
-  { kind: 'back', u: 24, v: 24, length: 36 },
+  { kind: 'back', u: 30, v: 24, length: 36 },
   { kind: 'back', u: 70, v: 24, length: 36 },
-  { kind: 'side', u: 104, v: 54, length: 30 },
+  { kind: 'side', u: 104, v: 57, length: 30 },
   { kind: 'side', u: 104, v: 90, length: 30 },
 ] as const;
 export type Desk = (typeof DESKS)[number];
@@ -82,8 +82,8 @@ export function deskPlace(desk: Desk): Place {
     : { u: desk.u - 12, v: desk.v + 25, direction: 'down-right', lift: 11 };
 }
 
-/** Two people seated side by side are at least this far apart across the screen, in room pixels: a head's width. */
-export const PERSON_SPACING = 18;
+/** Two people seated side by side are at least this far apart across the screen, in room pixels: an HD head's width (chibi-hd.ts). */
+export const PERSON_SPACING = 24;
 
 /**
  * A couch, its back against a back wall: (u, v) its far corner, `depth` from the wall, `length` along it; along the

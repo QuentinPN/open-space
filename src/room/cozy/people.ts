@@ -38,30 +38,11 @@ export function sittersOf(room: CozyRoom): Sitter[] {
 }
 
 /**
- * The cozy rooms are drawn finer than the classic office: its people, drawn as they are, would be as tall as half a
- * wall and wider than a desk. They are drawn at this share of their size there (about 30 room pixels tall seated), so
- * four of them fit at the desks of a room; the HD people of step 2 (24 x 36) are about that size.
+ * The cozy rooms are drawn finer than the classic office: their people are the HD ones (chibi-hd.ts), one room pixel an
+ * art pixel, about this share of the classic people's size (36 pixels tall standing, against some 60), so what is sized
+ * for the classic people (the drop rings, draw.ts paintDropSeats) is drawn at this share.
  */
 export const PERSON_SCALE = 0.6;
-
-/** The office's people at the cozy rooms' size: drawn and measured smaller, so the places and tags follow. */
-export function cozySprites(source: SpriteSource, factor = PERSON_SCALE): SpriteSource {
-  const scaled = (context: CanvasRenderingContext2D, x: number, y: number, paint: () => void) => {
-    context.save();
-    context.translate(x, y);
-    context.scale(factor, factor);
-    paint();
-    context.restore();
-  };
-  return {
-    height: (pose, personId) => source.height(pose, personId) * factor,
-    draw: (context, personId, pose, x, y) => scaled(context, x, y, () => source.draw(context, personId, pose, 0, 0)),
-    drawTypingHand: (context, personId, feet, hand, step) =>
-      scaled(context, feet.x, feet.y, () => source.drawTypingHand(context, personId, { x: 0, y: 0 }, { x: (hand.x - feet.x) / factor, y: (hand.y - feet.y) / factor }, step)),
-    // the heads on the tags and in the bubbles keep their size: the tags are drawn at the screen's size
-    drawHead: (context, personId, x, y, size) => source.drawHead(context, personId, x, y, size),
-  };
-}
 
 /** How long a frame of typing or waving lasts, like in the classic room (draw.ts poseOf). */
 const BEAT_MS: Record<Gesture, number> = { typing: 170, raising: 380, none: 120 };

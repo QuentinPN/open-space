@@ -35,7 +35,8 @@ import { PORTAL, pieceHeight, portalPoint } from './pixel-furniture.ts';
 import { WALL_EFFECT } from './themes/kit.ts';
 import { ROOM_THEMES } from '../../shared/room-themes.ts';
 import { COUCH_ARM_DEPTH, COUCH_DEPTH, COUCH_PLACES, DESKS, PERSON_SPACING, ROOM_BOX, ROOM_UNITS, deskPlace, feetOf, figureAt, fitOverview, iso, overviewLayout, roomAt } from './cozy/geometry.ts';
-import { PERSON_SCALE, placeSitters } from './cozy/people.ts';
+import { placeSitters } from './cozy/people.ts';
+import { hdArt, hdHeight } from './chibi-hd.ts';
 import { PixelGrid, box, onLeftFace, onRightFace, wallPoint } from './cozy/pixels.ts';
 import { LOUNGE_ID, callers, cozyRooms, cozySeatsKey, projectRoom, recentFolders, shownProjects, type CozyRoom } from './cozy/rooms.ts';
 import { COZY_VIEW, CozyFloor, cozyFloorPlan, hides, tileOf } from './cozy/floor.ts';
@@ -1323,13 +1324,17 @@ describe('cozy rooms', () => {
   });
 
   it("seats nobody where their head would hide another one's, in a project room or in the break room", () => {
-    // a chibi seated is 50 pixels tall in the office (chibi.ts), drawn at PERSON_SCALE in the cozy rooms
-    const seatedHeight = 50 * PERSON_SCALE;
-    // in the break room, a name tag is wider than a head: the sofas' three people sit further apart than at the desks
-    for (const [places, spacing] of [[[...DESKS.map(deskPlace), ...COUCH_PLACES], PERSON_SPACING], [LOUNGE_PLACES, PERSON_SPACING + 4]] as const) {
+    // the cozy rooms' people are the HD ones (chibi-hd.ts), drawn one room pixel an art pixel: their head is the rows
+    // above the neck (hd/face.ts HEAD), and PERSON_SPACING must be at least as wide as it
+    const seated = { direction: 'down-right', posture: 'sit', step: 0, blinking: false, smiling: false, gesture: 'none' } as const;
+    const seatedHeight = hdHeight(DEFAULT_LOOK, seated);
+    const art = hdArt(DEFAULT_LOOK, seated);
+    const headColumns = art.cells.flatMap((cell, index) => (cell && art.y0 + Math.floor(index / art.width) < 18 ? [index % art.width] : []));
+    assert.ok(PERSON_SPACING >= Math.max(...headColumns) - Math.min(...headColumns) + 1, 'two heads PERSON_SPACING apart do not overlap');
+    for (const places of [[...DESKS.map(deskPlace), ...COUCH_PLACES], LOUNGE_PLACES]) {
       const feet = places.map(feetOf);
       for (const [index, a] of feet.entries()) for (const b of feet.slice(index + 1)) {
-        assert.ok(Math.abs(a.x - b.x) >= spacing || Math.abs(a.y - b.y) >= seatedHeight, `${JSON.stringify(a)} and ${JSON.stringify(b)}`);
+        assert.ok(Math.abs(a.x - b.x) >= PERSON_SPACING || Math.abs(a.y - b.y) >= seatedHeight, `${JSON.stringify(a)} and ${JSON.stringify(b)}`);
       }
     }
   });

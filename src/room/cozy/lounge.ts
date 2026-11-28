@@ -8,8 +8,8 @@ import { around, cozyDepth, onCouchAt, type Couch, type Footprint, type Place } 
 
 /** The sofa under the window, along the left wall (three places), and the loveseat along the right wall (two). */
 export const LOUNGE_COUCHES: readonly Couch[] = [
-  { u: 0, v: 18, depth: 18, length: 78 },
-  { u: 24, v: 0, depth: 18, length: 56, alongU: true },
+  { u: 0, v: 16, depth: 18, length: 84 },
+  { u: 24, v: 0, depth: 18, length: 60, alongU: true },
 ];
 /** How many people each of them seats: its cushions (decor.ts paintCouch). */
 export const LOUNGE_COUCH_SEATS = [3, 2] as const;
