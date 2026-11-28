@@ -35,6 +35,7 @@ import { defaultFolder } from './lib/format.ts';
 import { runningShells } from './state/feed.ts';
 import { isRunning } from './state/labels.ts';
 import { selectAttentionCount, useSessions } from './state/sessions.ts';
+import { isTerminalShortcut, keyForShell, openTerminal } from './state/terminals.ts';
 import { tabTitle } from './state/queue.ts';
 import { usePhone } from './lib/phone.ts';
 
@@ -129,9 +130,11 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // in a terminal, every key is the shell's, but the one that hides it
+      if (keyForShell(e)) return;
       const state = useSessions.getState();
       // by position of the key: Option changes what `e.key` says on a Mac
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT') { e.preventDefault(); state.openTerminal(state.selectedId); return; }
+      if (isTerminalShortcut(e)) { e.preventDefault(); openTerminal(state.selectedId); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); state.openPalette(!state.paletteOpen); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); state.openSettings(!state.settingsOpen); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === '.') { e.preventDefault(); state.setView(state.view === 'focus' ? 'salle' : 'focus'); return; }

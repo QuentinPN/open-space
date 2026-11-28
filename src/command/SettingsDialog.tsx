@@ -3,7 +3,8 @@ import { LANGUAGES, type Language } from '../../shared/i18n.ts';
 import { isAutomataFolder } from '../../shared/automata.ts';
 import { isFullPath } from '../../shared/paths.ts';
 import { hooksAddressOf } from '../../shared/triggers.ts';
-import type { TerminalKind } from '../../shared/terminal.ts';
+import { TERMINAL_MODES, type TerminalKind, type TerminalMode } from '../../shared/terminal.ts';
+import { useTerminals } from '../state/terminals.ts';
 import { applyGlassOpacity } from '../design/glass.ts';
 import { IS_MAC, IS_WINDOWS } from '../lib/platform.ts';
 import { INBOUND_POLICIES, WORKFLOW_SIZES, type ClaudeSettings, type ClaudeSwitch } from '../../shared/claude-settings.ts';
@@ -46,7 +47,7 @@ const SECTION_ICONS: Record<SettingsSection, () => ReactNode> = {
 type Group = keyof typeof t.settings.prefs.groups;
 /** The rows of each section, by group, in the order shown. */
 const LAYOUT: Readonly<Partial<Record<SettingsSection, readonly (readonly [Group, readonly SettingRow[]])[]>>> = {
-  general: [['appearance', ['language', 'timeFormat']], ...(IS_WINDOWS ? [['system', ['terminal']] as const] : []), ['text', ['timestamps', 'turnDuration', 'detailedActions', 'copyOnSelect']], ['alerts', ['sound', 'notifications']]],
+  general: [['appearance', ['language', 'timeFormat']], ['system', IS_WINDOWS ? ['terminalMode', 'terminal'] : ['terminalMode']], ['text', ['timestamps', 'turnDuration', 'detailedActions', 'copyOnSelect']], ['alerts', ['sound', 'notifications']]],
   sessions: [['defaults', ['model', 'effort', 'permissions', 'remoteByDefault']], ['agents', ['agentNote', 'autoTag', 'autoTagRule']], ['branches', ['isolate']], ['browser', ['accountsBrowser', 'autoPip', 'agentCursor']]],
   claude: [
     ['reasoning', ['thinking', 'outputStyle', 'responseLanguage', 'promptSuggestions']], ['autonomy', ['autoCompact', 'idleCompact', 'autoContinue', 'autoModeInPlan']],
@@ -134,6 +135,7 @@ function SettingsEditor() {
   const flashRow = useSessions((s) => s.settingsRow);
   const language = useSessions((s) => s.language);
   const terminals = useSessions((s) => s.terminals);
+  const terminalsAvailable = useTerminals((s) => s.available);
   const hooksPort = useSessions((s) => s.triggers.hooksPort);
   const phone = useSessions((s) => s.triggers.phone);
   const store = useSessions.getState;
@@ -192,6 +194,16 @@ function SettingsEditor() {
       );
     }
     switch (id) {
+      case 'terminalMode': {
+        const mode = draft.terminalMode ?? 'external';
+        return (
+          <Row key={id} id={id} flash={flash} icon={<TerminalIcon />} title={rows.terminalMode.title} hint={terminalsAvailable ? rows.terminalMode.hint : `${rows.terminalMode.hint} ${rows.terminalMode.unavailable}`}>
+            <select aria-labelledby={`setting-${id}-title`} value={mode} onChange={(e) => change({ terminalMode: e.target.value as TerminalMode })}>
+              {TERMINAL_MODES.map((option) => <option key={option} value={option} disabled={option === 'internal' && !terminalsAvailable && mode !== 'internal'}>{rows.terminalMode.options[option]}</option>)}
+            </select>
+          </Row>
+        );
+      }
       case 'terminal': return !IS_WINDOWS ? null : (
         <Row key={id} id={id} flash={flash} icon={<TerminalIcon />} title={rows.terminal.title} hint={rows.terminal.hint}>
           <select aria-labelledby={`setting-${id}-title`} title={terminals.find((choice) => choice.id === terminal)?.path} value={terminal} disabled={!terminals.length} onChange={(e) => change({ terminal: e.target.value as TerminalKind })}>

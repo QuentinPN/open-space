@@ -74,6 +74,8 @@ export interface SessionManagerDeps {
   /** a session now waits for the user (see Session's deps) */
   onAttention?: SessionDeps['onAttention'];
   onSubagentLeft?: (sessionId: string, type: string) => void;
+  /** the session's worktree is about to be removed, its safety checks passed: whatever runs in it (a terminal) must go first */
+  beforeWorktreeRemoval?: (sessionId: string) => void;
   /** the user's first name and their note for every agent */
   identity?: SessionDeps['identity'];
   claudeSettings?: SessionDeps['claudeSettings'];
@@ -1270,6 +1272,7 @@ export class SessionManager {
     const { mainRoot, root, branch, base } = worktree;
     try {
       if (discard) {
+        this.deps.beforeWorktreeRemoval?.(info.id);
         await dropBranch(mainRoot, { branch, folder: root });
       } else if (!existsSync(root)) {
         // its folder went (by hand): what was committed stays on the branch, and git forgets the folder
@@ -1279,6 +1282,7 @@ export class SessionManager {
         // what is not on the branch (a detached HEAD, a rebase under way) would go with the folder
         await checkOnBranch(root, branch);
         const status = await branchStatus(root, base).catch(() => null);
+        this.deps.beforeWorktreeRemoval?.(info.id);
         // what cannot be read is kept, rather than lost
         if (!status || status.ahead > 0 || status.dirty > 0) {
           await commitWork(root, info.name);

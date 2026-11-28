@@ -16,7 +16,7 @@ import type { RoomTheme } from './room-themes.ts';
 import type { Look } from './look.ts';
 import type { ModInfo, ModSettings } from './mods.ts';
 import type { MusicAction, MusicApp, MusicTrack, NowPlaying } from './music.ts';
-import type { TerminalChoice, TerminalKind } from './terminal.ts';
+import type { TerminalChoice, TerminalKind, TerminalMode, TerminalTab } from './terminal.ts';
 import type { CostReport } from './usage.ts';
 
 /**
@@ -519,6 +519,8 @@ export interface CrewMember { name: string; look: Look | null; self?: boolean; b
 export interface Preferences {
   /** Native terminal opened by the room and shortcut; absent in older settings means cmd on Windows. */
   terminal?: TerminalKind;
+  /** where the terminal opens: absent in older settings means 'external' (a window of the computer) */
+  terminalMode?: TerminalMode;
   /** macOS notifications when a session needs the user and the page is not in front */
   notifications: boolean;
   /** the folders sessions may run in (OFFICE_ROOTS, when set, wins over them) */
@@ -839,7 +841,18 @@ export type ClientMessage =
   /** the session's browser (shared/browser.ts): opened, taken to an address, another tab shown, stopped */
   | { t: 'browser'; sessionId: string; lane: number; action: BrowserAction }
   /** a click, a scroll or a key of the user over the picture of the session's browser */
-  | { t: 'browserInput'; sessionId: string; lane: number; input: BrowserInput };
+  | { t: 'browserInput'; sessionId: string; lane: number; input: BrowserInput }
+  /** the integrated terminal (shared/terminal.ts): a new tab with a shell in the session's folder, answered by `terminalTabs` */
+  | { t: 'terminalOpen'; sessionId: string; cols: number; rows: number; /** echoed back to this page only, by terminalOpened */ requestId: string }
+  /** this page shows the tab: it gets its recent output once (`replay`), then what follows; `terminalDetach` stops that */
+  | { t: 'terminalAttach'; terminalId: string }
+  | { t: 'terminalDetach'; terminalId: string }
+  /** keys typed or text pasted into the tab, as is (a command sent from a code block ends with "
+" only to run it) */
+  | { t: 'terminalInput'; terminalId: string; data: string }
+  | { t: 'terminalResize'; terminalId: string; cols: number; rows: number }
+  /** kills the tab's shell and removes the tab */
+  | { t: 'terminalClose'; terminalId: string };
 
 export type ServerMessage =
   | { t: 'hello'; claude: ClaudeInfo; roots: string[]; sessions: SessionInfo[]; commands: SlashCommand[]; folderCommands: Record<string, SlashCommand[]>; models: ModelChoice[]; quota: Quota | null; build: string; crew: CrewMember[]; preferences: Preferences; onboarded: boolean; rootsLocked: boolean; claudeDefaults: ClaudeDefaults; appUpdate: AppUpdate | null; /** by browserId (shared/browser.ts) */ browsers: Record<string, BrowserState>; browserAvailable: boolean; /** none from a server older than the mods */ mods?: ModInfo[] }
@@ -849,6 +862,13 @@ export type ServerMessage =
   | { t: 'preferences'; preferences: Preferences; roots: string[]; onboarded: boolean; claudeDefaults: ClaudeDefaults }
   | { t: 'rootSuggestions'; suggestions: RootSuggestion[] }
   | { t: 'terminals'; choices: TerminalChoice[] }
+  /** every tab of the integrated terminal, sent on connect and whenever one opens, ends or closes; `available` false: no pseudo-terminal on this computer (node-pty did not load) */
+  | { t: 'terminalTabs'; available: boolean; tabs: TerminalTab[] }
+  /** to the page that sent terminalOpen only: its tab (`terminalId`), or why none was opened (`error`, a text for the user) */
+  | { t: 'terminalOpened'; requestId: string; terminalId: string }
+  | { t: 'terminalOpened'; requestId: string; error: string }
+  /** output of a tab, to the pages attached to it; `replay`: its recent output, sent once on attach (the page clears the tab first) */
+  | { t: 'terminalOutput'; terminalId: string; data: string; replay?: boolean }
   | { t: 'crew'; crew: CrewMember[] }
   | { t: 'conversations'; cwd: string; query?: string; conversations: Conversation[] }
   /** `repo` null: not in a git repository */

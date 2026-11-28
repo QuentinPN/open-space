@@ -49,6 +49,21 @@ A session is not released, by the idle timer or to make room, while any of these
 
 These sessions count toward the limit for as long as they run. With **Remote Control by default** on, new sessions start without Remote Control when fewer than 2 slots would remain free. Their button still turns it on.
 
+## The terminal
+
+**Settings > General > Terminal** chooses where a session's terminal opens (Ctrl/Cmd+Alt+T, the palette, the terminal button of the session, the screen on your desk in the room):
+
+- **In a window** (default): a terminal window of your computer, as before.
+- **In Open Space**: a drawer at the bottom of the session's window.
+
+On Windows, the **Shell** row (cmd, PowerShell, Git Bash) applies to both.
+
+In the drawer, each tab is a real shell in the session's folder (its worktree for an isolated session). A session has up to 8 tabs. The shells keep running when you hide the drawer or reload the page, and the recent output comes back. They end when you close their tab or forget the session. The shell gets your environment without Claude's own login variables.
+
+Keys typed in the terminal go to the shell (Escape, Ctrl+K and so on), except Ctrl/Cmd+Alt+T.
+
+Shell code blocks in Claude's replies have a **Run** button next to Copy. A click pastes the command into the session's integrated terminal without running it; Shift+click runs it. It always uses the integrated terminal, whatever the setting. Copy stays, for another machine. On a shell that would run pasted lines one by one (cmd), a multi-line block is pasted as one line.
+
 ## Automation runs
 
 A session started by a trigger closes on its own: 5 seconds after it calls `finish_run`, or after one hour left alone in `wait`. A new turn cancels that close. See [Automations](automations.md).

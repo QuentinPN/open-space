@@ -1,10 +1,12 @@
 // Markdown displayed safely (every message): raw HTML is escaped, only http(s)/mailto links (opened in a new tab),
-// remote images are replaced by their alt text. Code blocks get a copy button (copyCodeOnClick copies them); a copied
-// selection keeps its links' addresses (copyWithLinks).
+// remote images are replaced by their alt text. Code blocks get a copy button (copyCodeOnClick copies them), and those
+// of a shell a Run button too where a terminal can take them (runCodeOnClick); a copied selection keeps its links'
+// addresses (copyWithLinks).
 import { Marked } from 'marked';
 import { findMentions } from '../../shared/mentions.ts';
 import { t } from '../i18n/index.ts';
 import { SAFE_URL } from './links.ts';
+import { isShellLanguage } from './shell-code.ts';
 
 export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -14,8 +16,13 @@ const copyButton = () => `<button type="button" class="cp-code__copy" data-copy 
   + '<g class="cp-code__clipboard"><rect x="4.5" y="3" width="8" height="10.5" rx="1.5"/><path d="M6.5 3V2h4v1"/></g>'
   + '<path class="cp-code__done" d="M3.5 8.5l3 3 6-7"/></svg></button>';
 
-// the session names "@" can name, for the text being parsed (marked has no per-call option an extension can read)
+/** Pastes the block into the session's terminal (Shift: and runs it); `icon`: its markup, from Icons.tsx. */
+const runButton = (icon: string) => `<button type="button" class="cp-code__run" data-run aria-label="${escapeHtml(t.common.code.run)}" title="${escapeHtml(t.common.code.runTitle)}">${icon}</button>`;
+
+// the session names "@" can name, and the Run button's icon (null: no Run button), for the text being parsed (marked
+// has no per-call option an extension or a renderer can read)
 let names: readonly string[] = [];
+let runIcon: string | null = null;
 
 const marked = new Marked({ breaks: true, gfm: true });
 marked.use({
@@ -40,13 +47,18 @@ marked.use({
     code({ text, lang, escaped }) {
       const language = /^[\w+-]+$/.test(lang ?? '') ? ` class="language-${lang}"` : '';
       const body = `${text.replace(/\n$/, '')}\n`;
-      return `<div class="cp-code"><pre><code${language}>${escaped ? body : escapeHtml(body)}</code></pre>${copyButton()}</div>\n`;
+      const run = runIcon !== null && isShellLanguage(lang) ? runButton(runIcon) : '';
+      return `<div class="cp-code"><pre><code${language}>${escaped ? body : escapeHtml(body)}</code></pre>${copyButton()}${run}</div>\n`;
     },
   },
 });
 
-/** `mentions`: the session names an "@" in the text can name, shown as in the field. */
-export function mdToHtml(text: string, mentions: readonly string[] = []): string {
+/**
+ * `mentions`: the session names an "@" in the text can name, shown as in the field. `run`: the shell blocks get a Run
+ * button with this icon (the text is in a session's conversation and its terminal can take them).
+ */
+export function mdToHtml(text: string, mentions: readonly string[] = [], run?: { icon: string }): string {
   names = mentions;
+  runIcon = run?.icon ?? null;
   return marked.parse(text, { async: false }) as string;
 }

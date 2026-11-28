@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { MAX_TEXT } from '../shared/protocol.ts';
+import { MAX_TERMINAL_INPUT } from '../shared/terminal.ts';
 import { MAX_NAME, parseClientMessage } from './messages.ts';
 
 describe('parseClientMessage', () => {
@@ -182,5 +183,30 @@ describe('parseClientMessage', () => {
     assert.equal(parseClientMessage({ t: 'configureMod', id: 'tickets', settings: { ...settings, refreshTrigger: '916f9cd5fbc90b8c' } })?.t, 'configureMod');
     assert.equal(parseClientMessage({ t: 'configureMod', id: '../x', settings }), null);
     assert.deepEqual(parseClientMessage({ t: 'modEnv', id: 'tickets' }), { t: 'modEnv', id: 'tickets' });
+  });
+});
+
+describe('the integrated terminal’s messages', () => {
+  it('keep the size a pty takes, and drop one that is no number', () => {
+    assert.deepEqual(parseClientMessage({ t: 'terminalOpen', sessionId: 's1', requestId: 'r-1', cols: 100.4, rows: 30 }), { t: 'terminalOpen', sessionId: 's1', requestId: 'r-1', cols: 100, rows: 30 });
+    assert.deepEqual(parseClientMessage({ t: 'terminalResize', terminalId: 't-1', cols: 0, rows: 9999 }), { t: 'terminalResize', terminalId: 't-1', cols: 2, rows: 300 }, 'a hidden panel measures nothing');
+    assert.equal(parseClientMessage({ t: 'terminalResize', terminalId: 't-1', cols: '80', rows: 24 }), null);
+    assert.equal(parseClientMessage({ t: 'terminalResize', terminalId: 't-1', cols: NaN, rows: 24 }), null);
+    assert.equal(parseClientMessage({ t: 'terminalOpen', cols: 80, rows: 24, requestId: 'r-1' }), null);
+    assert.equal(parseClientMessage({ t: 'terminalOpen', sessionId: 's1', cols: 80, rows: 24 }), null, 'the page waits for an answer it can match');
+    assert.equal(parseClientMessage({ t: 'terminalOpen', sessionId: 's1', requestId: 'x'.repeat(101), cols: 80, rows: 24 }), null);
+  });
+
+  it('take keys up to the paste limit and no more', () => {
+    assert.deepEqual(parseClientMessage({ t: 'terminalInput', terminalId: 't-1', data: 'ls\r' }), { t: 'terminalInput', terminalId: 't-1', data: 'ls\r' });
+    assert.ok(parseClientMessage({ t: 'terminalInput', terminalId: 't-1', data: 'x'.repeat(MAX_TERMINAL_INPUT) }));
+    assert.equal(parseClientMessage({ t: 'terminalInput', terminalId: 't-1', data: 'x'.repeat(MAX_TERMINAL_INPUT + 1) }), null);
+    assert.equal(parseClientMessage({ t: 'terminalInput', terminalId: 't-1', data: 12 }), null);
+  });
+
+  it('name a tab by an identifier only', () => {
+    assert.deepEqual(parseClientMessage({ t: 'terminalAttach', terminalId: 't-1' }), { t: 'terminalAttach', terminalId: 't-1' });
+    assert.equal(parseClientMessage({ t: 'terminalClose', terminalId: '../x' }), null);
+    assert.equal(parseClientMessage({ t: 'terminalDetach' }), null);
   });
 });

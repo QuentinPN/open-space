@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { use, useEffect, useMemo, useRef } from 'react';
 import { mentionNames } from '../../shared/mentions.ts';
 import { mdToHtml } from '../lib/markdown.ts';
 import { useSessions } from '../state/sessions.ts';
+import { useTerminals } from '../state/terminals.ts';
+import { CodeRunContext, runCodeOnClick } from './copyCode.ts';
+import { RUN_ICON_HTML } from './Icons.tsx';
+
+const RUN = { icon: RUN_ICON_HTML };
 
 const LANGUAGE_CLASS = 'language-';
 
@@ -26,12 +31,15 @@ function highlightBlocks(root: HTMLElement) {
  * A message or a report in Markdown, rendered. The one place HTML is set by hand: mdToHtml escapes any raw HTML in the
  * text and keeps only http(s) and mailto links, so what Claude writes cannot inject markup; the code blocks coloured
  * afterwards get the same escaped text, split into spans. The sessions named with "@" show in color, as in the field.
+ * In a session's conversation (CodeRunContext), its shell code blocks can be pasted into the session's terminal.
  */
 export function Prose({ text, className }: { text: string; className: string }) {
   const sessions = useSessions((s) => s.sessions);
-  const html = useMemo(() => mdToHtml(text, mentionNames(Object.values(sessions))), [text, sessions]);
+  const runIn = use(CodeRunContext);
+  const runs = useTerminals((s) => s.available) && runIn !== null;
+  const html = useMemo(() => mdToHtml(text, mentionNames(Object.values(sessions)), runs ? RUN : undefined), [text, sessions, runs]);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => { if (root.current) highlightBlocks(root.current); }, [html]);
   // biome-ignore lint/security/noDangerouslySetInnerHtml: mdToHtml escapes raw HTML (see src/lib/markdown.ts)
-  return <div ref={root} className={`${className} cp-prose`} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div ref={root} className={`${className} cp-prose`} onClick={runs && runIn ? (e) => runCodeOnClick(e, runIn) : undefined} dangerouslySetInnerHTML={{ __html: html }} />;
 }

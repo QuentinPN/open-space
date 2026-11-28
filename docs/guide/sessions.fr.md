@@ -49,6 +49,21 @@ Une session n'est pas libérée, ni par l'inactivité ni pour faire de la place,
 
 Ces sessions comptent dans la limite tant qu'elles tournent. Avec **Remote Control par défaut** activé, les nouvelles sessions démarrent sans Remote Control quand il resterait moins de 2 places libres. Leur bouton l'active quand même.
 
+## Le terminal
+
+**Réglages > Général > Terminal** choisit où s'ouvre le terminal d'une session (Ctrl/Cmd+Alt+T, la palette, le bouton terminal de la session, l'écran de ton poste dans la salle) :
+
+- **Dans une fenêtre** (par défaut) : une fenêtre de terminal de ton ordinateur, comme avant.
+- **Dans Open Space** : un tiroir en bas de la fenêtre de la session.
+
+Sous Windows, la ligne **Shell** (cmd, PowerShell, Git Bash) vaut pour les deux.
+
+Dans le tiroir, chaque onglet est un vrai shell dans le dossier de la session (son worktree pour une session isolée). Une session a 8 onglets au plus. Les shells continuent de tourner quand tu masques le tiroir ou recharges la page, et la sortie récente revient. Ils s'arrêtent quand tu fermes leur onglet ou oublies la session. Le shell reçoit ton environnement, sans les variables de connexion propres à Claude.
+
+Les touches tapées dans le terminal vont au shell (Échap, Ctrl+K…), sauf Ctrl/Cmd+Alt+T.
+
+Les blocs de code shell des réponses de Claude ont un bouton **Exécuter** à côté de Copier. Un clic colle la commande dans le terminal intégré de la session sans l'exécuter ; Maj+clic l'exécute. Il passe toujours par le terminal intégré, quel que soit le réglage. Copier reste, pour une autre machine. Sur un shell qui exécuterait les lignes collées une à une (cmd), un bloc de plusieurs lignes est collé en une seule.
+
 ## Les runs des automates
 
 Une session lancée par un déclencheur se ferme toute seule : 5 secondes après son appel à `finish_run`, ou au bout d'une heure laissée seule en `wait`. Un nouveau tour annule cette fermeture. Voir [Automates](automations.fr.md).

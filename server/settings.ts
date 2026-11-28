@@ -14,7 +14,7 @@ import { parseDashboards } from '../shared/dashboards.ts';
 import { ACCOUNTS_BROWSERS, DEFAULT_PERMISSION_MODE, EFFORTS, GLASS_OPACITY, IDLE_COMPACT_MINUTES, ISOLATE_MODES, isPermissionMode, TIME_FORMATS, WINDOW_STYLES, type Preferences } from '../shared/protocol.ts';
 import { asArray, isJson } from './json.ts';
 import { expandHomePath, isFullPath } from '../shared/paths.ts';
-import { TERMINALS, type TerminalKind } from '../shared/terminal.ts';
+import { TERMINAL_MODES, TERMINALS, type TerminalKind, type TerminalMode } from '../shared/terminal.ts';
 
 export const DEFAULT_PREFERENCES: Preferences = {
   notifications: true, roots: [], defaultFolder: '', model: '', permissionMode: DEFAULT_PERMISSION_MODE, agentNote: '', festivals: true, officeLife: true, pet: DEFAULT_PET, theme: DEFAULT_ROOM_THEME,
@@ -56,6 +56,7 @@ export function parsePreferences(raw: unknown, home = os.homedir()): Partial<Pre
   if (!isJson(raw)) return {};
   const found: Partial<Preferences> = {};
   if (TERMINALS.includes(raw.terminal as TerminalKind)) found.terminal = raw.terminal as TerminalKind;
+  if (TERMINAL_MODES.includes(raw.terminalMode as TerminalMode)) found.terminalMode = raw.terminalMode as TerminalMode;
   if (typeof raw.notifications === 'boolean') found.notifications = raw.notifications;
   if (typeof raw.festivals === 'boolean') found.festivals = raw.festivals;
   if (typeof raw.officeLife === 'boolean') found.officeLife = raw.officeLife;

@@ -8,6 +8,7 @@ import { nativeView, ownCommand, typedName, withOwnCommands } from '../state/com
 import { attentionKind } from '../state/queue.ts';
 import { FILTERS, filterCounts, isCommandQuery, searchResults, type Action, type Filter, type Group, type Result } from '../state/search.ts';
 import { commandsIn, useSessions } from '../state/sessions.ts';
+import { openTerminal } from '../state/terminals.ts';
 import { settingEntries } from '../state/settings-index.ts';
 import {
   AutomatonIcon, BellIcon, BranchIcon, ChartIcon, CommandIcon, CostIcon, CrewIcon, DeskIcon, EnterIcon, FocusIcon, KeyboardIcon, MOD_ICONS, ModsIcon, NotesIcon, PlusIcon, SearchIcon, SettingsIcon, SofaIcon, SoundIcon, TerminalIcon, TidyIcon, WeekIcon,
@@ -143,7 +144,7 @@ function PaletteContent() {
       case 'automata': s.openAutomata(true); break;
       case 'newAutomaton': s.openAutomata(true, null, null, true); break;
       case 'shortcuts': s.openSettings(true, 'shortcuts'); break;
-      case 'terminal': s.openTerminal(s.selectedId); break;
+      case 'terminal': openTerminal(s.selectedId); break;
       // the project of the open session, else of the default folder
       case 'branches': {
         const open = s.selectedId ? s.sessions[s.selectedId] : undefined;

@@ -133,7 +133,13 @@ export const settings = {
       failed: (text: string) => `Échec : ${text}`,
     },
     rows: {
-      terminal: { title: 'Terminal', hint: 'Pour l’écran de ton personnage et Ctrl+Alt+T. Seuls les terminaux détectés sur cet ordinateur sont proposés.', unavailable: 'Terminal enregistré introuvable, choisis-en un autre' },
+      terminalMode: {
+        title: 'Terminal',
+        hint: 'Où s’ouvre le terminal de l’écran de ton personnage, de Ctrl+Alt+T et du menu d’une session : une fenêtre de ton ordinateur, ou des onglets en bas de la fenêtre de la session.',
+        options: { external: 'Dans une fenêtre', internal: 'Dans Open Space' },
+        unavailable: 'Le terminal intégré n’a pas pu démarrer sur cet ordinateur.',
+      },
+      terminal: { title: 'Shell', hint: 'Celui du terminal, dans une fenêtre comme dans Open Space. Seuls les shells détectés sur cet ordinateur sont proposés.', unavailable: 'Shell enregistré introuvable, choisis-en un autre' },
       language: { title: 'Langue', hint: 'Celle de la page, du serveur et des consignes des nouveaux agents.' },
       sound: { title: 'Son', hint: 'Un son quand une session a fini ou t’attend.' },
       notifications: { title: 'Notifications système', hint: 'Quand une session t’attend et qu’Open Space n’est pas devant toi.' },

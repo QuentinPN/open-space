@@ -5,6 +5,7 @@ import { MAX_TEXT, type ClientMessage, type ServerMessage } from '../../shared/p
 import { t } from '../i18n/index.ts';
 import { useFiles } from '../state/files.ts';
 import { useSessions } from '../state/sessions.ts';
+import { useTerminals } from '../state/terminals.ts';
 
 /** Short on purpose: `npm start` only opens a new tab when no open one came back within ~3 s. */
 const MAX_RETRY_MS = 2000;
@@ -62,6 +63,7 @@ export function connect() {
         build = message.build;
       }
       if (message.t === 'folder' || message.t === 'file') useFiles.getState().receive(message);
+      else if (message.t === 'terminalTabs' || message.t === 'terminalOutput' || message.t === 'terminalOpened') useTerminals.getState().receive(message);
       else useSessions.getState().receive(message);
     };
     ws.onclose = async () => {

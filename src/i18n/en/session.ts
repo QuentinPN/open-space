@@ -221,6 +221,18 @@ export const session: Dictionary['session'] = {
     mcpServers: 'MCP servers',
     weekNote: 'Approximate: from the sessions on this machine, by share of the requests.',
   },
+  terminal: {
+    label: 'Terminal',
+    tabs: 'Terminal tabs',
+    newTab: 'New terminal',
+    newTabTitle: 'A new shell in the session’s folder',
+    close: (title) => `Close ${title}`,
+    hide: 'Hide the terminal',
+    resize: 'Terminal height',
+    ended: (code) => `Ended (code ${code})`,
+    endedTitle: 'This tab’s shell has stopped: close the tab, or open another one',
+    opening: 'Opening the terminal…',
+  },
   panel: { back: 'Conversation', refresh: 'Refresh', askAgain: 'Ask Claude Code again (the view also updates at the end of each turn)' },
   browser: {
     label: 'Browser',

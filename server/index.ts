@@ -43,6 +43,7 @@ import { setServerLanguage, st } from './i18n/index.ts';
 import { Settings } from './settings.ts';
 import { findTerminals, openTerminal, openWebPage } from './desktop.ts';
 import { createShellRunner } from './shell.ts';
+import { TerminalManager, type TerminalListener } from './terminal.ts';
 import { deleteNote, listNotes, readNote, renameNote, searchNotes, writeNote } from './journal.ts';
 import { AutomataWatch } from './automata-watch.ts';
 import { rolesFor } from './agent-roles.ts';
@@ -196,6 +197,10 @@ const HIDDEN_FILES = [...['secret', 'mcp-key', 'trigger-keys.json', 'mods-env.js
 const crew = new Crew(path.join(config.dataDir, 'crew.json'));
 await crew.load();
 
+/** the integrated terminal's shells (server/terminal.ts): the environment Claude Code gets, so no key of the shell that started the bridge */
+const terminals = new TerminalManager({ environment: buildClaudeEnvironment(process.env, config.passthrough), kind: () => settings.preferences.terminal, broadcast, log });
+await terminals.init();
+
 const sessions = new SessionManager({
   config,
   spawnProcess: claude ? createProcessFactory(claude, buildClaudeEnvironment(process.env, config.passthrough)) : null,
@@ -212,7 +217,10 @@ const sessions = new SessionManager({
   claudeSettings: () => settings.preferences.claude,
   hidden: HIDDEN_FILES,
   promptSuggestions: () => settings.preferences.promptSuggestions,
-  broadcast,
+  // a forgotten session's tabs go with it, whatever forgot it (a merge, a failed first message)...
+  broadcast: (message) => { if (message.t === 'forgotten') terminals.closeSession(message.sessionId); broadcast(message); },
+  // ...and before its worktree is removed, once that is safe: a shell standing in the folder would keep Windows from removing it
+  beforeWorktreeRemoval: (sessionId) => terminals.closeSession(sessionId),
   log,
   onAttention: (kind, session) => {
     if (settings.notifications && ![...presence.values()].some(Boolean)) notify(session, kind, log);
@@ -557,7 +565,12 @@ function onConnection(socket: WebSocket) {
     alive = false;
     socket.ping();
   }, PING_INTERVAL_MS);
-  socket.on('close', () => { clients.delete(socket); presence.delete(socket); clearInterval(heartbeat); });
+  // what a tab sends to the page, with the same guard as broadcast against a page that does not read
+  const terminalListener: TerminalListener = (message) => {
+    if (socket.bufferedAmount > MAX_BUFFERED_BYTES) { socket.terminate(); return; }
+    send(message);
+  };
+  socket.on('close', () => { clients.delete(socket); presence.delete(socket); clearInterval(heartbeat); terminals.detachAll(terminalListener); });
   socket.on('error', (error) => log('websocket error', error));
 
   send({
@@ -569,6 +582,7 @@ function onConnection(socket: WebSocket) {
   checkClaudeVersion().catch((error: unknown) => log('cannot read the Claude Code version', error));
   if (account) send({ t: 'claudeAccount', account });
   if (process.platform === 'win32') send({ t: 'terminals', choices: findTerminals() });
+  send(terminals.message());
   if (!signing) checkAccount().catch((error: unknown) => log('cannot read the Claude Code account', error));
   readClaudeDefaults(os.homedir()).then((found) => {
     if (JSON.stringify(found) === JSON.stringify(claudeDefaults)) return;
@@ -585,7 +599,7 @@ function onConnection(socket: WebSocket) {
     try { message = parseClientMessage(JSON.parse(String(data))); } catch { /* not JSON */ }
     if (!message) return;
     if (message.t === 'presence') { presence.set(socket, message.active); return; }
-    handle(message, send).catch((error: unknown) => send({ t: 'toast', kind: 'error', text: error instanceof Error ? error.message : String(error) }));
+    handle(message, send, terminalListener).catch((error: unknown) => send({ t: 'toast', kind: 'error', text: error instanceof Error ? error.message : String(error) }));
   });
 }
 
@@ -610,7 +624,7 @@ function filesRoot(sessionId: string): string {
   return root;
 }
 
-async function handle(message: ClientMessage, send: (message: ServerMessage) => void) {
+async function handle(message: ClientMessage, send: (message: ServerMessage) => void, terminalListener: TerminalListener) {
   switch (message.t) {
     case 'create': {
       // unnamed sessions take someone of the crew without a session, whose job fits the first message if possible;
@@ -868,6 +882,22 @@ async function handle(message: ClientMessage, send: (message: ServerMessage) => 
     }
     case 'music': send({ t: 'music', nowPlaying: message.action ? await controlMusic(message.app, message.action) : await nowPlaying(message.app) }); break;
     case 'musicLibrary': send({ t: 'musicLibrary', query: message.query, ...await musicLibrary(message.query) }); break;
+    case 'terminalOpen': {
+      // the answer goes to the page that asked, with the reason when there is none
+      try {
+        const folder = sessions.folderOf(message.sessionId);
+        if (!folder) throw new Error(st.terminal.noFolder);
+        send({ t: 'terminalOpened', requestId: message.requestId, terminalId: terminals.open(message.sessionId, folder, message.cols, message.rows).id });
+      } catch (error) {
+        send({ t: 'terminalOpened', requestId: message.requestId, error: error instanceof Error ? error.message : String(error) });
+      }
+      break;
+    }
+    case 'terminalAttach': terminals.attach(message.terminalId, terminalListener); break;
+    case 'terminalDetach': terminals.detach(message.terminalId, terminalListener); break;
+    case 'terminalInput': terminals.input(message.terminalId, message.data); break;
+    case 'terminalResize': terminals.resize(message.terminalId, message.cols, message.rows); break;
+    case 'terminalClose': terminals.close(message.terminalId); break;
     case 'openTerminal': {
       const folder = (message.sessionId && sessions.folderOf(message.sessionId)) || defaultFolder(config.roots, settings.preferences.defaultFolder) || os.homedir();
       await openTerminal(folder, settings.preferences.terminal);
@@ -966,6 +996,7 @@ async function shutdown() {
   stopping = true;
   const deadline = setTimeout(() => process.exit(1), 10_000);
   deadline.unref();
+  terminals.shutdown();
   browsers.shutdown();
   automata.stop();
   triggers.stop();

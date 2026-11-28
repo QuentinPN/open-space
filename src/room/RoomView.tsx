@@ -14,6 +14,7 @@ import { t } from '../i18n/index.ts';
 import { availability } from '../state/availability.ts';
 import { sessionsIn } from '../state/docking.ts';
 import { useSessions } from '../state/sessions.ts';
+import { openTerminal } from '../state/terminals.ts';
 import { useReducedMotion } from '../lib/motion.ts';
 import { readPreference, writePreference } from '../lib/preferences.ts';
 import { USER_SPEAKER, onSpeech } from '../state/speech.ts';
@@ -299,7 +300,8 @@ export function RoomView({ room, day }: { room: RoomKind; day: FestivalDay }) {
     if (!isInRoom(point)) { leave(); return; }
     if (floor.isDoorAt(point)) { scene.walkPlayerOut(); return; }
     if (floor.isPortalAt(point)) { scene.walkPlayerToPortal(); return; }
-    if (floor.isUserScreenAt(point)) { useSessions.getState().send({ t: 'openTerminal' }); return; }
+    // the user's own screen: a window in the default folder, or the open session's panel when the terminal is in Open Space
+    if (floor.isUserScreenAt(point)) { openTerminal(null, useSessions.getState().selectedId); return; }
     if (floor.isBoardAt(point)) { useSessions.getState().openBoard(true); return; }
     if (floor.isMetricsAt(point)) { useSessions.getState().openModsPanel(true); return; }
     const tile = toTile(point);

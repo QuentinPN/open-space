@@ -1,4 +1,4 @@
-import { memo, use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SessionInfo } from '../../shared/protocol.ts';
 import { MAX_TAG, MAX_TAGS, parseTags, withoutTag } from '../../shared/tags.ts';
 import { Tooltip } from '../design/Tooltip.tsx';
@@ -12,12 +12,14 @@ import { projectOf } from '../state/projects.ts';
 import { useProjects } from '../state/useProjects.ts';
 import { defaultFolder } from '../../shared/folders.ts';
 import { useSessions } from '../state/sessions.ts';
+import { openTerminal, useTerminals } from '../state/terminals.ts';
 import { DropOverlay } from './Attachments.tsx';
 import { AsidePanel } from './AsidePanel.tsx';
 import { BrowserView } from './BrowserView.tsx';
 import { ChangesView, LineCounts } from './Changes.tsx';
 import { ContextChip, ContextView, McpView, UsageView } from './ClaudeViews.tsx';
 import { Composer, RemoteButton } from './Composer.tsx';
+import { CodeRunContext } from './copyCode.ts';
 import { INTERACTIVE, WindowDragContext } from './useWindowDrag.ts';
 import { Feed, type Subagent } from './Feed.tsx';
 import { FilesView } from './FilesView.tsx';
@@ -38,6 +40,14 @@ import { useMenuBelow } from './useMenuBelow.ts';
 import { sessionTagHues } from '../design/tag-colors.ts';
 
 const NO_EVENTS: never[] = [];
+
+const TerminalDrawer = lazy(() => import('./TerminalPanel.tsx').then((module) => ({ default: module.TerminalDrawer })));
+
+/** The session's integrated terminal, while its panel is open (src/state/terminals.ts) and the server has one. */
+function TerminalSlot({ sessionId }: { sessionId: string }) {
+  const shown = useTerminals((s) => s.shown[sessionId] === true && s.available);
+  return shown ? <Suspense fallback={null}><TerminalDrawer sessionId={sessionId} /></Suspense> : null;
+}
 
 /**
  * What a session's head keeps out of sight, so it has room for its name: zoom (also a double click on the head), taking
@@ -71,7 +81,7 @@ function SessionMenu({ session, searchOpen, onSearch, onKeys, onRest, onSwitchOf
             <button type="button" role="menuitem" title={words.duplicateTitle} onClick={pick(() => useSessions.getState().duplicateSession(session.id))}><DuplicateIcon />{words.duplicate}</button>
           )}
           <button type="button" role="menuitem" title={words.keysTitle} onClick={pick(onKeys)}><KeyIcon />{words.keys}</button>
-          <button type="button" role="menuitem" title={words.terminalHereTitle} onClick={pick(() => useSessions.getState().openTerminal(session.id))}><TerminalIcon />{words.terminalHere}</button>
+          <button type="button" role="menuitem" title={words.terminalHereTitle} onClick={pick(() => openTerminal(session.id))}><TerminalIcon />{words.terminalHere}</button>
           {!session.resting && <button type="button" role="menuitem" title={words.restTitle} onClick={pick(onRest)}><RestIcon />{words.rest}</button>}
           <button type="button" role="menuitem" data-variant="danger" title={words.switchOffTitle} onClick={pick(onSwitchOff)}><PowerIcon />{words.switchOff}</button>
         </div>
@@ -289,13 +299,19 @@ export const Detail = memo(function Detail({ sessionId, detached = false }: { se
         : panelView === 'mcp' ? <McpView sessionId={session.id} cwd={session.cwd} onBack={back} />
           : panelView === 'context' ? <ContextView sessionId={session.id} onBack={back} />
             : panelView === 'usage' ? <UsageView sessionId={session.id} onBack={back} />
-              : <Feed feed={feed} sessionId={session.id} loading={!loaded} speaker={session.name} working={isRunning(session) && session.state !== 'perm'} drafts={drafts} agent={agent} setAgent={setAgent} />}
-      <AsidePanel session={session} />
+              : (
+                <CodeRunContext value={session.id}>
+                  <Feed feed={feed} sessionId={session.id} loading={!loaded} speaker={session.name} working={isRunning(session) && session.state !== 'perm'} drafts={drafts} agent={agent} setAgent={setAgent} />
+                </CodeRunContext>
+              )}
+      <CodeRunContext value={session.id}><AsidePanel session={session} /></CodeRunContext>
       {/* at the bottom, by the field, as in Claude Code */}
       {first && (first.secrets ? <SecretPrompt key={first.requestId} sessionId={session.id} prompt={first} />
         : first.questions ? <QuestionPrompt key={first.requestId} sessionId={session.id} prompt={first} />
         : <PermissionPrompt key={first.requestId} sessionId={session.id} prompt={first} more={others.length} />)}
       <Composer key={session.id} session={session} attachments={attachments} />
+      {/* at the very bottom, as a drawer (VS Code's panel) */}
+      <TerminalSlot sessionId={session.id} />
     </aside>
   );
 });

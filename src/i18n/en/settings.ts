@@ -130,7 +130,13 @@ export const settings: Dictionary['settings'] = {
       failed: (text: string) => `Failed: ${text}`,
     },
     rows: {
-      terminal: { title: 'Terminal', hint: 'For your character’s monitor and Ctrl+Alt+T. Only terminals detected on this computer are offered.', unavailable: 'Saved terminal not found, choose another' },
+      terminalMode: {
+        title: 'Terminal',
+        hint: 'Where the terminal of your character’s monitor, Ctrl+Alt+T and a session’s menu opens: a window of your computer, or tabs at the bottom of the session’s window.',
+        options: { external: 'In a window', internal: 'In Open Space' },
+        unavailable: 'The integrated terminal could not start on this computer.',
+      },
+      terminal: { title: 'Shell', hint: 'The terminal’s, in a window as in Open Space. Only shells detected on this computer are offered.', unavailable: 'Saved shell not found, choose another' },
       language: { title: 'Language', hint: 'Of the page, the server and new agents’ instructions.' },
       sound: { title: 'Sound', hint: 'A sound when a session is done or waiting for you.' },
       notifications: { title: 'System notifications', hint: 'When a session waits for you and Open Space isn’t in front.' },

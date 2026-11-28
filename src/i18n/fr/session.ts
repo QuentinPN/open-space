@@ -231,6 +231,19 @@ export const session = {
     weekNote: 'Approximatif : d’après les sessions de cette machine, en part des requêtes.',
   },
   /** a view shown in place of the conversation (PanelFrame) */
+  /** the integrated terminal, at the bottom of a session's window (TerminalPanel) */
+  terminal: {
+    label: 'Terminal',
+    tabs: 'Onglets du terminal',
+    newTab: 'Nouveau terminal',
+    newTabTitle: 'Un nouveau shell dans le dossier de la session',
+    close: (title: string) => `Fermer ${title}`,
+    hide: 'Masquer le terminal',
+    resize: 'Hauteur du terminal',
+    ended: (code: number) => `Terminé (code ${code})`,
+    endedTitle: 'Le shell de cet onglet s’est arrêté : ferme l’onglet, ou ouvres-en un autre',
+    opening: 'Ouverture du terminal…',
+  },
   panel: { back: 'Conversation', refresh: 'Actualiser', askAgain: 'Redemander à Claude Code (la vue se met aussi à jour à chaque fin de tour)' },
   browser: {
     label: 'Navigateur',

@@ -155,6 +155,8 @@ export const common = {
   code: {
     copy: 'Copier le code',
     copyTitle: 'Copier',
+    run: 'Coller dans le terminal',
+    runTitle: 'Coller dans le terminal — Maj+clic pour exécuter',
   },
   /** a window taken out of Open Space, in a window of its own */
   out: {

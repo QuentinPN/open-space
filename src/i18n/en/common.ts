@@ -156,6 +156,8 @@ export const common: Dictionary['common'] = {
   code: {
     copy: 'Copy code',
     copyTitle: 'Copy',
+    run: 'Paste into the terminal',
+    runTitle: 'Paste into the terminal — Shift+click to run',
   },
   out: {
     popOut: 'Pop out',

@@ -31,6 +31,8 @@ describe('settings', () => {
     assert.deepEqual(parsePreferences({ effort: 'xhigh', timeFormat: '12h', timestamps: true, turnDuration: false, reduceMotion: 'yes' }), { effort: 'xhigh', timeFormat: '12h', timestamps: true, turnDuration: false });
     assert.deepEqual(parsePreferences({ effort: 'ultra', timeFormat: 'swatch' }), {});
     assert.deepEqual(parsePreferences({ windowStyle: 'terminal' }), { windowStyle: 'terminal' });
+    assert.equal(parsePreferences({ terminalMode: 'internal' }).terminalMode, 'internal');
+    assert.deepEqual(parsePreferences({ terminalMode: 'tmux' }), {}, 'an unknown mode is left out: an older settings file has none, which means an outside window');
     assert.deepEqual(parsePreferences({ windowStyle: 'matrix' }), {});
     assert.deepEqual(parsePreferences({ remoteByDefault: true }), { remoteByDefault: true });
     assert.deepEqual(parsePreferences({ remoteByDefault: 'yes' }), {});

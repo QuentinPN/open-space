@@ -28,6 +28,7 @@ Open Space runs the `claude` installed on your machine, so your skills, plugins,
 - **Open up to six conversations** side by side. Tab slides them aside to see the room, Tab brings them back.
 - **Focus mode** (Cmd+. on Mac, Ctrl+. on Windows) swaps the room for the list of your sessions, grouped by what they need. The list folds down to faces when you want more room.
 - **Search everything** with Cmd+K on Mac or Ctrl+K on Windows: sessions, messages, commands and settings.
+- **A terminal in the session's window**: with **Settings > General > Terminal** on "In Open Space", Ctrl+Alt+T (Cmd+Alt+T on Mac) opens shell tabs at the bottom, in the session's folder. A Run button on Claude's shell code blocks pastes the command there. See [Sessions](docs/guide/sessions.md).
 - **Get notified** by a sound and a native macOS or Windows app notification when a session is done or waiting, even with the window closed.
 - **Continue on your phone** with Remote Control: one button, and the session shows up in claude.ai/code and the Claude app.
 - **Pop a window out**: a conversation, a mod or a browser leaves Open Space for a window of its own, kept above your other apps (even full screen) or not, and comes back in one click.
@@ -120,7 +121,7 @@ Seven themes under **Settings > Office**: a space shuttle, a neon Tokyo street, 
 
 The sky follows your clock: clouds by day, stars and a lit-up office at night. The rooms dress up for 14 occasions, from Christmas and Halloween to Songkran and each crew member's birthday. The calendar icon in the top bar lets you try them all.
 
-Around the office, click the screen on your desk to open a terminal, and the whiteboard to read and edit your notes (one tab per Markdown file of `~/Journal`, which your sessions can fill too; the folder is set in Settings). Point Settings at a file of numbers and a pile of banknotes shows up on your desk, with a red "!" when the file changed. The radio plays lo-fi, or drives Music or Spotify (on Windows: play, pause and skip only, with the player open).
+Around the office, click the screen on your desk to open a terminal (in a window of your computer, or in the session's window, as set in Settings), and the whiteboard to read and edit your notes (one tab per Markdown file of `~/Journal`, which your sessions can fill too; the folder is set in Settings). Point Settings at a file of numbers and a pile of banknotes shows up on your desk, with a red "!" when the file changed. The radio plays lo-fi, or drives Music or Spotify (on Windows: play, pause and skip only, with the player open).
 
 ## Install
 

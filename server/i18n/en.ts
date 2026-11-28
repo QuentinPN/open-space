@@ -185,6 +185,10 @@ export const en: ServerDictionary = {
   terminal: {
     unsupported: 'Opening a terminal only works on macOS and Windows for now.',
     failed: 'The terminal won’t open.',
+    unavailable: 'The integrated terminal isn’t available on this computer.',
+    tooMany: (max: number) => `A session has at most ${max} terminals.`,
+    shellFailed: 'The shell won’t start.',
+    noFolder: 'This session has no folder to open a terminal in.',
   },
   trust: {
     entry: (name: string, what: string) => `${name}: ${what}`,

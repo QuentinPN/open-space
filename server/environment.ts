@@ -38,6 +38,18 @@ export function withoutNpmEntries(searchPath: string, delimiter = path.delimiter
  */
 const FIXED: Readonly<Record<string, string>> = { CLAUDE_CODE_ARTIFACT: '1' };
 
+/**
+ * What buildClaudeEnvironment adds for Claude Code alone: Open Space's own switch and the subscription token. A shell
+ * of the user's (the integrated terminal) must look like their own, not like one of an agent: a `claude` started there
+ * logs in as the user does. ANTHROPIC_* never gets in (the whitelist and the passthrough both leave it out).
+ */
+export const CLAUDE_ONLY_NAMES = ['CLAUDE_CODE_ARTIFACT', 'CLAUDE_CODE_OAUTH_TOKEN'] as const;
+
+export function withoutClaudeOnly(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const left = new Set<string>(CLAUDE_ONLY_NAMES.map((name) => name.toLowerCase()));
+  return Object.fromEntries(Object.entries(environment).filter(([name]) => !left.has(name.toLowerCase()) && !name.toUpperCase().startsWith('ANTHROPIC_')));
+}
+
 export function buildClaudeEnvironment(source: NodeJS.ProcessEnv, passthrough: readonly string[] = []): NodeJS.ProcessEnv {
   const result: NodeJS.ProcessEnv = { ...FIXED };
   for (const name of [...ALLOWED_NAMES, ...passthrough]) {

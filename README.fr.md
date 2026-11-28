@@ -28,6 +28,7 @@ Open Space lance le `claude` installé sur ta machine : tes skills, tes plugins,
 - **Ouvrir jusqu'à six conversations** côte à côte. Tab les fait glisser hors de vue pour voir la salle, Tab les ramène.
 - **Le mode focus** (Cmd+. sur Mac, Ctrl+. sur Windows) remplace la salle par la liste de tes sessions, rangées selon ce qu'elles attendent. La liste se replie aux seules têtes quand tu veux de la place.
 - **Tout chercher** avec Cmd+K sur Mac ou Ctrl+K sur Windows : sessions, messages, commandes et réglages.
+- **Un terminal dans la fenêtre de la session** : avec **Réglages > Général > Terminal** sur « Dans Open Space », Ctrl+Alt+T (Cmd+Alt+T sur Mac) ouvre des onglets de shell en bas, dans le dossier de la session. Un bouton Exécuter sur les blocs de code shell de Claude y colle la commande. Voir [Sessions](docs/guide/sessions.fr.md).
 - **Être prévenu** par un son et une notification native de l’app macOS ou Windows quand une session a fini ou t'attend, même fenêtre fermée.
 - **Continuer sur ton téléphone** avec Remote Control : un bouton, et la session apparaît dans claude.ai/code et l'app Claude.
 - **Sortir une fenêtre** : une conversation, un mod ou un navigateur sort d'Open Space dans sa propre fenêtre, gardée au-dessus de tes autres apps (même en plein écran) ou non, et revient d'un clic.
@@ -120,7 +121,7 @@ Sept thèmes dans **Réglages > Bureau** : une navette spatiale, une rue de Toky
 
 Le ciel suit ton heure : nuages le jour, étoiles et bureau éclairé la nuit. Les salles se déguisent pour 14 occasions, de Noël et Halloween à Songkran et à l'anniversaire de chaque membre de l'équipe. L'icône calendrier du bandeau permet de toutes les essayer.
 
-Dans le bureau, clique sur l'écran de ton poste pour ouvrir un terminal, et sur le tableau blanc pour lire et modifier tes notes (un onglet par fichier Markdown de `~/Journal`, que tes sessions peuvent aussi remplir ; le dossier se change dans les Réglages). Indique un fichier de chiffres dans les Réglages et une pile de billets apparaît sur ton bureau, avec un « ! » rouge quand le fichier a changé. La radio joue du lo-fi, ou pilote Musique ou Spotify (sous Windows : lecture, pause et morceau suivant ou précédent seulement, le lecteur ouvert).
+Dans le bureau, clique sur l'écran de ton poste pour ouvrir un terminal (dans une fenêtre de ton ordinateur, ou dans la fenêtre de la session, selon les Réglages), et sur le tableau blanc pour lire et modifier tes notes (un onglet par fichier Markdown de `~/Journal`, que tes sessions peuvent aussi remplir ; le dossier se change dans les Réglages). Indique un fichier de chiffres dans les Réglages et une pile de billets apparaît sur ton bureau, avec un « ! » rouge quand le fichier a changé. La radio joue du lo-fi, ou pilote Musique ou Spotify (sous Windows : lecture, pause et morceau suivant ou précédent seulement, le lecteur ouvert).
 
 ## Installer
 

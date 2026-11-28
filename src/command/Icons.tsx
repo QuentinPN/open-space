@@ -72,6 +72,11 @@ export const UndoIcon = icon(Undo2);
 /** Remote Control: the session reached from the phone or claude.ai. */
 export const PhoneIcon = icon(Smartphone);
 export const TerminalIcon = icon(SquareTerminal);
+/**
+ * The Run button of a shell code block, written into the HTML of a message (src/lib/markdown.ts), where React draws
+ * nothing: Lucide's "terminal", at the size and stroke of the others.
+ */
+export const RUN_ICON_HTML = '<svg class="cp-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg>';
 export const DownloadIcon = icon(Download);
 export const FileIcon = icon(File);
 export const FileTextIcon = icon(FileText);

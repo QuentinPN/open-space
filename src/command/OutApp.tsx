@@ -3,6 +3,7 @@ import { announceOut, tellSeen } from '../net/out.ts';
 import type { OutTarget } from '../state/out.ts';
 import { isRunning } from '../state/labels.ts';
 import { useSessions } from '../state/sessions.ts';
+import { keyForShell } from '../state/terminals.ts';
 import { OutBrowser } from './BrowserPip.tsx';
 import { CopyOnSelect } from './CopyOnSelect.tsx';
 import { Detail } from './Detail.tsx';
@@ -42,7 +43,7 @@ export function OutApp({ target }: { target: OutTarget }) {
   useEffect(() => {
     if (target.kind !== 'session') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented || keyForShell(e) || document.querySelector('dialog[open]')) return;
       const state = useSessions.getState();
       const current = state.sessions[target.sessionId];
       if (!current) return;

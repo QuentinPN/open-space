@@ -71,20 +71,20 @@ async function until(check: () => boolean, what: string) {
   assert.fail(`timed out waiting for ${what}`);
 }
 
-function setup(dataDir = path.join(scratch, `data-${++count}`)) {
+function setup(dataDir = path.join(scratch, `data-${++count}`), extra: Partial<ConstructorParameters<typeof SessionManager>[0]> = {}) {
   const processes: FakeProcess[] = [];
   const messages: ServerMessage[] = [];
   const spawnProcess: ProcessFactory = (launch, handlers) => { const fake = new FakeProcess(launch, handlers); processes.push(fake); return fake; };
   const config: Config = { port: 0, hooksPort: 0, modsPort: 0, roots: [root], rootsLocked: false, dataDir, maxLive: 8, idleMs: 60_000, passthrough: [] };
-  const manager = new SessionManager({ config, spawnProcess, broadcast: (message) => messages.push(message), log: () => {}, home, graceMs: 20 });
+  const manager = new SessionManager({ config, spawnProcess, broadcast: (message) => messages.push(message), log: () => {}, home, graceMs: 20, ...extra });
   const find = (id: string): SessionInfo => { const found = manager.list().find((session) => session.id === id); assert.ok(found); return found; };
   const events = (id: string): OfficeEvent[] => messages.flatMap((message) => (message.t === 'ev' && message.sessionId === id ? [message.ev] : []));
   return { manager, processes, find, events, dataDir };
 }
 
 /** A new isolated session in `repo` (or a folder of it), its worktree ready and its first message sent. */
-async function isolated(text = 'Ajoute Apple Pay au checkout', repo = repository(), folder = repo) {
-  const context = setup();
+async function isolated(text = 'Ajoute Apple Pay au checkout', repo = repository(), folder = repo, extra: Parameters<typeof setup>[1] = {}) {
+  const context = setup(undefined, extra);
   await context.manager.init();
   const created = await context.manager.create({ cwd: folder, name: 'Lina', text, isolate: {} });
   await until(() => context.find(created.id).worktree?.status !== undefined && context.processes.length === 1, 'the worktree');
@@ -483,6 +483,22 @@ describe('the cases asked for', () => {
 });
 
 describe('an isolated session never loses work, nor touches what it should not', () => {
+  it('lets what runs in its folder (a terminal) go just before the folder is removed, and not when nothing is removed', async () => {
+    const seen: { id: string; folderStillThere: boolean }[] = [];
+    let folder = '';
+    const { manager, find, id } = await isolated(undefined, undefined, undefined, { beforeWorktreeRemoval: (sessionId) => seen.push({ id: sessionId, folderStillThere: existsSync(folder) }) });
+    const worktree = find(id).worktree!;
+    folder = worktree.root;
+    git(worktree.root, 'checkout', '-q', '--detach');
+    commit(worktree.root, 'more.ts', 'more\n');
+    await assert.rejects(manager.forget(id, 'keep'), /n’a pas pu être rangée/);
+    assert.deepEqual(seen, [], 'the folder stays: its shells stay too');
+    git(worktree.root, 'checkout', '-q', worktree.branch);
+    await manager.forget(id);
+    assert.deepEqual(seen, [{ id, folderStillThere: true }]);
+    assert.ok(!existsSync(worktree.root));
+  });
+
   it('switched off while its folder is off the branch (a detached HEAD): nothing is removed, and it says why', async () => {
     const { manager, find, repo, id } = await isolated();
     const worktree = find(id).worktree!;

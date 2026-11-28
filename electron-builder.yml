@@ -1,6 +1,8 @@
 # The macOS app (npm run app): release/Open Space-<version>-<arch>.dmg, plus the .zip and latest-mac.yml that
 # electron-updater reads from the GitHub release. The Windows app (npm run app:win): the NSIS installer, its .blockmap
-# and latest.yml. Everything the app runs is bundled in out/ (vite.desktop.config.ts), so no node_modules ships.
+# and latest.yml. Everything the app runs is bundled in out/ (vite.desktop.config.ts), so no node_modules ships, but
+# node-pty (the integrated terminal, server/terminal.ts): native, so left out of the bundle and shipped whole, for the
+# platform being built, and unpacked from the asar (a .node, the helpers and the worker scripts run from real files).
 appId: io.github.fantomiald.open-space
 productName: Open Space
 copyright: Fantomiald
@@ -11,6 +13,15 @@ files:
   - out/**/*
   - package.json
   - "!node_modules/**/*"
+  - node_modules/node-pty/package.json
+  - node_modules/node-pty/lib/**/*
+  - "!node_modules/node-pty/lib/**/*.{map,test.js}"
+  - "node_modules/node-pty/prebuilds/*-${arch}/**/*"
+  - "!node_modules/node-pty/prebuilds/**/*.pdb"
+# N-API prebuilds (the same binary for every Electron): nothing to compile, and nothing from the machine that builds
+npmRebuild: false
+asarUnpack:
+  - node_modules/node-pty/**/*
 # The keys vault (server/vault.ts) trusts that only this app's own code asks the main process to decrypt: no running it
 # as plain node, no NODE_OPTIONS or inspector to inject code, and only the signed app.asar is loaded. That matters on
 # macOS, where the Keychain gives the key to this signed app alone; on Windows (DPAPI) and Linux (the session keyring)
@@ -28,6 +39,8 @@ mac:
       arch: [arm64, x64]
     - target: zip
       arch: [arm64, x64]
+  files:
+    - "!node_modules/node-pty/prebuilds/win32-*/**/*"
   hardenedRuntime: true
   entitlements: desktop/build/entitlements.mac.plist
   entitlementsInherit: desktop/build/entitlements.mac.plist
@@ -37,6 +50,8 @@ mac:
 dmg:
   artifactName: Open Space-${version}-${arch}.${ext}
 win:
+  files:
+    - "!node_modules/node-pty/prebuilds/darwin-*/**/*"
   icon: desktop/build/icon.ico
   target:
     - target: nsis

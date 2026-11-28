@@ -208,6 +208,10 @@ export const fr = {
   terminal: {
     unsupported: 'Ouvrir un terminal ne marche que sur macOS et Windows pour l’instant.',
     failed: 'Le terminal ne s’ouvre pas.',
+    unavailable: 'Le terminal intégré n’est pas disponible sur cet ordinateur.',
+    tooMany: (max: number) => `Une session a au plus ${max} terminaux.`,
+    shellFailed: 'Le shell ne démarre pas.',
+    noFolder: 'Cette session n’a pas de dossier où ouvrir un terminal.',
   },
   /** a hook or an MCP server a folder would run */
   trust: {

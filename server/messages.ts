@@ -16,6 +16,7 @@ import { storedTags } from '../shared/tags.ts';
 import { isModId, isModStoreName, MAX_MOD_DESCRIPTION, MAX_MOD_ENV, MAX_MOD_NAME, MAX_MOD_REQUEST, MAX_MOD_STORE, MOD_ICONS, MOD_REFRESH, type ModSettings } from '../shared/mods.ts';
 import { MUSIC_APPS, type MusicAction, type MusicApp } from '../shared/music.ts';
 import type { BrowserAction, BrowserInput, MouseButton } from '../shared/browser.ts';
+import { MAX_TERMINAL_INPUT } from '../shared/terminal.ts';
 import { DEFAULT_PREFERENCES, parsePreferences } from './settings.ts';
 import { CONVERSATION_ID } from './conversations.ts';
 import { asJson, asNumber, isJson } from './json.ts';
@@ -486,8 +487,32 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
       const input = parseBrowserInput(raw.input);
       return sessionId && input ? { t: 'browserInput', sessionId, lane: laneNumber(raw.lane), input } : null;
     }
+    case 'terminalOpen': {
+      const size = terminalSize(raw), requestId = identifier(raw.requestId);
+      return sessionId && requestId && size ? { t: 'terminalOpen', sessionId, requestId, ...size } : null;
+    }
+    case 'terminalResize': {
+      const terminalId = identifier(raw.terminalId), size = terminalSize(raw);
+      return terminalId && size ? { t: 'terminalResize', terminalId, ...size } : null;
+    }
+    case 'terminalAttach': case 'terminalDetach': case 'terminalClose': {
+      const terminalId = identifier(raw.terminalId);
+      return terminalId ? { t: raw.t, terminalId } : null;
+    }
+    case 'terminalInput': {
+      const terminalId = identifier(raw.terminalId);
+      const data = boundedString(raw.data, MAX_TERMINAL_INPUT);
+      return terminalId && data ? { t: 'terminalInput', terminalId, data } : null;
+    }
     default: return null;
   }
+}
+
+/** The size of a terminal as the page measured it: whole numbers, kept inside what a pty takes (a hidden panel measures 0). */
+function terminalSize(raw: { cols?: unknown; rows?: unknown }): { cols: number; rows: number } | null {
+  const { cols, rows } = raw;
+  if (typeof cols !== 'number' || typeof rows !== 'number' || !Number.isFinite(cols) || !Number.isFinite(rows)) return null;
+  return { cols: Math.max(2, Math.min(500, Math.round(cols))), rows: Math.max(1, Math.min(300, Math.round(rows))) };
 }
 
 /** which browser of the session (shared/browser.ts browserId): its own when not said */
