@@ -10,11 +10,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintWallBoxes, shadeAlongWalls, standing, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallEllipse, wallPatch, wallPixel, wallPoint,
+  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallEllipse, wallPatch, wallPixel, wallPoint, wallX, wallY,
   type Painter, type PixelGrid, type PixelTarget, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { flicker, hash } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.dungeon, O = P.outline, F = P.torch.flame;
@@ -600,6 +601,32 @@ function paintVelvetCouch(grid: PixelGrid) {
 const GLOW: readonly string[] = [...F, P.torch.halo[0], P.torch.haloRight[0], P.bench.brew, P.bench.brewLight, P.bench.bubble, P.bench.fire, P.rug.rune, P.crystal.glow, P.crystal.light, P.brazier.coal];
 const VIEW: readonly string[] = [...P.view.day, ...P.view.dusk, ...P.view.night, P.view.sun, P.view.cloud, P.view.star, P.view.moon, P.view.hill, P.view.hillDusk, P.view.hillNight];
 
+/** The brazier's flame, on screen: its foot. */
+const BRAZIER = iso(LAMP.u, LAMP.v, 20);
+
+/**
+ * While someone is there: the torches' flames and the brazier's flickering, and each torch's warm light on the bricks
+ * swelling now and then, a ring of stepped pixels at a time (an empty dungeon's torches burn low, as drawn).
+ */
+const motion: AmbianceMotion = {
+  masks: { flame: F, rim: [P.torch.halo[1], P.torch.haloRight[1]] },
+  paint({ flame, rim }, frame, { lit }) {
+    if (!lit) return;
+    TORCHES.forEach(({ wall, a, z }, index) => {
+      const x = wallX(wall, a), y = wallY(wall, a, z);
+      flicker(flame, x + 1, y - 8, 7, 10, F, frame, index + 1);
+      // the halo's dithered ring filled in, then the one round it half filled, and back
+      const swell = hash(index, frame >> 2), level = swell < 0.45 ? 0 : swell < 0.8 ? 1 : 2, middle = (wall === 'left' ? P.torch.halo : P.torch.haloRight)[0];
+      if (!level) return;
+      for (let pa = a - 16; pa <= a + 16; pa++) for (let pz = z - 2; pz <= z + 24; pz++) {
+        const r = Math.sqrt(((pa + 0.5 - a) / 1.25) ** 2 + (pz + 0.5 - (z + 11)) ** 2);
+        if ((r >= 7 && r < 9.5) || (level === 2 && r >= 9.5 && r < 12.5 && (pa + pz) % 2 === 0)) rim.set(wallX(wall, pa), wallY(wall, pa, pz), middle);
+      }
+    });
+    flicker(flame, BRAZIER.x, BRAZIER.y, 9, 11, F, frame, 9);
+  },
+};
+
 export const dungeon: AmbianceDesign = {
   ...office,
   id: 'dungeon',
@@ -645,4 +672,5 @@ export const dungeon: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintBrazier),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [...F, P.brazier.coal], glow: GLOW, sky: VIEW },
+  motion,
 };
