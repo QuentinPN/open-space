@@ -10,11 +10,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintDrawers, paintPlanks, paintWallBoxes, shadeAlongWalls, standing, type Drawers, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, WALL_THICKNESS, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, wallEllipse, wallPatch, wallPixel,
-  type Painter, type PixelGrid, type Tones, type Wall,
+  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, wallEllipse, wallPatch, wallPixel, wallX, wallY,
+  type Painter, type PixelGrid, type PixelTarget, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { glimmer, hash } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.forest, O = C.outline, V = P.view;
@@ -75,7 +76,7 @@ function pine(grid: PixelGrid, ca: number, zb: number, height: number, width: nu
   });
 }
 
-/** What the window shows at `time`: the sky, the sun, the moon or the stars, clouds, three rows of pines, birds by day, fireflies at night. */
+/** What the window shows at `time`: the sky, the sun, the moon or the stars, clouds, three rows of pines, birds by day (its fireflies are drawn each frame: paintFireflies). */
 function paintView(grid: PixelGrid, time: CozyTime) {
   const wall: Wall = 'left', { a0, a1, z0, z1 } = PANES, sky = V[time], pines = V.pines[time], panes = [a0, a1, z0, z1] as const;
   fillWall(grid, wall, a0, a1, z0, z1, (_, z) => sky[Math.min(sky.length - 1, Math.floor((z1 - 1 - z) / ((z1 - z0) / sky.length)))]);
@@ -106,13 +107,25 @@ function paintView(grid: PixelGrid, time: CozyTime) {
     wallPatch(grid, wall, ca, ca + 1, z0, z0 + 4, pines.trunk);
     pine(grid, ca, z0 + 3, height, width, pines.near);
   }
-  // fireflies over the dark trees, a soft glow round each at night; the first few already out at dusk
+}
+
+/** Where the fireflies of the view are at rest, over the dark trees. */
+const FLIES = [[36, 44], [42, 51], [49, 43], [58, 48], [66, 53], [73, 45], [78, 56], [45, 59], [61, 41], [70, 61], [38, 63], [53, 55]] as const;
+const GLOWING = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+
+/**
+ * The fireflies in the window at dusk and at night: the first few out at dusk, all of them at night with a soft glow
+ * round each, wandering round where they rest and going out now and then (at rest, frame 0, all lit where they rest).
+ */
+function paintFireflies(target: PixelTarget, time: CozyTime, frame: number) {
   if (time === 'day') return;
-  const flies = [[36, 44], [42, 51], [49, 43], [58, 48], [66, 53], [73, 45], [78, 56], [45, 59], [61, 41], [70, 61], [38, 63], [53, 55]] as const;
-  for (const [index, [a, z]] of flies.entries()) {
+  const wall: Wall = 'left';
+  for (let index = 0; index < FLIES.length; index++) {
     if (time === 'dusk' && index % 4) continue;
-    if (time === 'night') for (const [da, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) wallPixel(grid, wall, a + da, z + dz, V.fireflyGlow);
-    wallPixel(grid, wall, a, z, V.firefly);
+    if (frame && hash(index, frame >> 3) < 0.22) continue;
+    const a = FLIES[index][0] + Math.round(Math.sin(frame * 0.05 + index * 1.7) * 3), z = FLIES[index][1] + Math.round(Math.sin(frame * 0.04 + index * 2.3) * 2);
+    if (time === 'night') for (const [da, dz] of GLOWING) wallPixel(target, wall, a + da, z + dz, V.fireflyGlow);
+    wallPixel(target, wall, a, z, V.firefly);
   }
 }
 
@@ -524,6 +537,29 @@ const VIEW: readonly string[] = [
   V.sun, V.sunLight, V.sunLow, V.sunLowLight, V.moon, V.moonShade, V.star, V.cloud, V.cloudShade, V.duskCloud, V.duskCloudShade, V.bird, V.firefly, V.fireflyGlow,
 ];
 
+const LANTERN = iso(LAMP.u, LAMP.v);
+const JAR = iso(((CHEST.u0 + CHEST.u1) >> 1) + 3, ((CHEST.v0 + CHEST.v1) >> 1) + 3, CHEST.height);
+
+/**
+ * The fireflies wandering in the window (paintFireflies); while someone is there, the ones in the jar glimmering, the
+ * garland's bulbs twinkling and the lantern's flame once it is lit, at dusk and at night.
+ */
+const motion: AmbianceMotion = {
+  masks: { jar: [P.jar.glowSoft, P.jar.glow], bulbs: [P.garland.bulbShade, P.garland.bulb], lantern: [P.lantern.flame, P.lantern.glass, P.lantern.glassLight] },
+  paint({ view, jar, bulbs, lantern }, frame, { time, lit }) {
+    paintFireflies(view, time, frame);
+    if (!lit) return;
+    glimmer(jar, JAR.x - 3, JAR.y - 12, 7, 12, frame, 1);
+    for (const wall of WALLS) for (let a = 4; a < ROOM - 1; a += 8) {
+      if (hash(a + (wall === 'left' ? 0 : ROOM), frame >> 3) > 0.18) continue;
+      const z = Math.round(96 - Math.sin(((a % 32) / 32) * Math.PI) * 4) - 2;
+      bulbs.set(wallX(wall, a), wallY(wall, a, z), P.garland.bulbShade);
+    }
+    if (time !== 'day') glimmer(lantern, LANTERN.x + 5, LANTERN.y - 42, 7, 9, frame, 2);
+  },
+};
+const WALLS = ['left', 'right'] as const;
+
 export const forest: AmbianceDesign = {
   ...office,
   id: 'forest',
@@ -558,4 +594,6 @@ export const forest: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintLantern),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lantern.glass, P.lantern.glassLight, P.lantern.flame], glow: GLOW, sky: VIEW },
+  glass: { wall: 'left', ...PANES },
+  motion,
 };
