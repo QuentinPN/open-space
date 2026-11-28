@@ -40,6 +40,11 @@ function armsOf(frame: Frame): Arm[] {
     { x: 5, from: 21, to: 23, hand: { x: 4, y: 24 + lifted(0) }, side: 0 },
     { x: 17, from: 21, to: 23, hand: { x: 18, y: 24 + lifted(1) }, side: 1 },
   ];
+  // standing from behind at an arcade's buttons: the elbows bent, the hands forward, taking turns
+  if (typing) return [
+    { x: 5, from: 21, to: 23, hand: { x: 6, y: 23 + lifted(0) }, side: 0 },
+    { x: 17, from: 21, to: 23, hand: { x: 16, y: 23 + lifted(1) }, side: 1 },
+  ];
   const swing = frame.posture === 'walk' ? frame.step : -1;
   return [
     { x: 5, from: 21, to: swing === 0 ? 25 : 26, hand: { x: 5, y: swing === 0 ? 26 : 27 }, side: 0 },
@@ -135,10 +140,12 @@ function paint(worn: Look, frame: Frame, outfit: Outfit): Art {
 /** The frame a pose needs: what does not show is left out, so the same picture is kept once. */
 function frameOf(pose: Pose): Frame {
   const back = pose.direction.startsWith('up');
-  const moving = pose.posture === 'walk' || pose.gesture === 'raising' || (pose.gesture === 'typing' && pose.posture === 'sit');
+  // typing seated at a desk, or standing from behind at the cozy arcade (playing)
+  const typing = pose.gesture === 'typing' && (pose.posture === 'sit' || (pose.posture === 'stand' && back));
+  const moving = pose.posture === 'walk' || pose.gesture === 'raising' || typing;
   return {
     back, posture: pose.posture, step: moving ? pose.step : 0, blinking: !back && pose.blinking, smiling: !back && pose.smiling,
-    gesture: pose.gesture === 'typing' && pose.posture !== 'sit' ? 'none' : pose.gesture,
+    gesture: pose.gesture === 'typing' && !typing ? 'none' : pose.gesture,
   };
 }
 

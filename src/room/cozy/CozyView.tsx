@@ -7,8 +7,8 @@
 // room and back, the break room's arcade cabinet opens its game (ArcadeWindow.tsx), a clock tells the time; each is
 // outlined under the pointer with what a click does. Each room's art is drawn once per mood of the hour and festival
 // (decor.ts, lounge-art.ts, home/art.ts); each frame only paints the people, the visitors, the clocks' hands, the
-// screens and the Z's over it (paint.ts). The hour, the festival, the office life, the pet and the hidden names are the
-// classic room's settings.
+// screens and the Z's over it (paint.ts). The hour, the festival, the office life (the crew dropping by a project room,
+// or playing at the break room's arcade), the pet and the hidden names are the classic room's settings.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { Festival, FestivalDay } from '../../../shared/festivals.ts';
 import { COZY_PALETTE, ROOM_PALETTE } from '../../design/room-palette.ts';
@@ -57,6 +57,7 @@ import { cozyPetOf } from './pet.ts';
 import { clockMinute } from './time.ts';
 import { targetAt, type CozyTarget, type CozyThing } from './things.ts';
 import { cozyVisitFloor, visitedRoom, visitorFeet } from './visits.ts';
+import { loungeVisitFloor } from './arcade.ts';
 import { COZY_SHOWS, LOUNGE_ID, callers, cozyRooms, cozySeatsKey, nameIn, recentFolders, shownProjects, type CozyRoom, type CozyShow } from './rooms.ts';
 
 const PRUNE_EVERY_MS = 250;
@@ -358,14 +359,16 @@ export function CozyView({ day }: { day: FestivalDay }) {
   selected.current = openIds;
   // the office life: one project room at a time is visited, the one opened big, else the first with its lights on (in its ambiance)
   const visiting = useRef<{ id: string | null; key: string | null; visits: Visits | null }>({ id: null, key: null, visits: null });
+  // and the break room, where they come to play at the arcade (arcade.ts), dressed for the festival
+  const lounging = useRef<{ key: string | null; visits: Visits | null }>({ key: null, visits: null });
   // the user's pet, living at home only (home-pet.ts), the same whether the home is opened big or not; none for none
   const petHome = useRef<HomePet | null>(null);
   const visitorsIn = (room: CozyRoom, at: Point, time: number): PlacedVisitor[] => {
-    const { id, visits } = visiting.current;
-    if (!visits || room.id !== id) return [];
+    const visits = room.kind === 'lounge' ? lounging.current.visits : room.id === visiting.current.id ? visiting.current.visits : null;
+    if (!visits) return [];
     return [...visits.visitors.values()].filter((visitor) => visitor.outside <= 0).map((visitor) => {
       const { pose, lift } = visitorPose(visitor, { time, reducedMotion });
-      const { feet, depth } = visitorFeet(visitor.position, lift, designOf(room).couch);
+      const { feet, depth } = visitorFeet(visitor.position, lift, room.kind === 'project' ? designOf(room).couch : null);
       return {
         id: visitor.id, name: visitor.name, pose, depth, feet: { x: feet.x + at.x, y: feet.y + at.y }, top: sprites.height(pose, visitor.id),
         activity: visitor.phase === 'staying' ? visitor.spot.activity : null, blinkOffset: visitor.blinkOffset,
@@ -408,9 +411,15 @@ export function CozyView({ day }: { day: FestivalDay }) {
         visit.id = visited?.id ?? null;
         visit.visits = visited ? new Visits(cozyVisitFloor(() => dayRef.current.festival, designOf(visited))) : null;
       }
+      const { festival: dressedFor } = dayRef.current, lounge = lounging.current, loungeKey = `${dressedFor}`;
+      if (loungeKey !== lounge.key) { lounge.key = loungeKey; lounge.visits = new Visits(loungeVisitFloor(dressedFor)); }
+      // nobody is in two rooms at once: whoever visits one is not free for the other
+      const namesIn = (visits: Visits | null) => new Set(visits ? [...visits.visitors.values()].map((visitor) => visitor.name) : []);
+      const inOffice = namesIn(visit.visits), atArcade = namesIn(lounge.visits), enabled = state.preferences.officeLife;
       // a visitor does not sit where the user does
       const blocked = walked && walked.id === visit.id ? walked.scene.playerSpot?.at ?? null : null;
-      visit.visits?.step(elapsed, { free: freeRef.current, hour, enabled: state.preferences.officeLife, blocked });
+      visit.visits?.step(elapsed, { free: freeRef.current.filter((name) => !atArcade.has(name)), hour, enabled, blocked });
+      lounge.visits?.step(elapsed, { free: freeRef.current.filter((name) => !inOffice.has(name)), hour, enabled, blocked: null });
       const placed = placedRef.current(time);
       scene.current.placed = placed;
       const { festival } = dayRef.current;
@@ -544,7 +553,8 @@ export function CozyView({ day }: { day: FestivalDay }) {
     scene.current.hovered = thing ? { room: shown[index].id, thing } : null;
     setHoveredRoom(index < 0 || zoomedRoom ? null : shown[index].id);
     const visitor = visitorsHere().find((placed) => placed.id === person);
-    const text = visitor ? t.room.hint.startWith(visitor.name) : hintOf(thing, shown[index]);
+    const playing = visitor?.activity === 'arcade' ? `${t.room.cozy.arcade.playing(visitor.name)} · ` : '';
+    const text = visitor ? `${playing}${t.room.hint.startWith(visitor.name)}` : hintOf(thing, shown[index]);
     setHintText(text);
     if (hint.current && text) placeHintCard(hint.current, stage.current!, event);
   };

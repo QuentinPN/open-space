@@ -83,8 +83,11 @@ export function visitedRoom(rooms: readonly CozyRoom[], zoomed: string | null): 
   return projects.find((room) => room.id === zoomed) ?? projects.find((room) => room.lit) ?? projects[0] ?? null;
 }
 
-/** A visitor's place in a room with `couch`: their feet (raised on the couch), their draw order, from their position in tiles. */
-export function visitorFeet(position: Point, lift: number, couch: Couch): { u: number; v: number; feet: Point; depth: number } {
+/**
+ * A visitor's place in a room with `couch` (none: the break room): their feet (raised on the couch), their draw order,
+ * from their position in tiles.
+ */
+export function visitorFeet(position: Point, lift: number, couch: Couch | null): { u: number; v: number; feet: Point; depth: number } {
   const u = position.x * VISIT_UNIT, v = position.y * VISIT_UNIT;
   return { u, v, feet: feetOf({ u, v, direction: 'down-right', lift }), depth: personDepth(u, v, lift > 0, couch) };
 }

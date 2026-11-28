@@ -1,7 +1,7 @@
 // Life in the office: people of the crew without a session drop by now and then (a coffee at the counter, alone or
 // with someone, a glass at the water cooler, a look out of the window, a book, a moment on the sofa, the
-// festival's table) and leave. They never sit at a desk and carry no status, so the sessions stay readable; a click on
-// one starts a session with them (RoomView). More come in the morning and at lunch, few in the evening, none at night.
+// festival's table; a game at the cozy break room's arcade) and leave. They never sit at a desk and carry no status,
+// so the sessions stay readable; a click on one starts a session with them (RoomView). More come in the morning and at lunch, few in the evening, none at night.
 // Pure: RoomView steps it with the free names and the hour, draw.ts paints the visitors.
 import type { Festival } from '../../shared/festivals.ts';
 import type { Activity, VisitSpot } from '../../shared/room-layout.ts';
@@ -45,7 +45,7 @@ const FOLLOW_MS = 1400;
 const STAYS_LONGER_MS = 2500;
 const STAY_MS: Readonly<Record<Activity, readonly [number, number]>> = {
   coffee: [12_000, 25_000], water: [6_000, 12_000], window: [10_000, 20_000],
-  books: [10_000, 20_000], sofa: [20_000, 40_000], party: [15_000, 30_000],
+  books: [10_000, 20_000], sofa: [20_000, 40_000], party: [15_000, 30_000], arcade: [15_000, 35_000],
 };
 
 export const visitorId = (name: string) => `visitor:${name}`;
@@ -64,11 +64,11 @@ export function birthdayWishOf(visitor: Visitor, festival: Festival | null, gues
 }
 
 export function rhythmAt(hour: number): Rhythm {
-  if (hour >= 7 && hour < 10) return { every: [2, 4], weights: { coffee: 4, water: 1, window: 1, party: 2 } };
-  if (hour >= 10 && hour < 12) return { every: [4, 7], weights: { coffee: 1, water: 2, window: 1, books: 2, party: 2 } };
-  if (hour >= 12 && hour < 14) return { every: [3, 5], weights: { coffee: 3, sofa: 2, window: 1, party: 3 } };
-  if (hour >= 14 && hour < 19) return { every: [4, 7], weights: { coffee: 1, water: 2, window: 1, books: 2, sofa: 1, party: 2 } };
-  if (hour >= 19 && hour < 23) return { every: [10, 20], weights: { coffee: 1, window: 1, sofa: 1, party: 2 } };
+  if (hour >= 7 && hour < 10) return { every: [2, 4], weights: { coffee: 4, water: 1, window: 1, party: 2, arcade: 1 } };
+  if (hour >= 10 && hour < 12) return { every: [4, 7], weights: { coffee: 1, water: 2, window: 1, books: 2, party: 2, arcade: 1 } };
+  if (hour >= 12 && hour < 14) return { every: [3, 5], weights: { coffee: 3, sofa: 2, window: 1, party: 3, arcade: 3 } };
+  if (hour >= 14 && hour < 19) return { every: [4, 7], weights: { coffee: 1, water: 2, window: 1, books: 2, sofa: 1, party: 2, arcade: 2 } };
+  if (hour >= 19 && hour < 23) return { every: [10, 20], weights: { coffee: 1, window: 1, sofa: 1, party: 2, arcade: 3 } };
   return { every: null, weights: {} };
 }
 

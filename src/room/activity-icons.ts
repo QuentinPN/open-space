@@ -18,6 +18,8 @@ const ICONS: Readonly<Record<Activity, readonly string[]>> = {
   sofa: ['..kkkkk..', '..kssskk.', '..ksssk..', '..ksssk..', '..ksssk..', '..ksssk..', '..kkkkk..', '..kk.kk..'],
   // a balloon, at the party
   party: ['...rrr...', '..rrhrr..', '..rhrrr..', '..rrrrr..', '...rrr...', '....r....', '....k....', '...k.....'],
+  // a game pad, at the arcade
+  arcade: ['.........', '..bbbbb..', '.bbbbbbb.', 'bbkbbbrbb', 'bkkkbrbob', 'bbkbbbobb', '.bb...bb.', '.........'],
 };
 
 const KEY: Readonly<Record<string, string>> = {

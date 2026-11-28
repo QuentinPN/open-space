@@ -362,10 +362,13 @@ export function characterPose(character: Character, options: Pick<FrameOptions, 
   return seated && options.dozing ? { ...pose, blinking: true, smiling: false } : pose;
 }
 
-/** A visitor of the crew: walking, standing at what they came for, or sitting on the sofa (raised by its cushions). Both room styles. */
+/**
+ * A visitor of the crew: walking, standing at what they came for (at the cozy arcade, their hands on its buttons), or
+ * sitting on the sofa (raised by its cushions). Both room styles.
+ */
 export function visitorPose(visitor: Visitor, options: Pick<FrameOptions, 'time' | 'reducedMotion'>): { pose: Pose; lift: number } {
-  const sitting = Visits.sitting(visitor);
-  return { pose: poseOf(visitor, sitting, false, 'none', options), lift: sitting ? visitor.spot.lift ?? 0 : 0 };
+  const sitting = Visits.sitting(visitor), playing = visitor.phase === 'staying' && visitor.spot.activity === 'arcade';
+  return { pose: poseOf(visitor, sitting, false, playing ? 'typing' : 'none', options), lift: sitting ? visitor.spot.lift ?? 0 : 0 };
 }
 
 /** `lift`: drawn this many room pixels above the floor (someone sitting on the sofa). */

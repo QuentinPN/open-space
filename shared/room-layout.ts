@@ -77,8 +77,11 @@ export interface PlayerSpot {
   atDesk: boolean;
 }
 
-/** What someone of the crew without a session drops by the office for (src/room/visitors.ts). */
-export type Activity = 'coffee' | 'water' | 'window' | 'books' | 'sofa' | 'party';
+/**
+ * What someone of the crew without a session drops by the office for (src/room/visitors.ts); the arcade is the cozy
+ * break room's (src/room/cozy/arcade.ts).
+ */
+export type Activity = 'coffee' | 'water' | 'window' | 'books' | 'sofa' | 'party' | 'arcade';
 
 /**
  * Where a visitor stops: the floor point they stand on (or sit on, raised by `lift`) and the direction they face. Two
