@@ -38,11 +38,11 @@ import { COUCH_ARM_DEPTH, COUCH_DEPTH, COUCH_PLACES, DESKS, PERSON_SPACING, ROOM
 import { PERSON_SCALE, placeSitters } from './cozy/people.ts';
 import { PixelGrid, box, onLeftFace, onRightFace, wallPoint } from './cozy/pixels.ts';
 import { LOUNGE_ID, callers, catRoom, cozyRooms, cozySeatsKey, projectRoom, recentFolders, shownProjects, type CozyRoom } from './cozy/rooms.ts';
-import { COZY_VIEW, CozyFloor, cozyFloorPlan } from './cozy/floor.ts';
+import { COZY_VIEW, CozyFloor, cozyFloorPlan, tileOf } from './cozy/floor.ts';
 import { HOME_DESIGNS, clockOf, pcAt, roomClockAt } from './cozy/home/index.ts';
 import { METRICS_SCREEN } from './cozy/home/kit.ts';
 import { cozyPetOf, isAwake, petZzzAt, restPet, sleepingPet, type PetPixels } from './cozy/pet.ts';
-import { LOUNGE_PLACES } from './cozy/lounge.ts';
+import { ARCADE, ARCADE_FRONT, LOUNGE_PLACES } from './cozy/lounge.ts';
 import { DOOR as COZY_DOOR } from './cozy/decor.ts';
 import { petPawsIn, targetAt, thingAt } from './cozy/things.ts';
 import { clockMinute, cozyTimeOf, sceneKey } from './cozy/time.ts';
@@ -1730,6 +1730,33 @@ describe('walking the cozy rooms, like the classic one', () => {
       assert.equal(scene.playerSpot, null);
       assert.ok(onFloor(floor, floor.inside), 'one step in, on the floor');
     }
+  });
+
+  /** Whether `path`, tile centres from `from`, goes tile to tile (neighbours only) without passing through anything. */
+  const walksFrom = (from: Point, path: readonly Point[]) => {
+    const tiles = [from, ...path].map(({ x, y }) => ({ x: Math.floor(x), y: Math.floor(y) }));
+    return tiles.every((tile, index) => index === 0 || (Math.abs(tile.x - tiles[index - 1].x) <= 1 && Math.abs(tile.y - tiles[index - 1].y) <= 1));
+  };
+
+  it('keeps the break room door clear, with a way from it to every place and to the arcade', () => {
+    const doorTiles = { from: Math.floor(COZY_DOOR.a0 / 8), to: Math.floor((COZY_DOOR.a1 - 1) / 8) };
+    for (let y = doorTiles.from; y <= doorTiles.to; y++) for (const x of [0, 1]) assert.ok(BREAK_ROOM.isFreeTile(x, y), `in front of the door: (${x}, ${y})`);
+    assert.ok(BREAK_ROOM.isWalkable(BREAK_ROOM.door), 'the user comes in on the floor');
+    for (let seat = 0; seat < LOUNGE_PLACES.length; seat++) {
+      const path = BREAK_ROOM.pathToSeat(BREAK_ROOM.inside, seat);
+      assert.ok(close(path.at(-1)!, BREAK_ROOM.seatPosition(seat)), `place ${seat} reached`);
+      assert.ok(walksFrom(BREAK_ROOM.inside, path.slice(0, -1)), `place ${seat}: no way through`);
+    }
+    const toArcade = BREAK_ROOM.route(BREAK_ROOM.inside, tileOf(ARCADE_FRONT.u, ARCADE_FRONT.v));
+    assert.ok(walksFrom(BREAK_ROOM.inside, toArcade), 'a way to the arcade');
+  });
+
+  it('leaves free floor in front of the arcade cabinet, inside the room, with its back to the wall', () => {
+    const front = tileOf(ARCADE_FRONT.u, ARCADE_FRONT.v);
+    assert.ok(BREAK_ROOM.isWalkable(front), 'someone can stand there');
+    assert.ok(front.y > ARCADE.v1 / 8, 'on the screen side of the cabinet');
+    assert.equal(ARCADE.v0, 0, 'its back against the right wall, so its screen looks into the room');
+    assert.ok(!BREAK_ROOM.isFreeTile(Math.floor(front.x), Math.floor(ARCADE.v1 / 8) - 1), 'the cabinet itself is in the way');
   });
 
   it('walks the user from the door to every session of a project room through no furniture', () => {

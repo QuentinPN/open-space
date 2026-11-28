@@ -1,7 +1,7 @@
 // The cozy break room drawn (src/room/cozy/lounge.ts for where its places are): the project rooms' walls, floor, window,
-// door and clock (decor.ts), a sage sofa under the window and a peach one along the right wall, a bookshelf in the back
-// corner by a floor lamp, a coffee table with a game console on a mint rug, two beanbags, a tea corner with its kettle
-// and teapot, an arcade cabinet, pictures and hanging plants. Drawn once per mood of the hour and festival, lights on
+// door and clock (decor.ts), a sage sofa under the window and a peach loveseat along the right wall, a bookshelf in the
+// back corner by a floor lamp, a coffee table with a game console on a mint rug, three beanbags, a tea corner with its
+// kettle and teapot and an arcade cabinet along the right wall, pictures and hanging plants. Drawn once per mood of the hour and festival, lights on
 // while someone naps there, like the other rooms.
 import type { Festival } from '../../../shared/festivals.ts';
 import { COZY_PALETTE as C } from '../../design/room-palette.ts';
@@ -12,7 +12,7 @@ import {
 } from './decor.ts';
 import { FESTIVE_DECOR, paintFestiveFloor, paintFestiveWalls } from './festive.ts';
 import { couchArmDepth, iso } from './geometry.ts';
-import { ARCADE, BOOKSHELF, COFFEE_TABLE, LOUNGE_BEANBAGS, LOUNGE_COUCHES, LOUNGE_FESTIVE_SPOT, LOUNGE_PET, READING_LAMP, TEA_CORNER } from './lounge.ts';
+import { ARCADE, ARCADE_FRONT, BOOKSHELF, COFFEE_TABLE, LOUNGE_BEANBAGS, LOUNGE_COUCH_SEATS, LOUNGE_COUCHES, LOUNGE_FESTIVE_SPOT, LOUNGE_PET, READING_LAMP, RUG, TEA_CORNER } from './lounge.ts';
 import { onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from './pixels.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
 
@@ -111,7 +111,7 @@ function paintTeaCorner(grid: PixelGrid) {
   }
 }
 
-/** The arcade cabinet at the front left, by the door, its screen and its buttons towards the room's front. */
+/** The arcade cabinet against the right wall, its screen and its buttons towards the room: a step of free floor in front of it. */
 function paintArcade(grid: PixelGrid) {
   const { u0, u1, v0, v1, height } = ARCADE, A = L.arcade;
   ob(grid, u0, u1, v0, v1, 0, height, A.body, A.edge);
@@ -126,7 +126,7 @@ function paintArcade(grid: PixelGrid) {
   });
 }
 
-/** Two pictures above the peach sofa, on either side of the clock: hills under a sun, a heart. */
+/** Two pictures above the peach loveseat, on either side of the clock: hills under a sun, a heart. */
 function paintPictures(grid: PixelGrid) {
   const P = L.picture, wall = 'right' as const;
   wallPatch(grid, wall, 34, 48, 44, 60, O); wallPatch(grid, wall, 35, 47, 45, 59, P.frame); wallPatch(grid, wall, 36, 46, 46, 58, P.sky);
@@ -138,7 +138,7 @@ function paintPictures(grid: PixelGrid) {
 
 /** The mint rug in the middle, a ring of leaves on it. */
 function paintRug(grid: PixelGrid) {
-  const R = L.rug, { x, y } = iso(58, 58);
+  const R = L.rug, { x, y } = iso(RUG.u, RUG.v);
   grid.ellipse(x, y + 1, 36, 18, R.edgeShade); grid.ellipse(x, y, 36, 18, R.edge);
   grid.ellipse(x, y, 35, 17, R.base); grid.ellipse(x, y, 28, 13.6, R.ring); grid.ellipse(x, y, 20, 9.6, R.middle);
   for (let index = 0; index < 24; index++) { const angle = index / 24 * Math.PI * 2; grid.set(Math.round(x + Math.cos(angle) * 31.5), Math.round(y + Math.sin(angle) * 15.2), index % 2 ? R.dots : R.leaf); }
@@ -158,23 +158,24 @@ function build(lit: boolean, time: CozyTime, festival: Festival | null): RoomArt
   paintRug(back);
   paintDoormat(back);
   const [left, right] = LOUNGE_COUCHES;
-  const [nearDoor, nearTea] = LOUNGE_BEANBAGS;
+  const [nearDoor, nearTea, nearPet] = LOUNGE_BEANBAGS;
   const floor: Standing[] = [
     standing(BOOKSHELF.u0, BOOKSHELF.u1, BOOKSHELF.v0, BOOKSHELF.v1, paintBookshelf),
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, (grid) => paintLamp(grid, LAMP)),
-    standing(left.u, left.u + left.depth, left.v, left.v + left.length, (grid) => paintCouch(grid, left, L.sage, 3, 23)),
-    standing(right.u, right.u + right.length, right.v, right.v + right.depth, (grid) => paintCouch(grid, right, L.peach, 3, 41)),
+    standing(left.u, left.u + left.depth, left.v, left.v + left.length, (grid) => paintCouch(grid, left, L.sage, LOUNGE_COUCH_SEATS[0], 23)),
+    standing(right.u, right.u + right.length, right.v, right.v + right.depth, (grid) => paintCouch(grid, right, L.peach, LOUNGE_COUCH_SEATS[1], 28)),
     standing(TABLE.u0, TABLE.u1, TABLE.v0, TABLE.v1, paintCoffeeTable),
     standing(TEA.u0, TEA.u1, TEA.v0, TEA.v1, paintTeaCorner),
     standing(nearDoor.u, nearDoor.u, nearDoor.v, nearDoor.v, (grid) => paintBeanbag(grid, nearDoor.u, nearDoor.v, C.chair.seats[0])),
     standing(nearTea.u, nearTea.u, nearTea.v, nearTea.v, (grid) => paintBeanbag(grid, nearTea.u, nearTea.v, C.chair.seats[1])),
+    standing(nearPet.u, nearPet.u, nearPet.v, nearPet.v, (grid) => paintBeanbag(grid, nearPet.u, nearPet.v, C.chair.seats[2])),
     standing(ARCADE.u0, ARCADE.u1, ARCADE.v0, ARCADE.v1, paintArcade),
   ];
   if (festival && FESTIVE_DECOR[festival].floor) floor.push(standing(FESTIVE_SPOT.u, FESTIVE_SPOT.u, FESTIVE_SPOT.v, FESTIVE_SPOT.v, (grid) => paintFestiveFloor(grid, festival, FESTIVE_SPOT.u, FESTIVE_SPOT.v)));
   floor.sort((a, b) => a.depth - b.depth);
   for (const { paint } of floor) paint(back);
   const A = L.arcade;
-  const light = roomLight(lit, time, LAMP, [{ u: (ARCADE.u0 + ARCADE.u1) / 2, v: ARCADE.v1 + 4 }], [A.screen, ...A.pixel, A.marquee, A.marqueeLight, C.led]);
+  const light = roomLight(lit, time, LAMP, [ARCADE_FRONT], [A.screen, ...A.pixel, A.marquee, A.marqueeLight, C.led]);
   // the sofas' front arms stand in front of whoever naps at that end
   const pieces = [
     { depth: couchArmDepth(left), paint: (grid: PixelGrid) => paintCouchArm(grid, left, L.sage) },
