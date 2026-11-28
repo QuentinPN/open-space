@@ -24,6 +24,12 @@ export const HD_PET_FEET = { x: 20, y: 29 } as const;
 /** Where its paws stand in its grid facing right, or mirrored to face left. */
 export const hdPetFeet = (left = false) => ({ x: left ? HD_PET_SIZE.width - 1 - HD_PET_FEET.x : HD_PET_FEET.x, y: HD_PET_FEET.y });
 
+/**
+ * The part of a pet's grid its picture in the editor shows (Preferences' pet tiles), two screen pixels an art pixel: the
+ * widest and tallest of the pets (a dachshund, a rabbit's ears) in each of their activities fit in it, whichever is drawn.
+ */
+export const HD_PET_THUMB = { x: 2, y: 3, width: 36, height: 27, scale: 2 } as const;
+
 const PAINTERS: Readonly<Record<Animal['kind'], (grid: PixelGrid, look: Look, pose: Pose) => void>> = {
   duck: paintDuck, capybara: paintCapybara, axolotl: paintAxolotl, rocky: paintRocky, clawd: paintClawd, fox: paintFox, redPanda: paintRedPanda,
   rabbit: paintRabbit, hedgehog: paintHedgehog, owl: paintOwl, parrot: paintParrot, penguin: paintPenguin, turtle: paintTurtle, crab: paintCrab,

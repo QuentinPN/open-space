@@ -3,6 +3,7 @@ import { DROID_COLORS, FUR_COLORS, PET_EYE_COLORS } from '../design/people-palet
 import { CAT_PATTERNS, DOG_BREEDS, DROID_MODELS, PET_KINDS, type PetChoice, type PetColors } from '../../shared/pets.ts';
 import { droidPreview, type DroidLook } from '../room/droid-art.ts';
 import { droidOf, furOf, petSprite } from '../room/pet.ts';
+import { HD_PET_THUMB, hdPetSprite } from '../room/pet-hd.ts';
 import { isFullPath } from '../../shared/paths.ts';
 import { homeRelative } from '../lib/format.ts';
 import { LANGUAGES, type Language } from '../../shared/i18n.ts';
@@ -108,11 +109,34 @@ function PetSprite({ pet, moving }: { pet: Exclude<PetChoice, { kind: 'none' | '
   return <canvas ref={canvas} width={22 * 3} height={17 * 3} />;
 }
 
+/** A pet drawn in HD like the cozy room's, cropped to what fits in a tile (HD_PET_THUMB): walking when it is the one picked, sitting otherwise. */
+function HdPetSprite({ pet, moving }: { pet: Exclude<PetChoice, { kind: 'none' }>; moving: boolean }) {
+  const still = useReducedMotion(useSessions((s) => s.preferences.reduceMotion));
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const context = canvas.current!.getContext('2d')!;
+    context.imageSmoothingEnabled = false;
+    let frame: 0 | 1 = 0;
+    const paint = () => {
+      const { x, y, width, height, scale } = HD_PET_THUMB;
+      context.clearRect(0, 0, canvas.current!.width, canvas.current!.height);
+      context.drawImage(hdPetSprite(pet, moving ? 'walk' : 'sit', frame), x, y, width, height, 0, 0, width * scale, height * scale);
+      frame = frame ? 0 : 1;
+    };
+    paint();
+    if (!moving || still) return;
+    const timer = window.setInterval(paint, 220);
+    return () => window.clearInterval(timer);
+  }, [pet, moving, still]);
+  return <canvas ref={canvas} className="cp-pet__hd" width={HD_PET_THUMB.width * HD_PET_THUMB.scale} height={HD_PET_THUMB.height * HD_PET_THUMB.scale} />;
+}
+
 /** One choice of pet, shown as it would walk in the room, with its name under it. */
 function PetTile({ pet, label, picked, onPick }: { pet: PetChoice; label: string; picked: boolean; onPick: () => void }) {
+  const hd = useSessions((s) => s.preferences.roomStyle === 'cozy');
   return (
     <button type="button" className="cp-pet__tile" aria-pressed={picked} title={label} onClick={onPick}>
-      {pet.kind === 'none' ? <span className="cp-pet__empty" aria-hidden="true" /> : pet.kind === 'droid' ? <DroidSprite droid={droidOf(pet)} moving={picked} /> : <PetSprite pet={pet} moving={picked} />}
+      {pet.kind === 'none' ? <span className="cp-pet__empty" aria-hidden="true" /> : hd ? <HdPetSprite pet={pet} moving={picked} /> : pet.kind === 'droid' ? <DroidSprite droid={droidOf(pet)} moving={picked} /> : <PetSprite pet={pet} moving={picked} />}
       <span className="cp-pet__name">{label}</span>
     </button>
   );

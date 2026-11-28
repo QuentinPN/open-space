@@ -5,6 +5,7 @@
 // painted once on a grid (pure, tested without a DOM), laid on its own little canvas, and kept.
 import type { Look } from '../../shared/look.ts';
 import { DEFAULT_LOOK } from '../design/people-palette.ts';
+import type { PieceKit } from './chibi.ts';
 import { paintFeet, paintLegs, paintRaisedArm, paintTop } from './hd/body.ts';
 import { HEAD, paintBeard, paintEar, paintFaceSkin, paintFeatures, paintGlasses } from './hd/face.ts';
 import { paintGear, paintGearBehind, paintGlow, paintWaterGun } from './hd/gear.ts';
@@ -197,6 +198,26 @@ export function hdPreviewRow(fraction: number): number {
   const y = HD_PREVIEW.y + fraction * HD_PREVIEW.height;
   return y <= 20 ? 10 : y <= 27 ? 24 : y <= 32 ? 29 : 34;
 }
+
+/** A square of the sprite from its art coordinates (x, y, side), told in the canvas's pixels. */
+const square = (x: number, y: number, size: number) => ({ x: x - BOX.x0, y: y - BOX.y0, size });
+
+/**
+ * The crew editor's wardrobe pictures in HD (chibi.ts chibiPiece): where each part of the body is on the sprite, in art
+ * pixels. The head square holds the face and its hair; the hat's reaches above it for the tall ones; the whole person
+ * and what is worn on the back are cut wide enough for wings.
+ */
+export const HD_PIECES: PieceKit = {
+  id: 'hd',
+  sprite: (look, pose) => hdSprite(look, pose),
+  parts: {
+    hat: square(-2, -10, 28), head: square(0, -2, 24), chest: square(4, 19, 16), legs: square(5, 23, 14), feet: square(6, 25, 12), wrist: square(2, 22, 8),
+    body: square(-7, -1, 38), back: square(-7, -1, 38),
+  },
+  // the chin: the head ball ends on row 20, the neck and the collar are the top's
+  neck: 21 - BOX.y0,
+  outline: OUTLINE,
+};
 
 /** HD people drawn one room pixel per art pixel; `outfitFor`: what a festival puts on them. Typing hands are in the sprite. */
 export function hdSprites(lookFor: (personId: string) => Look, outfitFor: (personId: string) => Outfit = () => NO_OUTFIT): SpriteSource {

@@ -4,7 +4,7 @@ import { CAT_PATTERNS, DOG_BREEDS, DROID_MODELS, PLAIN_PET_KINDS, type PetChoice
 import { cozyPetOf, petPixels } from './cozy/pet.ts';
 import type { PixelGrid } from './cozy/pixels.ts';
 import type { PetActivity } from './pet.ts';
-import { HD_PET_FEET, hdPetGrid, hdPetHeight } from './pet-hd.ts';
+import { HD_PET_FEET, HD_PET_THUMB, hdPetGrid, hdPetHeight } from './pet-hd.ts';
 
 type Drawn = Exclude<PetChoice, { kind: 'none' }>;
 
@@ -43,6 +43,14 @@ describe('the HD pets of the cozy rooms', () => {
       assert.ok(left <= HD_PET_FEET.x && HD_PET_FEET.x <= right, `${name}: over its paws`);
       if (FLOATING.has(pet.kind) && activity !== 'sleep') assert.ok(bottom < HD_PET_FEET.y, `${name}: floats`);
       else assert.equal(bottom, HD_PET_FEET.y, `${name}: its paws on the floor`);
+    }
+  });
+
+  it('fits every pet, walking or sitting, whole in the editor\'s thumbnail', () => {
+    const { x, y, width, height } = HD_PET_THUMB;
+    for (const pet of PETS) for (const activity of ['walk', 'sit'] as const) for (const frame of [0, 1] as const) {
+      const { top, bottom, left, right } = bounds(hdPetGrid(pet, activity, frame));
+      assert.ok(left >= x && right < x + width && top >= y && bottom < y + height, `${nameOf(pet)} ${activity} ${frame}`);
     }
   });
 

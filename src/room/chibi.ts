@@ -521,12 +521,28 @@ export const GEAR_PARTS: Partial<Record<Gear, BodyPart>> = {
   swords: 'chest', katana: 'chest', lei: 'chest', guitar: 'chest', staff: 'body', parrot: 'body', jetpack: 'back', backpack: 'back', backSword: 'back', shell: 'back',
   scarf: 'chest', cat: 'body', lantern: 'body', wings: 'back', quiver: 'back', shield: 'back',
 };
-const PARTS: Readonly<Record<BodyPart, { x: number; y: number; size: number }>> = {
-  hat: { x: 1, y: 6, size: 24 }, head: { x: 4, y: 12, size: 18 }, chest: { x: 5, y: 27, size: 16 }, legs: { x: 6, y: 29, size: 14 }, feet: { x: 7, y: 33, size: 12 }, wrist: { x: -1, y: 26, size: 11 },
-  body: { x: -2, y: 13, size: 30 }, back: { x: -2, y: 13, size: 30 },
+
+/** What the wardrobe's pictures are cut from: a style's sprite, where each part of the body is on it (in its pixels), its contour's colour. */
+export interface PieceKit {
+  id: string;
+  sprite(look: Look, pose: Pose): HTMLCanvasElement;
+  parts: Readonly<Record<BodyPart, { x: number; y: number; size: number }>>;
+  /** the first row under the chin: below the head, the face stays see-through like the rest of the dummy */
+  neck: number;
+  /** the colour of the sprite's contour (#rrggbb) */
+  outline: string;
+}
+
+const CLASSIC_PIECES: PieceKit = {
+  id: 'classic',
+  sprite: (look, pose) => chibiSprite(look, pose),
+  parts: {
+    hat: { x: 1, y: 6, size: 24 }, head: { x: 4, y: 12, size: 18 }, chest: { x: 5, y: 27, size: 16 }, legs: { x: 6, y: 29, size: 14 }, feet: { x: 7, y: 33, size: 12 }, wrist: { x: -1, y: 26, size: 11 },
+    body: { x: -2, y: 13, size: 30 }, back: { x: -2, y: 13, size: 30 },
+  },
+  neck: 30,
+  outline: INK.outline,
 };
-/** The first row under the chin: below the head, the face stays see-through like the rest of the dummy. */
-const NECK = 30;
 /** Nothing on but plain trousers, which stay see-through like the body unless they are the piece shown. */
 const DUMMY: Partial<Look> = {
   hair: 'none', beard: 'none', hat: 'none', headphones: false, ...NO_GEAR, glasses: null, sunglasses: false, watch: false, top: 'none', bottom: 'pants', shoes: 'barefoot',
@@ -537,34 +553,36 @@ const FROM_BEHIND: Pose = { ...STANDING, direction: 'up-right' };
 const pieces = new Map<string, string>();
 /**
  * One piece of the wardrobe (`piece`, in the colours of `look`) on a see-through dummy, cut to the part of the body
- * it is worn on: the crew editor's choices. The body and the trousers are found by drawing the dummy again in other
- * colours (what changes is theirs), and drawn faint, their outline dotted; the piece keeps its own.
+ * it is worn on: the crew editor's choices, drawn in the classic style or in another's (`kit`). The body and the
+ * trousers are found by drawing the dummy again in other colours (what changes is theirs), and drawn faint, their
+ * outline dotted; the piece keeps its own.
  */
-export function chibiPiece(look: Look, piece: Partial<Look>, part: BodyPart): string {
-  const key = `${JSON.stringify(look)}|${JSON.stringify(piece)}|${part}`;
+export function chibiPiece(look: Look, piece: Partial<Look>, part: BodyPart, kit: PieceKit = CLASSIC_PIECES): string {
+  const key = `${kit.id}|${JSON.stringify(look)}|${JSON.stringify(piece)}|${part}`;
   let url = pieces.get(key);
   if (url) return url;
   const dressed: Look = { ...look, ...DUMMY, ...piece };
+  const pose = part === 'back' ? FROM_BEHIND : STANDING;
   const pixels = (variant: Look) => {
-    const sprite = chibiSprite(variant, part === 'back' ? FROM_BEHIND : STANDING);
+    const sprite = kit.sprite(variant, pose);
     return sprite.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, sprite.width, sprite.height).data;
   };
+  const { width, height } = kit.sprite(dressed, pose);
   const shown = pixels(dressed);
   const reskinned = pixels({ ...dressed, skin: dressed.skin === SKIN_TONES[0] ? SKIN_TONES[4] : SKIN_TONES[0] });
   const trousers = 'bottom' in piece ? null : pixels({ ...dressed, bottomColor: dressed.bottomColor === CLOTH_COLORS[0] ? CLOTH_COLORS[3] : CLOTH_COLORS[0] });
-  const width = CANVAS.width;
   const below = part !== 'hat' && part !== 'head' && part !== 'body' && part !== 'back';
   const differs = (other: Uint8ClampedArray, at: number) => other[at] !== shown[at] || other[at + 1] !== shown[at + 1] || other[at + 2] !== shown[at + 2];
-  const [inkRed, inkGreen, inkBlue] = rgb(INK.outline);
+  const [inkRed, inkGreen, inkBlue] = rgb(kit.outline);
   type Kind = 'empty' | 'dummy' | 'line' | 'piece';
   const kindAt = (x: number, y: number): Kind => {
-    if (x < 0 || y < 0 || x >= width || y >= CANVAS.height) return 'empty';
+    if (x < 0 || y < 0 || x >= width || y >= height) return 'empty';
     const at = (y * width + x) * 4;
     if (shown[at + 3] < 40) return 'empty';
-    if (differs(reskinned, at) || (trousers && differs(trousers, at)) || (below && y < NECK)) return 'dummy';
+    if (differs(reskinned, at) || (trousers && differs(trousers, at)) || (below && y < kit.neck)) return 'dummy';
     return shown[at] === inkRed && shown[at + 1] === inkGreen && shown[at + 2] === inkBlue ? 'line' : 'piece';
   };
-  const { x: left, y: top, size } = PARTS[part];
+  const { x: left, y: top, size } = kit.parts[part];
   // about 128 screen pixels whatever the part: sharp at twice the size it is shown
   const scale = Math.round(128 / size);
   const { canvas, context } = artCanvas(size * scale, size * scale);

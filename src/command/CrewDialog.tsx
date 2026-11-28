@@ -5,7 +5,7 @@ import { BEARD_STYLES, BOTTOMS, EYES, GEAR, GEAR_SLOTS, HAIR_STYLES, HATS, SHOES
 import type { CrewMember } from '../../shared/protocol.ts';
 import { t } from '../i18n/index.ts';
 import { GEAR_PARTS, HAT_ROWS, chibiHead, chibiPiece, chibiSprite, type BodyPart } from '../room/chibi.ts';
-import { HD_BOX, HD_PREVIEW, hdPreviewRow, hdSprite } from '../room/chibi-hd.ts';
+import { HD_BOX, HD_PIECES, HD_PREVIEW, hdPreviewRow, hdSprite } from '../room/chibi-hd.ts';
 import type { Pose } from '../room/sprites.ts';
 import { FIXED_COLOUR } from '../room/wardrobe.ts';
 import { useSessions } from '../state/sessions.ts';
@@ -27,6 +27,9 @@ const ownColour = (piece: string) => isCostumePiece(piece) || FIXED_COLOUR.has(p
 const TABS = ['face', 'hair', 'beard', 'gear', 'top', 'bottom', 'shoes'] as const;
 type Tab = (typeof TABS)[number];
 const HEAD_TABS: ReadonlySet<Tab> = new Set(['face', 'hair', 'beard', 'gear']);
+
+/** Whether the room is the cozy one: the editor then draws people (and its pictures of their pieces) in HD, as the room does. */
+const useHd = () => useSessions((s) => s.preferences.roomStyle === 'cozy');
 
 /** The four directions of the room, turned one after the other by the preview's arrows. */
 const DIRECTIONS: Pose['direction'][] = ['down-right', 'down-left', 'up-left', 'up-right'];
@@ -206,6 +209,7 @@ export function LookEditor({ look, onLook, name, onName, birthday, onBirthday, j
   look: Look; onLook: (look: Look) => void; name: string; onName: (name: string) => void; birthday: string; onBirthday: (birthday: string) => void;
   jobs?: { chosen: readonly Job[]; onChange: (jobs: Job[]) => void };
 }) {
+  const kit = useHd() ? HD_PIECES : undefined;
   const [direction, setDirection] = useState(0);
   const [tab, setTab] = useState<Tab>('face');
   const words = t.settings.look;
@@ -215,7 +219,7 @@ export function LookEditor({ look, onLook, name, onName, birthday, onBirthday, j
   const [month = '', day = ''] = birthday.split('-');
   const setBirthday = (nextMonth: string, nextDay: string) => onBirthday(nextMonth && nextDay ? `${nextMonth}-${nextDay}` : '');
   const pieces = <T extends string>(label: string, options: readonly T[], names: Record<T, string>, value: T, onPick: (value: T) => void, worn: (option: T) => Partial<Look>, part: BodyPart | ((option: T) => BodyPart)) => (
-    <Pieces label={label} options={options} labels={names} value={value} onPick={onPick} picture={(option) => chibiPiece(look, worn(option), typeof part === 'function' ? part(option) : part)} />
+    <Pieces label={label} options={options} labels={names} value={value} onPick={onPick} picture={(option) => chibiPiece(look, worn(option), typeof part === 'function' ? part(option) : part, kit)} />
   );
   // a click on the preview opens the tab of what is under it (the head keeps a head tab already open)
   const pickPartAt = (row: number) => {
@@ -374,6 +378,7 @@ function Pieces<T extends string>({ label, options, labels, value, onPick, pictu
  * are worn with anything (the radio puts headphones on too), so each stays a trait of its own.
  */
 function GearPieces<Slot extends GearSlot>({ slot, look, onChange }: { slot: Slot; look: Look; onChange: (part: Partial<Look>) => void }) {
+  const kit = useHd() ? HD_PIECES : undefined;
   const words = t.settings.look;
   const worn = (gear: Look[Slot]) => ({ [slot]: gear }) as Partial<Look>;
   return (
@@ -381,10 +386,10 @@ function GearPieces<Slot extends GearSlot>({ slot, look, onChange }: { slot: Slo
       {slot === 'backGear' && COLOURED_GEAR.has(look.backGear) && <Swatches label={words.colour} colours={CLOTH_COLORS} value={look.backColor} onPick={(backColor) => onChange({ backColor })} />}
       <Pieces
         label={words.gearSlots[slot]} options={GEAR[slot] as readonly Look[Slot][]} labels={words.options.gear} value={look[slot]} onPick={(gear) => onChange(worn(gear))}
-        picture={(gear) => chibiPiece(look, worn(gear), GEAR_PARTS[gear] ?? 'head')}
+        picture={(gear) => chibiPiece(look, worn(gear), GEAR_PARTS[gear] ?? 'head', kit)}
       >
-        {slot === 'faceGear' && <PieceButton label={words.headphones} picture={chibiPiece(look, { headphones: true }, 'head')} pressed={look.headphones} onPick={() => onChange({ headphones: !look.headphones })} />}
-        {slot === 'handGear' && <PieceButton label={words.watch} picture={chibiPiece(look, { watch: true }, 'wrist')} pressed={look.watch} onPick={() => onChange({ watch: !look.watch })} />}
+        {slot === 'faceGear' && <PieceButton label={words.headphones} picture={chibiPiece(look, { headphones: true }, 'head', kit)} pressed={look.headphones} onPick={() => onChange({ headphones: !look.headphones })} />}
+        {slot === 'handGear' && <PieceButton label={words.watch} picture={chibiPiece(look, { watch: true }, 'wrist', kit)} pressed={look.watch} onPick={() => onChange({ watch: !look.watch })} />}
       </Pieces>
     </>
   );
@@ -418,7 +423,7 @@ function Swatches({ label, colours, value, onPick }: { label: string; colours: r
  */
 function Preview({ look, direction, label, onRow, hint }: { look: Look; direction: Pose['direction']; label: string; onRow: (row: number) => void; hint: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const hd = useSessions((s) => s.preferences.roomStyle === 'cozy');
+  const hd = useHd();
   useEffect(() => {
     const context = canvas.current!.getContext('2d')!;
     context.imageSmoothingEnabled = false;
