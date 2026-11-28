@@ -12,7 +12,8 @@ import {
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { hash, redraw } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.beach, O = C.outline, V = P.view;
@@ -80,24 +81,36 @@ function paintWalls(grid: PixelGrid) {
   }
 }
 
+type View = (typeof V)[CozyTime];
+
+/**
+ * The sea at a point of the window: its blue, deeper towards the horizon, and the crests of the waves, rows of foam
+ * drifting along, a little lighter as they come in; `frame`: how far they have drifted (0 at rest).
+ */
+function seaAt(K: View, a: number, z: number, frame: number): string {
+  const depth = HORIZON - z, tone = depth <= 2 ? K.sea[2] : depth <= 6 ? K.sea[1] : K.sea[0];
+  // the nearer rows drift faster
+  const drift = Math.floor(frame / (depth > 6 ? 3 : 5));
+  if (depth > 1 && depth % 3 === 1 && (((a + depth * 5 + drift) % 13) + 13) % 13 < (depth > 6 ? 4 : 2)) return K.foam;
+  return tone;
+}
+
+/** The sand at a point of the window, the foam of the waves lapping at its edge; `frame`: how far they have come and gone (0 at rest). */
+function sandAt(K: View, a: number, z: number, frame: number): string {
+  const lap = frame ? Math.sin(frame * 0.09) * 1.6 : 0, edge = SHORE - (Math.sin(a / 3.2 + lap) > 0.2 ? 1 : 0);
+  if (z >= edge) return K.foam;
+  if (z === edge - 1) return K.sand[2];
+  return (a * 5 + z * 3) % 17 === 0 ? K.sand[1] : z < GLASS.z0 + 3 ? K.sand[1] : K.sand[0];
+}
+
 /** The view of the hour in the window: the sky, the sun or the moon, the sea and its waves, the sand, a palm, a parasol, a sail. */
 function paintView(grid: PixelGrid, time: CozyTime) {
   const wall: Wall = 'left', K = V[time], { a0, a1, z0, z1 } = GLASS, night = time === 'night', dusk = time === 'dusk';
   const within = [a0, a1, z0, z1] as const;
   // the sky, the sea, the sand
   fillWall(grid, wall, a0, a1, HORIZON, z1, (_, z) => K.sky[Math.min(K.sky.length - 1, Math.floor((z1 - 1 - z) / ((z1 - HORIZON) / K.sky.length)))]);
-  fillWall(grid, wall, a0, a1, SHORE, HORIZON, (a, z) => {
-    const depth = HORIZON - z, tone = depth <= 2 ? K.sea[2] : depth <= 6 ? K.sea[1] : K.sea[0];
-    // the crests of the waves, rows of foam drifting along, a little lighter as they come in
-    if (depth > 1 && depth % 3 === 1 && (a + depth * 5) % 13 < (depth > 6 ? 4 : 2)) return K.foam;
-    return tone;
-  });
-  fillWall(grid, wall, a0, a1, z0, SHORE + 1, (a, z) => {
-    const edge = SHORE - (Math.sin(a / 3.2) > 0.2 ? 1 : 0);
-    if (z >= edge) return K.foam;
-    if (z === edge - 1) return K.sand[2];
-    return (a * 5 + z * 3) % 17 === 0 ? K.sand[1] : z < z0 + 3 ? K.sand[1] : K.sand[0];
-  });
+  fillWall(grid, wall, a0, a1, SHORE, HORIZON, (a, z) => seaAt(K, a, z, 0));
+  fillWall(grid, wall, a0, a1, z0, SHORE + 1, (a, z) => sandAt(K, a, z, 0));
   // what shines in the sky, and its light on the sea
   if (night) {
     // the moon in the middle pane, clear of the palm's fronds, and its path on the sea
@@ -519,6 +532,30 @@ const VIEW: readonly string[] = [...(['day', 'dusk', 'night'] as const).flatMap(
   return [...K.sky, ...K.sea, K.foam, ...K.sand, ...K.frond, ...K.trunk, ...K.umbrella, K.pole, K.cloud, K.cloudShade, K.sail, K.hull];
 }), V.sun, V.sunLight, V.sunLow, V.sunLowLight, V.glare, V.moon, V.moonShade, V.moonGlint, V.star];
 
+/** The rows of the sea with crests on them (seaAt). */
+const CRESTS = [HORIZON - 4, HORIZON - 7] as const;
+
+/**
+ * The sea moving in the window: its crests drifting along, the foam lapping at the sand, the sun's (the moon's)
+ * light glinting on the water here and there.
+ */
+const motion: AmbianceMotion = {
+  masks: {},
+  paint({ view }, frame, { time }) {
+    const K = V[time], wall: Wall = 'left';
+    for (let a = GLASS.a0; a < GLASS.a1; a++) {
+      for (const z of CRESTS) redraw(view, wall, a, z, seaAt(K, a, z, 0), seaAt(K, a, z, frame));
+      for (let z = SHORE - 2; z <= SHORE; z++) redraw(view, wall, a, z, sandAt(K, a, z, 0), sandAt(K, a, z, frame));
+    }
+    // under the sun or the moon, a few glints coming and going on the water
+    const middle = time === 'night' ? 57 : time === 'dusk' ? 50 : 40, glint = time === 'night' ? V.moonGlint : V.glare, step = frame >> 2;
+    for (let index = 0; index < 4; index++) {
+      const a = middle - 6 + Math.floor(hash(index, step) * 13), z = SHORE + 1 + Math.floor(hash(index + 9, step) * (HORIZON - SHORE - 2));
+      for (const tone of K.sea) redraw(view, wall, a, z, tone, glint);
+    }
+  },
+};
+
 export const beach: AmbianceDesign = {
   ...office,
   id: 'beach',
@@ -552,4 +589,6 @@ export const beach: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintBambooLamp),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lamp.glow, P.lamp.glowWarm], glow: GLOW, sky: VIEW },
+  glass: { wall: 'left', ...GLASS },
+  motion,
 };
