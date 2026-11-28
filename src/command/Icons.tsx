@@ -5,7 +5,7 @@ import type { ModIcon } from '../../shared/mods.ts';
 import {
   AppWindow, Archive, ShieldCheck, Blend, Cpu, Eraser, FileDiff, GitBranch, GitMerge, GitPullRequest, ArrowLeft, Check, ArrowRight, Bell, BellOff, CalendarHeart, ChevronDown, ChevronUp, ChevronsUpDown, CircleAlert, Command, Download, Ellipsis, ExternalLink, File, Link, FileText, Image, Info, House, Houses, LayoutGrid, Maximize2, Minimize2, ListMusic, MessagesSquare, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Paperclip, Pause, Pencil, Palette, Play, Plus, Power, CircleDollarSign, Keyboard, NotebookPen, MessageSquareText, ChartColumn,
   Clock, Folder, FolderOpen, FolderPlus, FilePlus, Save, FileCode, FileBraces, FileImage, FileCog, FileLock, FileArchive, FilePlay, FileMusic, FileSpreadsheet, Copy, Languages, PartyPopper, Activity, Webhook, TrendingUp, CalendarDays, Bot, CornerDownLeft, ArrowUpDown, ScrollText, Coffee, Gauge, Timer, Sparkles, ChevronLeft, ChevronRight, RotateCw, CopyPlus, Brain, Shrink, ListChecks, Workflow, Inbox, Search, Settings, Shuffle, SkipBack, SlidersHorizontal, SkipForward, Smartphone, Sofa, Square, SquareTerminal, Star, Tag, Trash2, UserCheck, Users, Volume2, PawPrint, RotateCcw, VolumeX, X, Zap, Globe, KeyRound, PictureInPicture2, Pin, PinOff, SquareArrowOutUpRight, SquareArrowDownLeft,CodeXml, Eye, FolderSearch, type LucideIcon, List, Puzzle, Coins, ChartLine, Heart,
-  Radio, Focus, ListFilter, MousePointer2, LayoutDashboard, GripVertical, FastForward, Unplug, ServerOff, FileX, BookX, Lock, Undo2,
+  Radio, Focus, ListFilter, Gamepad2, Droplet, MousePointer2, LayoutDashboard, GripVertical, FastForward, Unplug, ServerOff, FileX, BookX, Lock, Undo2,
 } from 'lucide-react';
 
 const icon = (Shape: LucideIcon) => () => <Shape className="cp-icon" size={16} strokeWidth={1.75} aria-hidden="true" />;
@@ -173,6 +173,9 @@ export const InboxIcon = icon(Inbox);
 export const PeakIcon = icon(Zap);
 export const ChevronLeftIcon = icon(ChevronLeft);
 export const ChevronRightIcon = icon(ChevronRight);
+/** the cozy break room's arcade game (ArcadeWindow.tsx): its title, its spray button */
+export const ArcadeIcon = icon(Gamepad2);
+export const SprayIcon = icon(Droplet);
 
 /* A session on a branch of its own (worktrees): its branch, merging it, a pull request, keeping it, the cleaning panel. */
 export const BranchIcon = icon(GitBranch);

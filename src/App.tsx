@@ -6,6 +6,7 @@ import { ModsDialog } from './command/ModsPanel.tsx';
 import { ModWindows } from './command/ModWindows.tsx';
 import { Dashboards } from './command/Dashboards.tsx';
 import { BrowserPip } from './command/BrowserPip.tsx';
+import { ArcadeWindow } from './command/ArcadeWindow.tsx';
 import { SearchPalette } from './command/SearchPalette.tsx';
 import { CopyOnSelect } from './command/CopyOnSelect.tsx';
 import { CrewDialog } from './command/CrewDialog.tsx';
@@ -244,6 +245,7 @@ export function App() {
       {view !== 'focus' && view !== 'dashboards' && <StatusPanel />}
       {view !== 'dashboards' && <ModWindows />}
       <BrowserPip />
+      <ArcadeWindow />
       {bare && <BareHint />}
       <SearchPalette />
       <CopyOnSelect />

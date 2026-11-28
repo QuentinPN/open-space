@@ -441,8 +441,8 @@ input[type='range']:focus-visible { outline-offset: 4px; border-radius: 999px; }
 .cp-stack__slot[data-compact='true'] :is(.cp-secrets__note, .cp-secrets__add) { display: none; }
 .cp-stack__slot[data-compact='true'] .cp-detail > :is(.cp-permission, .cp-question) { margin: var(--space-2) var(--space-3) var(--space-2); padding: var(--space-2) var(--space-3); }
 /* Tab: only the room stays; the rest fades out in place so the room does not jump */
-.cp-app :is(.cp-header, .cp-status, .cp-launcher, .cp-mod, .cp-pip, .cp-room__arrange) { transition: opacity 160ms ease-out; }
-.cp-app[data-bare='true'] :is(.cp-header, .cp-status, .cp-launcher, .cp-mod, .cp-pip, .cp-room__arrange) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 160ms ease-in, visibility 0s 160ms; }
+.cp-app :is(.cp-header, .cp-status, .cp-launcher, .cp-mod, .cp-pip, .cp-arcade, .cp-room__arrange) { transition: opacity 160ms ease-out; }
+.cp-app[data-bare='true'] :is(.cp-header, .cp-status, .cp-launcher, .cp-mod, .cp-pip, .cp-arcade, .cp-room__arrange) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 160ms ease-in, visibility 0s 160ms; }
 .cp-bare-hint { position: fixed; top: var(--gutter); right: var(--gutter); z-index: 50; transition: opacity 400ms ease-out; animation: cp-bare-hint 200ms 120ms ease-out backwards; }
 .cp-bare-hint[data-idle='true'] { opacity: 0; pointer-events: none; transition-duration: 800ms; }
 @keyframes cp-bare-hint { from { opacity: 0; translate: 0.75rem 0; } }
@@ -577,6 +577,27 @@ button.cp-tag:hover { border-color: var(--color-accent); }
 .cp-pip__divider { flex: none; align-self: center; width: var(--border-width); height: 1rem; background: var(--color-border-strong); }
 .cp-pip .cp-browser__screen { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 .cp-pip .cp-stack__handle { z-index: 3; }
+/* Petal Patrol, the cozy break room's arcade game (ArcadeWindow.tsx): a floating window like the browser's, its screen
+   in a dark bezel (its pixels the field's, drawn sharp), a row of big buttons under it to play by touch */
+.cp-arcade {
+  position: fixed; left: 0; top: 0; z-index: 66; translate: var(--x) var(--y); width: var(--w); height: var(--h);
+  display: flex; flex-direction: column; border-radius: var(--radius-lg); overflow: hidden; outline: none;
+  background: var(--glass-strong); border: var(--border-width) solid var(--glass-edge); box-shadow: var(--glass-shadow);
+}
+.cp-arcade:focus-visible { border-color: var(--color-accent); }
+.cp-arcade[data-moving='true'] { user-select: none; }
+.cp-arcade__head { flex: none; height: 36px; display: flex; align-items: center; gap: var(--space-2); padding-inline: var(--space-3) var(--space-1); cursor: grab; touch-action: none; color: var(--color-text-muted); }
+.cp-arcade[data-moving='true'] .cp-arcade__head { cursor: grabbing; }
+.cp-arcade__title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--color-text); }
+.cp-arcade__screen { flex: none; padding: 10px; background: #120d22; }
+.cp-arcade__canvas { display: block; width: 100%; aspect-ratio: 168 / 192; image-rendering: pixelated; border-radius: 2px; }
+.cp-arcade__pad { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-1); touch-action: none; user-select: none; }
+.cp-arcade__button {
+  display: inline-grid; place-items: center; width: 3.25rem; height: 2.25rem; border-radius: 999px; touch-action: none;
+  border: var(--border-width) solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text);
+}
+.cp-arcade__button:active { background: var(--color-surface-raised); border-color: var(--color-accent); }
+.cp-arcade__button[data-variant='fire'] { width: 4.5rem; color: var(--color-accent); }
 /* the pages a session published on claude.ai: the chip opens their list under the head, as wide as the window allows (PublishedPages.tsx) */
 .cp-pages { display: flex; }
 .cp-pages__panel {

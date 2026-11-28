@@ -42,6 +42,28 @@ export const room = {
     description: (rooms: number, sessions: number) => `${plural(rooms, 'pièce', 'pièces')}, ${plural(sessions, 'session', 'sessions')}.`,
     /** a room's clock: what a click on it does, and the time it then tells */
     clock: { hint: 'Voir l’heure', time: (time: string) => `Il est ${time}` },
+    /** the break room's arcade cabinet: what a click on it does, someone at it, and its game's window (src/arcade/) */
+    arcade: {
+      hint: 'Jouer à l’arcade',
+      playing: (name: string) => `${name} joue à l’arcade`,
+      game: {
+        title: 'Petal Patrol',
+        label: 'Petal Patrol, le jeu d’arcade de la salle de repos',
+        start: 'Espace pour jouer',
+        again: 'Espace pour rejouer',
+        paused: 'Pause',
+        level: (level: number) => `Niveau ${level}`,
+        over: 'Partie terminée',
+        best: 'Record',
+        left: 'À gauche',
+        right: 'À droite',
+        fire: 'Arroser',
+        pause: 'Pause',
+        resume: 'Reprendre',
+        close: 'Fermer le jeu',
+        keys: '← → ou A D pour bouger, Espace pour arroser, P pour la pause, Échap pour fermer',
+      },
+    },
     /** a project room's ambiance, picked on its plate */
     ambiance: { pick: (project: string) => `Ambiance de ${project}` },
     ambiances: {
