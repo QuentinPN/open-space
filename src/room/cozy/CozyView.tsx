@@ -4,10 +4,11 @@
 // Escape or the back button goes back to all of them. As in the classic room, opened big or not: a click on someone
 // opens their session (on a visitor, a new one with them), a poke on the pet gets a cuddle, the user's computer at home
 // opens a terminal and its numbers screen the mods, a project room's whiteboard the board, a door goes to the break
-// room and back, a clock tells the time; each is outlined under the pointer with what a click does. Each room's art is
-// drawn once per mood of the hour and festival (decor.ts, lounge-art.ts, home/art.ts); each frame only paints the
-// people, the visitors, the clocks' hands, the screens and the Z's over it (paint.ts). The hour, the festival, the
-// office life, the pet and the hidden names are the classic room's settings.
+// room and back, the break room's arcade cabinet opens its game (ArcadeWindow.tsx), a clock tells the time; each is
+// outlined under the pointer with what a click does. Each room's art is drawn once per mood of the hour and festival
+// (decor.ts, lounge-art.ts, home/art.ts); each frame only paints the people, the visitors, the clocks' hands, the
+// screens and the Z's over it (paint.ts). The hour, the festival, the office life, the pet and the hidden names are the
+// classic room's settings.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import type { Festival, FestivalDay } from '../../../shared/festivals.ts';
 import { COZY_PALETTE, ROOM_PALETTE } from '../../design/room-palette.ts';
@@ -20,6 +21,7 @@ import { availability } from '../../state/availability.ts';
 import { sessionsIn } from '../../state/docking.ts';
 import { useSessions } from '../../state/sessions.ts';
 import { useProjects } from '../../state/useProjects.ts';
+import { openArcade } from '../../state/arcade.ts';
 import { USER_SPEAKER, onSpeech } from '../../state/speech.ts';
 import { BackIcon, CheckIcon, PaletteIcon, PinIcon, UnpinIcon } from '../../command/Icons.tsx';
 import { bubbleText, pruneBubbles, pushBubble, type Bubble } from '../bubbles.ts';
@@ -114,6 +116,7 @@ function hintOf(thing: CozyThing | null, room: CozyRoom | undefined): string | n
     case 'metrics': return modsNews(useSessions.getState()) ? words.newMods : words.openMods;
     case 'board': return words.openBoard;
     case 'door': return room?.kind === 'lounge' ? words.toOffice : words.toLounge;
+    case 'arcade': return t.room.cozy.arcade.hint;
     case 'clock': return t.room.cozy.clock.hint;
     default: return null;
   }
@@ -524,6 +527,7 @@ export function CozyView({ day }: { day: FestivalDay }) {
       case 'board': state.openBoard(true); return;
       // the user walks out through it first, in a room opened big
       case 'door': if (walk.current?.id === room.id) walk.current.scene.walkPlayerOut(); else goThrough(room); return;
+      case 'arcade': openArcade(); return;
       case 'clock': showTime(index); return;
     }
     if (!zoomedRoom) { open(room); return; }

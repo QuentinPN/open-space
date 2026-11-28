@@ -1,7 +1,8 @@
 // What a point of the cozy rooms falls on (src/room/cozy/), as a click in the classic room does: someone (a session,
 // the user, a visitor), the user's pet at home, or a thing that does something: the user's computer at home (a
 // terminal), its numbers screen (the mods), a project room's whiteboard (the board and its notes), the door between the
-// offices and the break room, a clock (the time). In the overview as in a room opened big. Pure: tested without a DOM.
+// offices and the break room, the break room's arcade cabinet (its game), a clock (the time). In the overview as in a
+// room opened big. Pure: tested without a DOM.
 import type { Point } from '../geometry.ts';
 import { isOnPet } from '../pet.ts';
 import { PLAYER_ID } from '../scene.ts';
@@ -9,12 +10,13 @@ import { designOf } from './ambiance/index.ts';
 import { paintDoor } from './decor.ts';
 import { figureAt, roomAt, type Figure } from './geometry.ts';
 import { homeThemeOf, metricsPainter, pcAt, roomClockAt } from './home/index.ts';
+import { paintArcade } from './lounge-art.ts';
 import { paintedAt } from './pixels.ts';
 import type { CozyRoom } from './rooms.ts';
 
-export type CozyThing = 'computer' | 'metrics' | 'board' | 'door' | 'clock';
+export type CozyThing = 'computer' | 'metrics' | 'board' | 'door' | 'arcade' | 'clock';
 
-/** The thing a point of a room (in its pixels) falls on: the home's computer and numbers screen, a project room's board (its ambiance's), the doors, the clocks. */
+/** The thing a point of a room (in its pixels) falls on: the home's computer and numbers screen, a project room's board (its ambiance's), the doors, the break room's arcade, the clocks. */
 export function thingAt(room: CozyRoom, point: Point): CozyThing | null {
   if (room.kind === 'home') {
     const theme = room.home ?? homeThemeOf(undefined);
@@ -22,6 +24,7 @@ export function thingAt(room: CozyRoom, point: Point): CozyThing | null {
     if (paintedAt(metricsPainter(theme), point)) return 'metrics';
   }
   if (room.kind === 'lounge' && paintedAt(paintDoor, point)) return 'door';
+  if (room.kind === 'lounge' && paintedAt(paintArcade, point)) return 'arcade';
   if (room.kind === 'project') {
     const design = designOf(room);
     if (paintedAt(design.paintDoor, point)) return 'door';

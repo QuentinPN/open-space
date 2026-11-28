@@ -111,8 +111,8 @@ function paintTeaCorner(grid: PixelGrid) {
   }
 }
 
-/** The arcade cabinet against the right wall, its screen and its buttons towards the room: a step of free floor in front of it. */
-function paintArcade(grid: PixelGrid) {
+/** The arcade cabinet against the right wall, its screen and its buttons towards the room: a step of free floor in front of it (a click plays, things.ts). */
+export function paintArcade(grid: PixelGrid) {
   const { u0, u1, v0, v1, height } = ARCADE, A = L.arcade;
   ob(grid, u0, u1, v0, v1, 0, height, A.body, A.edge);
   ob(grid, u0, u1, v1, v1 + 4, 18, 3, A.body, A.edge);
