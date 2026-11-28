@@ -9,7 +9,7 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintWallBoxes, shadeAlongWalls, standing, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallPixel, wallPoint,
+  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallEllipse, wallPixel, wallPoint,
   type Painter, type PixelGrid, type PixelTarget, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
@@ -24,23 +24,25 @@ const art = (grid: PixelGrid, draw: (layer: PixelGrid) => void) => outlined(grid
 
 /** The porthole on the left wall, where the offices' window is: its middle and the radius of its glass. */
 const PORTHOLE = { a: 56, z: 65, glass: 15 } as const;
-/** The barrels in the back corner, where the offices' monstera is; the treasure chest and the crate where their drawers are. */
+/** The barrels in the back corner, where the offices' monstera is; the crate and the treasure chest (by the door, in sight) where their drawers are. */
 const BARRELS = MONSTERA;
-const CHEST = DRAWERS[0], CRATE = DRAWERS[1];
+const CRATE = DRAWERS[0], CHEST = DRAWERS[1];
 /** The compass rug in the middle of the deck. */
 const RUG = { u: 52, v: 96, radius: 22 } as const;
 /** The ribs of the hull on each wall, along it. */
-const RIBS: Readonly<Record<Wall, readonly number[]>> = { left: [28, 82], right: [30, 70] };
+const RIBS: Readonly<Record<Wall, readonly number[]>> = { left: [28, 82], right: [29, 71] };
 
 /**
  * Something flat on a back wall, outlined like the rest: `draw` puts its points (`a` along the wall, `z` up), then
- * each gets a line round it, then they are laid on the wall.
+ * each gets a line round it on the screen (not along the wall, whose rows step down every two pixels), then they are
+ * laid on the wall.
  */
 function wallArt(target: PixelTarget, wall: Wall, draw: (put: (a: number, z: number, colour: string) => void) => void) {
   const cells = new Map<string, [number, number, string]>();
-  draw((a, z, colour) => { const pa = Math.floor(a), pz = Math.floor(z); cells.set(`${pa},${pz}`, [pa, pz, colour]); });
-  for (const [a, z] of cells.values()) for (const [da, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!cells.has(`${a + da},${z + dz}`)) wallPixel(target, wall, a + da, z + dz, O);
-  for (const [a, z, colour] of cells.values()) wallPixel(target, wall, a, z, colour);
+  const record: PixelTarget = { set: (x, y, colour) => { cells.set(`${x},${y}`, [x, y, colour]); } };
+  draw((a, z, colour) => wallPixel(record, wall, Math.floor(a), Math.floor(z), colour));
+  for (const [x, y] of cells.values()) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!cells.has(`${x + dx},${y + dy}`)) target.set(x + dx, y + dy, O);
+  for (const [x, y, colour] of cells.values()) target.set(x, y, colour);
 }
 
 /** Rows of letters on a back wall, the first row at the top (`z`), read from the screen's left to its right from `a`. */
@@ -90,97 +92,103 @@ function paintHull(grid: PixelGrid) {
   }
 }
 
-/** The sea through the porthole at `time`: the sky and its sun, clouds or stars, the island and its palm, the waves. */
+/**
+ * The sea through the porthole at `time`: the sky and its sun, clouds or stars, the island and its palm, the waves.
+ * The view is seen through the wall, not painted on it: its horizon and its waves run level on the screen, so each
+ * point of the glass is placed by how high it is on the screen above the horizon (`up`), not along the wall.
+ */
 function paintSea(grid: PixelGrid, time: CozyTime) {
-  const wall: Wall = 'left', { a, z, glass } = PORTHOLE, sky = V[time], sea = V.sea[time], horizon = z - 2;
+  const wall: Wall = 'left', { a, z, glass } = PORTHOLE, sky = V[time], sea = V.sea[time], night = time === 'night', dusk = time === 'dusk';
+  const foot = (pa: number) => wallPoint(wall, pa, 0)[1], horizon = foot(a) - (z - 2);
+  /** how many pixels above the horizon a point of the glass shows, and the point of a column that many above it */
+  const up = (pa: number, pz: number) => horizon - foot(pa) + pz;
+  const at = (pa: number, rise: number) => foot(pa) - horizon + rise;
   const inGlass = (pa: number, pz: number) => (pa + 0.5 - a) ** 2 + (pz + 0.5 - z) ** 2 < glass * glass;
   const put = (pa: number, pz: number, colour: string) => { if (inGlass(pa, pz)) wallPixel(grid, wall, pa, pz, colour); };
-  const disc = (ca: number, cz: number, radius: number, colour: string, above = horizon) => {
-    for (let pa = Math.floor(ca - radius); pa <= ca + radius; pa++) for (let pz = Math.floor(cz - radius); pz <= cz + radius; pz++) {
-      if ((pa + 0.5 - ca) ** 2 + (pz + 0.5 - cz) ** 2 <= radius * radius && pz >= above) put(pa, pz, colour);
+  const level = (pa: number, rise: number, colour: string) => put(pa, at(pa, rise), colour);
+  /** a disc round (ca, rise) above the horizon, cut at it */
+  const disc = (ca: number, rise: number, radius: number, colour: string) => {
+    for (let pa = Math.floor(ca - radius); pa <= ca + radius; pa++) for (let dz = Math.floor(-radius); dz <= radius; dz++) {
+      if ((pa + 0.5 - ca) ** 2 + (dz + 0.5) ** 2 <= radius * radius && rise + dz >= 0) level(pa, Math.round(rise + dz), colour);
     }
   };
+  const wave = (pa: number, depth: number) => ((pa + ((depth * 5) % 9)) % 9 + 9) % 9;
   fillWall(grid, wall, a - glass, a + glass, z - glass, z + glass, (pa, pz) => {
     if (!inGlass(pa, pz)) return null;
-    if (pz >= horizon) return sky[Math.min(sky.length - 1, Math.floor(((z + glass - pz) * sky.length) / (z + glass - horizon)))];
-    return sea[Math.min(sea.length - 1, Math.floor((horizon - 1 - pz) / 4))];
+    const rise = up(pa, pz);
+    if (rise >= 0) return sky[Math.max(0, sky.length - 1 - Math.floor((rise * sky.length) / (glass + 4)))];
+    // under the horizon, rows of little crests every three, their tips foaming in the row above
+    const depth = -rise;
+    if (depth >= 2 && (depth - 2) % 3 === 0 && wave(pa, depth) < 4) return V.crest[time];
+    if (depth >= 1 && (depth - 1) % 3 === 0) { const k = wave(pa, depth + 1); if (k === 1 || k === 2) return V.foam[time]; }
+    return sea[Math.min(sea.length - 1, Math.floor((depth - 1) / 4))];
   });
-  const night = time === 'night', dusk = time === 'dusk';
   if (night) {
-    for (const [pa, pz] of [[a + 9, z + 9], [a + 3, z + 12], [a - 4, z + 6], [a + 12, z + 3], [a - 11, z + 4], [a + 6, z + 4], [a - 1, z + 11]]) put(pa, pz, V.star);
-    disc(a - 5.5, z + 8.5, 3.8, V.moon); disc(a - 4.2, z + 9.6, 3, sky[1]); put(a - 7, z + 7, V.moonShade);
+    for (const [pa, rise] of [[a + 9, 13], [a + 3, 16], [a - 4, 8], [a + 12, 6], [a - 11, 5], [a + 6, 8], [a - 1, 14]]) level(pa, rise, V.star);
+    disc(a - 5.5, 10, 3.8, V.moon); disc(a - 4.2, 11, 3, sky[1]); level(a - 7, 9, V.moonShade);
   } else if (dusk) {
-    disc(a - 3.5, horizon + 0.5, 5.6, V.sunLow); disc(a - 3.5, horizon + 0.5, 3.6, V.sunLowLight);
+    disc(a - 3.5, 0, 5.6, V.sunLow); disc(a - 3.5, 0, 3.6, V.sunLowLight);
   } else {
-    disc(a - 7.5, z + 8.5, 3.4, V.sun); disc(a - 7.8, z + 8.8, 2, V.sunLight);
-    for (const [ca, cz, size] of [[a + 6, z + 9, 1], [a - 1, z + 4, 0.7]] as const) {
-      for (let pa = Math.floor(ca - 5 * size); pa <= ca + 5 * size; pa++) for (const pz of [cz, cz + 1]) {
-        const reach = (pz === cz ? 5 : 3) * size;
-        if (Math.abs(pa + 0.5 - ca) <= reach) put(pa, pz, pz === cz ? V.cloudShade : V.cloud);
+    disc(a - 7.5, 10, 3.4, V.sun); disc(a - 7.8, 10.3, 2, V.sunLight);
+    for (const [ca, rise, size] of [[a + 6, 12, 1], [a - 1, 6, 0.7]] as const) {
+      for (let pa = Math.floor(ca - 5 * size); pa <= ca + 5 * size; pa++) for (const dz of [0, 1]) {
+        if (Math.abs(pa + 0.5 - ca) <= (dz ? 3 : 5) * size) level(pa, rise + dz, dz ? V.cloud : V.cloudShade);
       }
     }
-    for (const [ga, gz] of [[a - 1, z + 10], [a + 3, z + 12]]) { put(ga + 1, gz, V.gull); put(ga, gz - 1, V.gull); put(ga - 1, gz, V.gull); }
+    for (const [ga, rise] of [[a - 1, 13], [a + 3, 16]]) { level(ga + 1, rise, V.gull); level(ga, rise + 1, V.gull); level(ga - 1, rise, V.gull); }
   }
   // the island on the horizon and its palm
   const land = night ? V.nightIsland : dusk ? V.silhouette : V.island, palm = night ? V.nightIsland : dusk ? V.silhouette : V.palm, trunk = night ? V.nightIsland : dusk ? V.silhouette : V.trunk;
-  for (let pa = a + 4; pa <= a + 12; pa++) { put(pa, horizon, land); if (pa > a + 5 && pa < a + 11) put(pa, horizon + 1, land); }
-  for (const [pa, pz] of [[a + 8, horizon + 2], [a + 8, horizon + 3], [a + 9, horizon + 4], [a + 9, horizon + 5]]) put(pa, pz, trunk);
-  for (const [pa, pz] of [[a + 7, horizon + 6], [a + 8, horizon + 6], [a + 9, horizon + 6], [a + 10, horizon + 6], [a + 11, horizon + 6], [a + 6, horizon + 5], [a + 12, horizon + 5], [a + 9, horizon + 7], [a + 10, horizon + 7], [a + 5, horizon + 4], [a + 13, horizon + 4]]) put(pa, pz, palm);
-  // the waves: rows of little crests, their tips foaming, the light of the sun or the moon on the water
-  for (let pz = horizon - 2; pz > z - glass; pz -= 3) {
-    const shift = ((horizon - pz) * 5) % 9;
-    for (let pa = a - glass; pa < a + glass; pa++) {
-      const k = (((pa + shift) % 9) + 9) % 9;
-      if (k < 4) put(pa, pz, V.crest[time]);
-      if (k === 1 || k === 2) put(pa, pz + 1, V.foam[time]);
-    }
-  }
-  put(a + glass, horizon - 1, V.crest[time]);
+  for (let pa = a + 4; pa <= a + 12; pa++) { level(pa, 0, land); if (pa > a + 5 && pa < a + 11) level(pa, 1, land); }
+  for (const [pa, rise] of [[a + 8, 2], [a + 8, 3], [a + 9, 4], [a + 9, 5]]) level(pa, rise, trunk);
+  for (const [pa, rise] of [[a + 7, 6], [a + 8, 6], [a + 9, 6], [a + 10, 6], [a + 11, 6], [a + 6, 5], [a + 12, 5], [a + 9, 7], [a + 10, 7], [a + 5, 4], [a + 13, 4]]) level(pa, rise, palm);
+  // the light of the sun or the moon on the water, under it
   const shine = night ? V.moonShade : dusk ? V.sunLowLight : V.glitter, along = night ? a - 5 : dusk ? a - 3 : a - 7;
-  for (let pz = horizon - 1, row = 0; pz > z - glass + 2; pz -= 2, row++) {
+  for (let depth = 1, row = 0; depth < glass; depth += 2, row++) {
     const half = Math.max(1, 3 - (row >> 1));
-    for (let pa = along - half; pa <= along + half; pa += 2) put(pa + (row % 2), pz, shine);
+    for (let pa = along - half; pa <= along + half; pa += 2) level(pa + (row % 2), -depth, shine);
   }
 }
 
 /** The porthole: its brass ring and its bolts round the sea of the hour, its hinge and its latch, a glint on the glass. */
 function paintPorthole(grid: PixelGrid, time: CozyTime) {
   const wall: Wall = 'left', R = P.porthole, { a, z, glass } = PORTHOLE;
+  // the hinge on one side, the latch on the other, behind the ring
   wallArt(grid, wall, (put) => {
-    for (let pa = a - glass - 5; pa <= a + glass + 5; pa++) for (let pz = z - glass - 5; pz <= z + glass + 5; pz++) {
-      const da = pa + 0.5 - a, dz = pz + 0.5 - z, d = Math.sqrt(da * da + dz * dz);
-      if (d < glass || d >= glass + 4) continue;
-      if (d < glass + 1) { put(pa, pz, R.brass[2]); continue; }
-      put(pa, pz, dz > glass * 0.45 ? R.brass[0] : dz < -glass * 0.45 ? R.brass[2] : R.brass[1]);
-    }
-    for (let index = 0; index < 8; index++) {
-      const angle = (index * Math.PI) / 4 + Math.PI / 8;
-      put(Math.round(a - 0.5 + Math.cos(angle) * (glass + 2.2)), Math.round(z - 0.5 + Math.sin(angle) * (glass + 2.2)), R.bolt);
-    }
-    // the hinge on one side, the latch on the other
     for (let pa = a + glass + 3; pa < a + glass + 7; pa++) for (let pz = z - 3; pz < z + 3; pz++) put(pa, pz, pz === z + 2 ? R.hingeLight : R.hinge);
     for (let pa = a - glass - 6; pa < a - glass - 2; pa++) for (let pz = z - 1; pz < z + 2; pz++) put(pa, pz, pz === z + 1 ? R.hingeLight : R.hinge);
   });
+  // the ring, lit from above, its lip round the glass, its bolts
+  wallEllipse(grid, wall, a + 0.5, z + 0.5, glass + 5.6, glass + 5.6, O);
+  wallEllipse(grid, wall, a + 0.5, z + 0.5, glass + 4.8, glass + 4.8, R.brass[2]);
+  wallEllipse(grid, wall, a + 0.5, z + 1, glass + 4.2, glass + 4.2, R.brass[1]);
+  wallEllipse(grid, wall, a + 0.5, z + 1.6, glass + 3.2, glass + 3.2, R.brass[0]);
+  wallEllipse(grid, wall, a + 0.5, z + 0.8, glass + 2.4, glass + 2.4, R.brass[1]);
+  wallEllipse(grid, wall, a + 0.5, z + 0.5, glass + 1.2, glass + 1.2, R.brass[2]);
+  for (let index = 0; index < 8; index++) {
+    const angle = (index * Math.PI) / 4 + Math.PI / 8;
+    wallPixel(grid, wall, Math.round(a + Math.cos(angle) * (glass + 3)), Math.round(z + Math.sin(angle) * (glass + 3)), R.bolt);
+  }
   paintSea(grid, time);
   for (let step = 0; step < 5; step++) wallPixel(grid, wall, a + 7 + step, z + 10 - step, R.glint);
   for (let step = 0; step < 2; step++) wallPixel(grid, wall, a + 11 + step, z + 4 - step, R.glint);
 }
 
 /** The ship's wheel on the right wall, above the galley, the clock in its hub: its rim, its eight spokes and their handles. */
-const WHEEL = { a: 52, z: 70 } as const;
+const WHEEL = { a: 51, z: 70 } as const;
 const paintWheel = (target: PixelTarget) => {
   const W = P.wheel, K = P.clock, { a, z } = WHEEL;
   wallArt(target, 'right', (put) => {
-    for (let pa = a - 18; pa <= a + 18; pa++) for (let pz = z - 18; pz <= z + 18; pz++) {
-      const da = pa - a, dz = pz - z, d = Math.sqrt(da * da + dz * dz);
+    for (let pa = a - 20; pa <= a + 20; pa++) for (let pz = z - 20; pz <= z + 20; pz++) {
+      const da = pa + 0.5 - a, dz = pz + 0.5 - z, d = Math.sqrt(da * da + dz * dz);
       if (d <= 6) { put(pa, pz, K.face); continue; }
-      if (d <= 7.4) { put(pa, pz, dz < -2 ? K.rimShade : K.rim); continue; }
-      if (d >= 10.4 && d <= 13.2) { put(pa, pz, dz > 4 ? W.wood[0] : dz < -4 ? W.wood[2] : W.wood[1]); continue; }
+      if (d <= 7.6) { put(pa, pz, dz < -2 ? K.rimShade : K.rim); continue; }
+      // the rim, lit from above, then the eight spokes through it, their handles beyond
+      if (d >= 11.6 && d <= 14.2) { put(pa, pz, d < 12.6 ? W.wood[2] : dz > 4 ? W.wood[0] : dz < -4 ? W.wood[2] : W.wood[1]); continue; }
       for (let spoke = 0; spoke < 8; spoke++) {
-        const angle = Math.PI / 8 + (spoke * Math.PI) / 4, s = Math.sin(angle), c = Math.cos(angle);
-        const along = da * s + dz * c, off = Math.abs(da * c - dz * s);
-        if (along > 7.4 && along < 10.4 && off < 1) put(pa, pz, dz > 0 ? W.wood[0] : W.wood[1]);
-        else if (along > 13.2 && along < 17.4 && off < (along > 15.4 ? 1.6 : 1)) put(pa, pz, off < 0.5 && dz > 0 ? W.handle[0] : dz < -6 ? W.handle[2] : W.handle[1]);
+        const angle = Math.PI / 8 + (spoke * Math.PI) / 4, along = da * Math.sin(angle) + dz * Math.cos(angle), off = Math.abs(da * Math.cos(angle) - dz * Math.sin(angle));
+        if (along > 7.6 && along < 11.6 && off < 1.1) put(pa, pz, W.wood[1]);
+        else if (along > 14.2 && along < 18.6 && off < (along > 16 ? 1.7 : 1.1)) put(pa, pz, off < 0.6 && along > 16 ? W.handle[0] : dz < 0 ? W.handle[2] : W.handle[1]);
       }
     }
   });
@@ -204,10 +212,9 @@ function paintBanner(grid: PixelGrid) {
     for (let a = a0 - 2; a < a1 + 2; a++) { put(a, top, B.poleShade); put(a, top + 1, B.pole); }
     for (const a of [a0 - 4, a1 + 2]) for (const [da, dz] of [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, -1]]) put(a + da, top - 0.5 + dz, B.gold);
   });
-  for (let step = 0; step <= 8; step++) {
-    wallPixel(grid, wall, Math.round(a0 + ((middle - a0) * step) / 8), top + 2 + Math.round(step * 0.6), B.cord);
-    wallPixel(grid, wall, Math.round(a1 - ((a1 - middle) * step) / 8), top + 2 + Math.round(step * 0.6), B.cord);
-  }
+  // its cord, from the pole's two ends up to a nail over its middle
+  for (let a = a0; a < a1; a++) wallPixel(grid, wall, a, top + 2 + Math.round(5 * (1 - Math.abs(a + 0.5 - middle) / (middle - a0))), B.cord);
+  wallPixel(grid, wall, Math.floor(middle), top + 8, P.hull.peg);
 }
 
 /** A net hung in the back corner of the left wall, its glass floats and a starfish caught in it. */
@@ -426,28 +433,30 @@ function paintCask(grid: PixelGrid) {
 
 const xyOf = ({ x, y }: { x: number; y: number }): [number, number] => [x, y];
 
-/** The treasure chest where the offices' lemon drawers are: its lid open against the wall, its gold and its gems spilling. */
+/** The treasure chest where the offices' mint drawers are, by the door: its front towards the room, its lid open against the wall, its gold and its gems spilling. */
 function paintChest(grid: PixelGrid) {
-  const K = P.chest, { u0, u1, v0, v1 } = CHEST;
-  ob(grid, u0 + 1, u1 - 1, v0, v0 + 2, 10, 12, K.wood);
-  patchOnLeftFace(grid, v0 + 2, u0 + 2, u1 - 2, 12, 20, P.couch.body[2]);
-  ob(grid, u0 + 1, u1 - 1, v0 + 2, v1, 0, 10, K.wood, K.wood[0]);
-  for (const a of [u0 + 3, u1 - 4]) { patchOnLeftFace(grid, v1, a, a + 2, 0, 10, K.band[1]); onLeftFace(grid, v1, a, a + 2, 9, K.band[0]); }
-  for (const a of [v0 + 4, v1 - 3]) patchOnRightFace(grid, u1 - 1, a, a + 2, 0, 10, K.band[1]);
-  patchOnLeftFace(grid, v1, u0 + 5, u0 + 8, 5, 9, K.lock); onLeftFace(grid, v1, u0 + 6, u0 + 7, 6, K.band[2]);
+  const K = P.chest, { u0, u1, v0, v1 } = CHEST, middle = (v0 + v1) >> 1, height = 10;
+  ob(grid, u0 + 1, u1, v0, v1, 0, height, K.wood, K.wood[0]);
+  for (const v of [v0 + 2, v1 - 4]) { patchOnRightFace(grid, u1, v, v + 2, 0, height, K.band[1]); onRightFace(grid, u1, v, v + 2, height - 1, K.band[0]); }
+  for (const u of [u0 + 3, u1 - 4]) patchOnLeftFace(grid, v1, u, u + 2, 0, height, K.band[1]);
+  patchOnRightFace(grid, u1, middle - 1, middle + 2, 4, 8, K.lock); onRightFace(grid, u1, middle, middle + 1, 5, K.band[2]);
+  // the lid, open against the wall, its red lining towards the room
+  ob(grid, u0, u0 + 2, v0, v1, height, 12, K.wood, K.wood[0]);
+  patchOnRightFace(grid, u0 + 2, v0 + 1, v1 - 1, height + 2, height + 11, K.lining);
+  patchOnLeftFace(grid, v1, u0, u0 + 2, height + 2, height + 4, K.band[1]); patchOnLeftFace(grid, v1, u0, u0 + 2, height + 8, height + 10, K.band[1]);
   art(grid, (layer) => {
-    const { x, y } = iso((u0 + u1) / 2, (v0 + v1) / 2 + 1, 10);
-    layer.ellipse(x + 0.5, y - 1, 8, 3, K.coins[2]); layer.ellipse(x + 0.5, y - 2, 7, 3, K.coins[1]); layer.ellipse(x, y - 3, 4.5, 2.2, K.coins[1]);
-    for (const [dx, dy] of [[-4, -2], [-1, -4], [2, -3], [5, -2], [0, -1], [-3, 0], [3, 0]]) layer.set(x + dx, y + dy, K.coins[0]);
-    layer.set(x - 2, y - 3, K.gems[0]); layer.set(x + 3, y - 2, K.gems[1]); layer.set(x + 1, y - 5, K.gems[2]);
-    for (const [dx, dy] of [[-6, 0], [-5, 1], [-4, 2], [-3, 2]]) layer.set(x + dx, y + dy, K.pearl);
+    const { x, y } = iso((u0 + u1) / 2 + 1, middle, height);
+    layer.ellipse(x + 0.5, y - 1, 7, 3, K.coins[2]); layer.ellipse(x + 0.5, y - 2, 6, 2.6, K.coins[1]); layer.ellipse(x + 0.5, y - 3, 3.6, 1.8, K.coins[1]);
+    for (const [dx, dy] of [[-4, -2], [-1, -4], [2, -3], [4, -1], [0, -1], [-2, 0], [2, 0]]) layer.set(x + dx, y + dy, K.coins[0]);
+    layer.set(x - 2, y - 3, K.gems[0]); layer.set(x + 3, y - 2, K.gems[1]); layer.set(x + 1, y - 4, K.gems[2]);
+    for (const [dx, dy] of [[5, -3], [6, -2], [6, -1], [5, 0]]) layer.set(x + dx, y + dy, K.pearl);
   });
   art(grid, (layer) => {
-    for (const [du, dv] of [[-2, 3], [1, 5], [4, 3]]) { const { x, y } = iso((u0 + u1) / 2 + du, v1 + dv); layer.rect(x - 1, y - 1, 3, 1, K.coins[1]); layer.set(x, y - 1, K.coins[0]); }
+    for (const [du, dv] of [[3, -2], [5, 2], [3, 5]]) { const { x, y } = iso(u1 + du, middle + dv); layer.rect(x - 1, y - 1, 3, 1, K.coins[1]); layer.set(x, y - 1, K.coins[0]); }
   });
 }
 
-/** A crate where the offices' mint drawers are, by the door: its slats and its brace, a coil of rope on top. */
+/** A crate where the offices' lemon drawers are, by the back wall: its slats and its brace, a coil of rope on top. */
 function paintCrate(grid: PixelGrid) {
   const K = P.crate, { u0, u1, v0, v1 } = CRATE, height = 16;
   ob(grid, u0, u1, v0, v1, 0, height, K.wood, K.wood[0]);
@@ -504,27 +513,32 @@ function paintCaptainCouch(grid: PixelGrid) {
 
 /* Lying on the floor */
 
-/** The compass rug: a navy oval in a gold border, an eight-pointed star in it, its north in red. */
+/** The compass rug: a navy disc in a gold border, a rose of eight points (the long ones to the screen's sides, the short ones along the room's), its north in red. */
 function paintCompassRug(grid: PixelGrid) {
-  const R = P.rug, { u: cu, v: cv, radius } = RUG;
+  const R = P.rug, { u: cu, v: cv, radius } = RUG, long = radius - 6, short = long * 0.6;
+  // a point from the middle along (du, dv) turned to (x, y), length long and width wide at its foot: its lit half, its shaded half, or none
+  const point = (du: number, dv: number, x: number, y: number, length: number, width: number) => {
+    const along = du * x + dv * y, side = dv * x - du * y;
+    if (along < 0 || along >= length || Math.abs(side) >= width * (1 - along / length)) return null;
+    return side >= 0 ? 'lit' : 'shade';
+  };
+  const half = Math.SQRT1_2;
   fillTop(grid, cu - radius, cu + radius, cv - radius, cv + radius, 0, (u, v) => {
     const du = u + 0.5 - cu, dv = v + 0.5 - cv, d = Math.sqrt(du * du + dv * dv);
     if (d >= radius) return null;
     if (d >= radius - 1) return R.edge;
-    if (d >= radius - 4) return Math.round(Math.atan2(dv, du) * 9) % 2 ? R.border : R.borderLight;
-    if (d >= radius - 5) return R.edge;
-    // the screen's up and across on the floor: the long points follow them, the short ones the room's sides
-    const across = (du - dv) / Math.SQRT2, up = (du + dv) / Math.SQRT2;
-    const long = Math.abs(across) ** (2 / 3) + Math.abs(up) ** (2 / 3) < (radius - 7) ** (2 / 3);
-    const short = Math.abs(du) ** (2 / 3) + Math.abs(dv) ** (2 / 3) < 9 ** (2 / 3);
-    if (d < 1.6) return R.border;
-    if (long) return up < 0 && Math.abs(across) < Math.abs(up) ? (across > 0 ? R.north : tint3(R.north)) : across * up > 0 ? R.star : R.starShade;
-    if (short) return du * dv > 0 ? R.starShade : R.star;
-    if (Math.abs(d - 8.5) < 0.5) return R.border;
+    if (d >= radius - 3) return Math.floor(((Math.atan2(dv, du) + Math.PI) * 16) / Math.PI) % 2 ? R.border : R.borderLight;
+    if (d >= radius - 4) return R.edge;
+    if (d < 1.5) return R.edge;
+    // the long points to the screen's four sides (the room's diagonals), the north up, in red; the short ones along the room's sides
+    const north = point(du, dv, -half, -half, long, 4.4);
+    if (north) return north === 'lit' ? R.north : R.northShade;
+    for (const [x, y] of [[half, half], [half, -half], [-half, half]] as const) { const side = point(du, dv, x, y, long, 4.4); if (side) return side === 'lit' ? R.star : R.starShade; }
+    for (const [x, y] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) { const side = point(du, dv, x, y, short, 2.6); if (side) return side === 'lit' ? R.borderLight : R.border; }
+    if (Math.abs(d - short) < 0.6) return R.borderLight;
     return (Math.floor(u / 3) + Math.floor(v / 3)) % 2 ? R.field : R.base;
   });
 }
-const tint3 = (colour: string) => (colour === P.rug.north ? P.couch.body[2] : colour);
 
 /* The desks' things */
 

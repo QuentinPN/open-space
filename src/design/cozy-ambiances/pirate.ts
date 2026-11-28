@@ -28,7 +28,7 @@ export const pirate = {
     sea: '#c9e2d6', x: '#d0342c', path: '#c0503a', pin: '#c9cfd6', pinShade: '#8a9098',
   },
   /** the ship's wheel round the clock, its handles; the clock's face in its hub */
-  wheel: { wood: ['#d09a5e', '#a8703f', '#7e4e2a'], handle: ['#e0aa6a', '#b8804a', '#8a5a32'], hub: '#e0b44a' },
+  wheel: { wood: ['#e6b474', '#c48a4a', '#8e5a2e'], handle: ['#f2c88a', '#d29a5a', '#9e6838'] },
   clock: { rim: '#e0b44a', rimShade: '#a8822a', face: '#fff6dc', tick: '#7a4e32' },
   banner: { cloth: ['#3a3640', '#2a2630', '#1e1b24'], bone: '#f6efe0', boneShade: '#d6cbb6', pole: '#c9a06a', poleShade: '#8a6440', gold: '#f2c94c', cord: '#d8394a' },
   net: { cord: '#d8c090', knot: '#b89a68', float: ['#9fe0d8', '#5ab8b0', '#3a8a86'], floatLight: '#e6fbf8', star: '#f59a6a', starShade: '#d8764a' },
@@ -45,12 +45,12 @@ export const pirate = {
   cask: { staves: ['#c99662', '#ad7a4a', '#8c5c36'], hoop: '#5a5250', hoopLight: '#7e7674', tap: '#e0b44a', tapShade: '#a8822a', stand: ['#8a5a3a', '#6e4529', '#5a3822'], drip: '#9fd8f0' },
   barrel: { staves: ['#c08a55', '#a4724a', '#84583a'], hoop: '#5a5250', hoopLight: '#7e7674', lid: ['#d0a06a', '#b08050', '#8c6440'] },
   parrot: { red: '#e8483a', redShade: '#b83228', yellow: '#f6cc4a', blue: '#4a8ed8', green: '#5abd5a', beak: '#f2d27a', eye: '#fffaf0' },
-  chest: { wood: ['#b8804e', '#94603a', '#70452a'], band: ['#6e686c', '#4a4448', '#36323a'], lock: '#f2c94c', coins: ['#fff0a0', '#f6cc4a', '#cc962a'], gems: ['#ef4f6a', '#4ab4ef', '#5ad88a'], pearl: '#fff8f0' },
+  chest: { wood: ['#b8804e', '#94603a', '#70452a'], band: ['#6e686c', '#4a4448', '#36323a'], lock: '#f2c94c', coins: ['#fff0a0', '#f6cc4a', '#cc962a'], gems: ['#ef4f6a', '#4ab4ef', '#5ad88a'], pearl: '#fff8f0', lining: '#a23e3e' },
   crate: { wood: ['#d0a46c', '#b48a54', '#94703e'], brace: '#8a6438', rope: ['#eed29c', '#d4ae70', '#a8844a'] },
   lamp: { post: ['#8a5a3a', '#6e4529', '#4a2e1e'], iron: '#3e3a40', ironLight: '#5e585e', glass: '#ffd96a', glassLight: '#fff0b0', glassShade: '#f2b24a' },
   couch: { body: ['#c0524a', '#a23e3e', '#802e32'], edge: '#d86e62', cushion: ['#d2625a', '#b44a46', '#903638'], cushionEdge: '#ea8c7c', button: '#f2c94c' },
   pillow: ['#5a7cb2', '#46649c', '#344c7e'], pillowAnchor: '#f2c94c',
-  rug: { edge: '#1e2a4a', base: '#2e3e6a', field: '#34487a', border: '#c9963a', borderLight: '#f0c860', star: '#f6e2a8', starShade: '#d8b870', north: '#d8483a', fringe: '#efe2c4' },
+  rug: { edge: '#1e2a4a', base: '#2e3e6a', field: '#34487a', border: '#c9963a', borderLight: '#f0c860', star: '#f6e2a8', starShade: '#d8b870', north: '#e0503e', northShade: '#a8302c', fringe: '#efe2c4' },
   desk: {
     top: ['#a8623e', '#8a4c30', '#6c3822'], edge: '#c07a50', leg: ['#6e4529', '#5a3822', '#4a2e1e'], drawers: ['#9a5c3a', '#7e482c', '#643822'],
     monitor: ['#5e4c44', '#4a3c38', '#382c2a'], monitorEdge: '#76625a', stand: ['#6e686c', '#4a4448', '#36323a'], vents: '#2a2224', keyboard: ['#f2e4c4', '#dac69e', '#c2ab80'], key: '#a8906a',

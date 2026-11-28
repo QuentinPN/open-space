@@ -1,8 +1,8 @@
 // The beach hut (ambiance 'beach'), furnished where the offices are (office.ts: the same desks, couch, door and walks):
 // bamboo walls over a rattan wainscot under a thatch fringe, a light wooden deck, a wide window on the sea and the sand
-// (the view of the hour), a string of lights, a surfboard over the tiki bar and its coconuts, a net with its shells and
-// floats, a cork board in driftwood, a teal hut door with its starfish, a sunburst clock, a jug of watermelon juice, a
-// palm in its basket, rattan chests, a rattan couch, a bamboo lamp, a round jute rug, flip-flops by the door.
+// (the view of the hour), a string of lights, a surfboard over the tiki bar and its coconuts, a life ring, a cork board
+// in driftwood, a teal hut door with its starfish, a sunburst clock, a jug of watermelon juice, a palm in its basket,
+// rattan chests, a rattan couch, a bamboo lamp, a round jute rug, flip-flops by the door.
 import { COZY_AMBIANCE_PALETTE, COZY_PALETTE as C } from '../../../design/room-palette.ts';
 import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintDrawers, paintWallBoxes, shadeAlongWalls, standing, type Drawers, type Topper } from '../decor.ts';
@@ -100,10 +100,11 @@ function paintView(grid: PixelGrid, time: CozyTime) {
   });
   // what shines in the sky, and its light on the sea
   if (night) {
-    wallEllipse(grid, wall, 72, 72, 4.5, 4.5, V.moon, within); wallEllipse(grid, wall, 73.8, 73.2, 3.6, 3.6, K.sky[2], within);
-    wallPixel(grid, wall, 70, 71, V.moonShade);
-    for (const [a, z] of [[28, 77], [36, 70], [44, 78], [52, 66], [58, 75], [64, 69], [84, 77], [88, 68], [32, 64], [80, 72]]) wallPixel(grid, wall, a, z, V.star);
-    for (let z = SHORE + 1; z < HORIZON; z += 2) wallPatch(grid, wall, 71 - ((z >> 1) % 2), 73 + ((z >> 1) % 2), z, z + 1, V.moonGlint);
+    // the moon in the middle pane, clear of the palm's fronds, and its path on the sea
+    for (const [a, z] of [[28, 77], [36, 70], [44, 78], [52, 66], [64, 69], [84, 77], [88, 68], [32, 64], [62, 78]]) wallPixel(grid, wall, a, z, V.star);
+    wallEllipse(grid, wall, 57.5, 73.5, 4.2, 4.2, V.moon, within);
+    for (const [a, z] of [[56, 74], [59, 72], [58, 75]] as const) wallPixel(grid, wall, a, z, V.moonShade);
+    for (let z = SHORE + 1; z < HORIZON; z += 2) wallPatch(grid, wall, 56 - ((z >> 1) % 2), 59 + ((z >> 1) % 2), z, z + 1, V.moonGlint);
   } else if (dusk) {
     wallEllipse(grid, wall, 50, HORIZON + 1, 6.5, 6.5, V.sunLow, [a0, a1, HORIZON, z1]); wallEllipse(grid, wall, 50.6, HORIZON + 1.8, 4.2, 4.2, V.sunLowLight, [a0, a1, HORIZON, z1]);
     for (let z = SHORE + 1; z < HORIZON; z += 2) { const half = 1 + ((HORIZON - z) >> 2); wallPatch(grid, wall, 50 - half, 51 + half, z, z + 1, V.glare); }
@@ -189,12 +190,12 @@ function starfish(layer: PixelGrid, x: number, y: number, flat: 0 | 1) {
   layer.points([[x, y - 5], [x - 1, y - 4], [x - 2, y - 4]], S[0]); layer.points([[x + 1, y - 2], [x + 2, y - 3], [x + 2, y]], S[2]);
 }
 
-/** The string of lights along the right wall under the thatch, sagging from hook to hook. */
+/** The string of lights along the right wall under the thatch, over the surfboard, sagging from hook to hook. */
 function paintLights(grid: PixelGrid) {
-  const L = P.lights, wall: Wall = 'right', top = THATCH - 5, span = 24;
-  const at = (a: number) => Math.round(top - 3 * Math.sin(Math.PI * (((a - 2) % span) / span)));
-  for (let a = 2; a < 73; a++) wallPixel(grid, wall, a, at(a), L.string);
-  for (let a = 6, index = 0; a < 72; a += 6, index++) {
+  const L = P.lights, wall: Wall = 'right', top = THATCH - 4, from = 34, span = 19;
+  const at = (a: number) => Math.round(top - 3 * Math.sin(Math.PI * (((a - from) % span) / span)));
+  for (let a = from; a <= from + 2 * span; a++) wallPixel(grid, wall, a, at(a), L.string);
+  for (let a = from + 3, index = 0; a < from + 2 * span; a += 5, index++) {
     const z = at(a);
     wallPixel(grid, wall, a, z - 1, L.string); wallPatch(grid, wall, a - 1, a + 1, z - 4, z - 1, L.bulbs[index % L.bulbs.length]); wallPixel(grid, wall, a, z - 5, L.bulbs[index % L.bulbs.length]);
   }
@@ -202,15 +203,15 @@ function paintLights(grid: PixelGrid) {
 
 /** The sunburst round the clock: rattan rays. */
 function paintClockRays(grid: PixelGrid) {
-  const { wall, a, z } = CLOCK;
-  for (let index = 0; index < 12; index++) {
-    const angle = (index * Math.PI) / 6;
-    for (let reach = 8; reach <= (index % 2 ? 10 : 11); reach++) {
-      const ra = Math.round(a + Math.cos(angle) * reach), rz = Math.round(z + Math.sin(angle) * reach);
-      wallPixel(grid, wall, ra, rz, reach === 8 ? P.clockRays[1] : P.clockRays[0]);
-    }
-  }
-  wallEllipse(grid, wall, a + 0.5, z + 0.5, 8.6, 8.6, O);
+  const { wall, a, z } = CLOCK, [ray, shade, light] = P.clockRays;
+  const rays = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * Math.PI) / 6, long = index % 2 ? 10 : 12;
+    return Array.from({ length: long - 6 }, (_, step) => [Math.round(a + Math.cos(angle) * (step + 7)), Math.round(z + Math.sin(angle) * (step + 7)), step + 7 === long] as const);
+  });
+  // the rays, darker at their tips, a lit pixel near the clock
+  for (const points of rays) for (const [ra, rz, tip] of points) wallPixel(grid, wall, ra, rz, tip ? shade : ray);
+  for (const points of rays) wallPixel(grid, wall, points[1][0], points[1][1], light);
+  wallEllipse(grid, wall, a + 0.5, z + 0.5, 8.2, 8.2, O);
 }
 
 /** The teal hut door, its boards, its little window, its starfish and its brass knob: a click goes through it, to the break room. */
@@ -310,19 +311,22 @@ function paintSurfboard(grid: PixelGrid) {
   wallPixel(grid, wall, 58, cz, S.hibiscusHeart);
 }
 
-/** A fishing net in the back corner of the right wall, its floats, a starfish and two shells caught in it. */
-function paintNet(grid: PixelGrid) {
-  const wall: Wall = 'right', N = P.net, top = THATCH - 6;
-  fillWall(grid, wall, 2, 30, 56, top, (a, z) => {
-    const sag = 56 + Math.round(5 * Math.sin((Math.PI * (a - 2)) / 28));
-    if (z < sag) return null;
-    return (a + z) % 5 === 0 || (a - z + 100) % 5 === 0 ? N.rope : null;
+/** A life ring in the back corner of the right wall, on its rope from a peg. */
+function paintLifeRing(grid: PixelGrid) {
+  const wall: Wall = 'right', R = P.lifeRing, ca = 17, cz = 64, outer = 8.5, inner = 4.2;
+  // the rope from the peg, down to the ring's two sides
+  for (let step = 0; step <= 10; step++) for (const side of [-1, 1]) wallPixel(grid, wall, ca + Math.round((side * step * 6) / 10), cz + 18 - step, R.rope);
+  wallPatch(grid, wall, ca - 1, ca + 2, cz + 17, cz + 20, O); wallPixel(grid, wall, ca, cz + 18, R.peg);
+  fillWall(grid, wall, ca - 10, ca + 11, cz - 10, cz + 11, (a, z) => {
+    const da = a + 0.5 - ca, dz = z + 0.5 - cz, d = Math.sqrt(da * da + dz * dz);
+    if (d > outer + 0.9 || d < inner - 0.9) return null;
+    if (d > outer || d < inner) return O;
+    // four coral quarters between four white ones, lit from above, the rope round it in four places
+    const turn = (Math.atan2(dz, da) + Math.PI * 2) % (Math.PI * 2), eighth = Math.floor((turn * 4) / Math.PI) % 8;
+    if (Math.abs(((turn * 4) / Math.PI) % 2 - 1) < 0.18) return R.rope;
+    const tones = eighth % 2 ? R.band : R.white, lit = dz > 1.5 ? 0 : dz < -1.5 ? 2 : 1;
+    return tones[lit];
   });
-  wallPatch(grid, wall, 2, 30, top - 1, top, N.rope);
-  for (const [a, z] of [[6, 61], [26, 63], [16, 57]] as const) { wallEllipse(grid, wall, a + 0.5, z + 0.5, 2, 2, N.float); wallPixel(grid, wall, a - 1, z + 1, N.floatLight); }
-  for (const [a, z] of [[11, 70], [22, 74]] as const) { wallEllipse(grid, wall, a + 0.5, z + 0.5, 2.2, 1.8, N.shellShade); wallEllipse(grid, wall, a + 0.5, z + 1, 1.8, 1.4, N.shell); wallPixel(grid, wall, a, z, N.shellShade); }
-  const S = P.starfish;
-  for (const [da, dz] of [[0, 3], [0, 2], [-3, 1], [-2, 1], [-1, 1], [0, 1], [1, 1], [2, 1], [3, 1], [-1, 0], [0, 0], [1, 0], [-2, -1], [-1, -1], [1, -1], [2, -1], [-2, -2], [2, -2]] as const) wallPixel(grid, wall, 17 + da, 78 + dz, dz > 0 && da < 0 ? S[0] : S[1]);
 }
 
 /** The round jute rug in the middle: braided rings, a ring of waves, a sun. */
@@ -331,8 +335,8 @@ function paintRug(grid: PixelGrid) {
   grid.ellipse(x, y + 1, 31, 15.5, R.edge); grid.ellipse(x, y, 31, 15.5, R.rings[2]);
   for (const [rx, tone] of [[30, 0], [27, 1], [24, 0], [21, 2], [19, 0], [10, 1], [8, 0]] as const) grid.ellipse(x, y, rx, rx / 2, R.rings[tone]);
   for (let index = 0; index < 34; index++) { const angle = (index / 34) * Math.PI * 2; grid.set(Math.round(x + Math.cos(angle) * 28.5), Math.round(y + Math.sin(angle) * 14.2), R.stitch); }
-  for (let index = 0; index < 40; index++) {
-    const angle = (index / 40) * Math.PI * 2, wave = Math.sin(index * 1.6) * 0.8;
+  for (let index = 0; index < 160; index++) {
+    const angle = (index / 160) * Math.PI * 2, wave = Math.sin(index * 0.4) * 0.9;
     grid.set(Math.round(x + Math.cos(angle) * (15 + wave)), Math.round(y + Math.sin(angle) * (7.5 + wave / 2)), R.wave);
     grid.set(Math.round(x + Math.cos(angle) * (14 + wave)), Math.round(y + Math.sin(angle) * (7 + wave / 2)), R.waveLight);
   }
@@ -459,15 +463,8 @@ const sandcastle: Topper = (layer, x, y) => {
   layer.rect(x, y - 13, 1, 4, S.pole); layer.rect(x + 1, y - 13, 3, 2, S.flag); layer.set(x - 3, y - 2, S.shell);
 };
 
-const CHESTS: readonly Drawers[] = DRAWERS.map((drawers, index) => ({ ...drawers, tones: index ? P.chests.washed : P.chests.natural, topper: index ? sandcastle : shells }));
-
-/** A rattan chest: the offices' drawers in their weave. */
-function paintChest(grid: PixelGrid, chest: Drawers) {
-  paintDrawers(grid, chest);
-  const { u0, u1, v0, v1, height, tones, face } = chest, weave = (a: number, z: number) => ((a + z) % 4 === 0 ? tint(tones[2], 0.94) : null);
-  if (face === 'left') fillLeftFace(grid, v1, u0 + 1, u1 - 1, 1, height - 1, (a, z) => (z % 7 === 1 ? null : weave(a, z)));
-  else fillRightFace(grid, u1, v0 + 1, v1 - 1, 1, height - 1, (a, z) => (z % 6 === 1 ? null : weave(a, z)));
-}
+/** A rattan chest at the back, a coral one by the door. */
+const CHESTS: readonly Drawers[] = DRAWERS.map((drawers, index) => ({ ...drawers, tones: index ? P.chests.coral : P.chests.natural, topper: index ? sandcastle : shells }));
 
 /** The bamboo floor lamp where the offices' lamp stands: a jointed pole, a rattan globe the light shines through. */
 function paintBambooLamp(grid: PixelGrid) {
@@ -480,7 +477,7 @@ function paintBambooLamp(grid: PixelGrid) {
     const cy = y - 50, radius = 7.5;
     for (let dy = -8; dy <= 8; dy++) for (let dx = -8; dx <= 8; dx++) {
       if ((dx + 0.5) ** 2 + (dy + 0.5) ** 2 > radius * radius) continue;
-      const strand = (dx + dy + 16) % 3 === 0 || (dx - dy + 16) % 3 === 0;
+      const strand = (dx + dy + 16) % 4 === 0 || (dx - dy + 16) % 4 === 0;
       const side = dx < -4 ? 0 : dx > 3 ? 2 : 1;
       layer.set(x + dx, cy + dy, strand ? L.shade[side] : side === 2 ? L.glowWarm : L.glow);
     }
@@ -495,7 +492,7 @@ function paintRattanCouch(grid: PixelGrid) {
   fillRightFace(grid, u + 7, v + 1, v + length - 1, 14, 25, (a, z) => ((a + z) % 4 === 0 || (a - z + 100) % 4 === 0 ? K.weave : null));
   fillLeftFace(grid, v + 7, u + 5, u + 17, 1, 15, (a, z) => ((a + z) % 4 === 0 ? K.weave : null));
   art(grid, (layer) => {
-    const { x, y } = iso(...onCouchAt(COUCH, 10, 17), 13), T = P.pillows[0], F = P.flower;
+    const { x, y } = iso(...onCouchAt(COUCH, 10, 17), 13), T = P.pillows[1], F = P.flower;
     layer.rect(x - 4, y - 8, 9, 8, T[1]); layer.rect(x - 4, y - 8, 9, 2, T[0]); layer.rect(x + 3, y - 6, 2, 6, T[2]);
     layer.points([[x - 1, y - 5], [x + 1, y - 5], [x, y - 6], [x, y - 4]], F.petal); layer.set(x, y - 5, F.heart);
   });
@@ -542,7 +539,7 @@ export const beach: AmbianceDesign = {
     paintClockRays(grid);
   },
   dress(grid) {
-    paintNet(grid);
+    paintLifeRing(grid);
     paintSurfboard(grid);
     paintRug(grid);
     paintDoorstep(grid);
@@ -551,7 +548,7 @@ export const beach: AmbianceDesign = {
     standing(MONSTERA.u, MONSTERA.u, MONSTERA.v, MONSTERA.v, paintPalm),
     standing(COUNTER.u0, COUNTER.u1, COUNTER.v0, COUNTER.v1, paintBar),
     standing(COOLER.u, COOLER.u + COOLER.width, COOLER.v, COOLER.v + COOLER.width, paintJuice),
-    ...CHESTS.map((chest) => standing(chest.u0, chest.u1, chest.v0, chest.v1, (grid) => paintChest(grid, chest))),
+    ...CHESTS.map((chest) => standing(chest.u0, chest.u1, chest.v0, chest.v1, (grid) => paintDrawers(grid, chest))),
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintBambooLamp),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lamp.glow, P.lamp.glowWarm], glow: GLOW, sky: VIEW },

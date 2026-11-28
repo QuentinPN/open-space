@@ -19,10 +19,13 @@ export const dungeon = {
     day: ['#cfeaf6', '#b6def1', '#9dd0ea', '#86c2e3'], dusk: ['#fbd3a0', '#f5ae8a', '#d98b92', '#9a74a4'], night: ['#2f3462', '#282c58', '#20244c', '#191d40'],
     sun: '#fff3b4', cloud: '#fdfdfb', star: '#fff7dc', moon: '#f6eecb', hill: '#7fae6c', hillDusk: '#8a6a7a', hillNight: '#232a44',
   },
-  /** a torch: its iron bracket, its wooden handle, its flame from the outside in, and the warm halo it throws on the wall */
+  /**
+   * a torch: its iron bracket, its wooden handle, its flame from the outside in, and the warm halo it throws on the
+   * bricks of either wall: its bright middle (never darkened) and its rim (darkened with the room, so it fades out)
+   */
   torch: {
     iron: ['#77737d', '#57535d', '#3e3a44'], handle: ['#a6713f', '#83562f', '#633f21'],
-    flame: ['#ef5f2c', '#fe9a3b', '#ffd36a', '#fff5c8'], halo: ['#b79a7c', '#a58b72'], haloRight: ['#a48a75', '#94806d'],
+    flame: ['#ef5f2c', '#fe9a3b', '#ffd36a', '#fff5c8'], halo: ['#c9a47c', '#a88f78'], haloRight: ['#b8956f', '#968069'],
   },
   banner: { rod: ['#9c6a3e', '#7c5230', '#5e3c22'], knob: '#e8b84a', cloth: ['#d45663', '#b63f4c', '#8f2e3c'], trim: '#e9b64c', emblem: '#f5cf62', emblemShade: '#c99a38' },
   shield: { wood: ['#b8834e', '#9a6a3c', '#7a502c'], rim: ['#8a8692', '#6a6672', '#4e4a56'], boss: '#d9d4de', blade: ['#e6e3ea', '#b9b5c2'], hilt: '#7c5230', guard: '#d2a33e' },
@@ -49,9 +52,9 @@ export const dungeon = {
   wallShelf: ['#a8744a', '#8a5a36', '#6a4428'], bracket: '#4e4a54',
   /** the ale barrel where the offices' water cooler is, on its stand, a tankard on it */
   barrel: { staves: ['#bc8450', '#9e6a3e', '#7e522e'], hoop: ['#87838f', '#625e6a'], stand: ['#7e522e', '#633f21', '#4c2f18'], tap: '#d6a83e', tankard: ['#a8744a', '#8a5a36'], foam: '#fbf6e8' },
-  /** the treasure chest by the board: its wood, its iron, its lock, the gold and a gem */
+  /** the open treasure chest by the door: its wood, its iron, its lock, the gold and a gem */
   chest: { wood: ['#c07c42', '#a26434', '#824e28'], iron: ['#6c6874', '#504c58', '#3a3640'], lock: '#f2c14e', gold: ['#ffe27a', '#f2c14e', '#c9962e'], gem: '#e8586e', gemLight: '#ffb0bc' },
-  /** the bookcase of spellbooks by the door, a crystal ball on it */
+  /** the bookcase of spellbooks under the quest board, a crystal ball on it */
   bookcase: { wood: ['#9c6a40', '#835634', '#6a4428'], edge: '#b98454', back: '#4a3020', books: ['#b04a4a', '#4f6fa8', '#d6a83e', '#5e9a5a', '#8a5aa0', '#e8dcc0', '#3f5a6b'] },
   crystal: { glass: '#c9ecff', glow: '#a98cf0', light: '#f2fbff', stand: ['#d6a83e', '#a67c24'] },
   /** the suit of armour in the back corner */

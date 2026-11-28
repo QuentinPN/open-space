@@ -2,12 +2,13 @@
 // walks): stone brick walls under an oak beam, flagstones with a little moss, an arrow slit on the sky of the hour
 // between two red banners, three torches and their warm halo, a shield and crossed swords, an iron-banded door under a
 // stone arch, a quest board with its notes and a treasure map, an alchemist's bench with its cauldron and its potions
-// under a shelf of bottles, an ale barrel, a treasure chest, a bookcase of spellbooks with a crystal ball, a suit of
-// armour, a brazier, a rug of glowing runes, a red velvet couch, oak tables with candles and flasks.
+// under a shelf of bottles, an ale barrel, an open treasure chest by the door, a bookcase of spellbooks with a crystal
+// ball, a suit of armour, a brazier, a rug of glowing runes, a red velvet couch, oak tables with candles and flasks.
+// The flames are still: a project room's art is drawn once per mood of the hour (decor.ts), with no frame of its own.
 import { COZY_AMBIANCE_PALETTE } from '../../../design/room-palette.ts';
 import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintWallBoxes, shadeAlongWalls, standing, type Topper } from '../decor.ts';
-import { ROOM_UNITS as ROOM, WALL_HEIGHT, iso, onCouchAt } from '../geometry.ts';
+import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
   fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallEllipse, wallPatch, wallPixel, wallPoint,
   type Painter, type PixelGrid, type PixelTarget, type Tones, type Wall,
@@ -29,8 +30,12 @@ const SLIT = { a: 56, z0: 46, z1: 86, half: 3, bar: 64, barHalf: 9 } as const;
 /** The bricks' courses: from the plinth to the beam, `course` pixels tall, `brick` units long. */
 const BRICK = { z0: 6, course: 7, length: 14 } as const;
 const BEAM = WALL_HEIGHT - 8;
-/** The pieces standing where the offices' are: the bench at the counter, the barrel at the cooler, the chest and the bookcase at the drawers. */
-const BENCH = COUNTER, BARREL = COOLER, [CHEST, BOOKCASE] = DRAWERS;
+/**
+ * The pieces standing where the offices' are: the bench at the counter, the barrel at the cooler, the bookcase at the
+ * drawers behind the second back desk (tall enough to show over its screen), the chest at the drawers by the door.
+ */
+const BENCH = COUNTER, BARREL = COOLER, [BOOKCASE, CHEST] = DRAWERS;
+const BOOKCASE_HEIGHT = 32, CHEST_HEIGHT = 10;
 /** The rug of runes in the middle of the floor: its middle and its radius, in units. */
 const RUG = { u: 52, v: 96, radius: 21 } as const;
 
@@ -62,14 +67,20 @@ function paintFlagstones(grid: PixelGrid) {
   shadeAlongWalls(grid);
 }
 
-/** The warm light a torch throws on the bricks round its flame: close, every brick pixel; further, one in two. */
+/**
+ * The warm light a torch throws on the bricks round its flame, fading out in dithered rings: its bright middle, then
+ * its rim, sparser and sparser. Null where none falls.
+ */
 function haloAt(wall: Wall, a: number, z: number): string | null {
-  const H = wall === 'left' ? P.torch.halo : P.torch.haloRight;
+  const [middle, rim] = wall === 'left' ? P.torch.halo : P.torch.haloRight, even = (a + z) % 2 === 0;
   for (const torch of TORCHES) {
     if (torch.wall !== wall) continue;
-    const d = ((a + 0.5 - torch.a) / 1.25) ** 2 + (z + 0.5 - (torch.z + 9)) ** 2;
-    if (d < 36) return H[0];
-    if (d < 110 && (a + z) % 2 === 0) return H[1];
+    const r = Math.sqrt(((a + 0.5 - torch.a) / 1.25) ** 2 + (z + 0.5 - (torch.z + 11)) ** 2);
+    if (r < 7) return middle;
+    if (r < 9.5) return even ? middle : rim;
+    if (r < 12.5) return rim;
+    if (r < 15) return even ? rim : null;
+    if (r < 17) return a % 2 === 0 && z % 2 === 0 ? rim : null;
   }
   return null;
 }
@@ -86,10 +97,11 @@ function paintStoneWalls(grid: PixelGrid) {
       const shift = course % 2 ? BRICK.length >> 1 : 0, along = (a + shift) % BRICK.length, brick = Math.floor((a + shift) / BRICK.length);
       if (up === 0 || along === 0) return mortar;
       if (course < 2 && up === BRICK.course - 1 && (brick * 7 + course) % 4 === 1 && a % 3) return B.moss[a % 2];
-      const halo = haloAt(wall, a, z);
-      if (halo) return halo;
       if (up === BRICK.course - 1 || along === lit) return light;
       if (up === 1 || along === shaded) return dark;
+      // a torch's light on the face of the brick, its edges kept
+      const halo = haloAt(wall, a, z);
+      if (halo) return halo;
       const hash = (course * 5 + brick * 3 + (wall === 'left' ? 1 : 0)) % 7;
       return hash === 0 ? tint(base, 0.95) : hash === 3 ? tint(base, 1.04) : base;
     });
@@ -431,44 +443,53 @@ function paintBarrel(grid: PixelGrid) {
   });
 }
 
-/** The treasure chest where the offices' lemon drawers are: its iron bands, its gold lock, coins on its lid and on the floor, a gem. */
+/**
+ * The treasure chest by the door, against the left wall: open, its lid standing up at the back, heaped with gold and a
+ * gem, its iron straps and its lock towards the room, coins spilt on the floor in front.
+ */
 function paintChest(grid: PixelGrid) {
-  const K = P.chest, { u0, u1, v0, v1 } = CHEST;
-  ob(grid, u0 + 1, u1 - 1, v0 + 1, v1, 0, 9, K.wood);
-  ob(grid, u0, u1, v0, v1 + 1, 9, 3, K.wood, K.wood[0]);
-  ob(grid, u0 + 1, u1 - 1, v0 + 1, v1, 12, 2, K.wood, K.wood[0]);
-  for (const a of [u0 + 2, u1 - 4]) { patchOnLeftFace(grid, v1, a, a + 2, 0, 9, K.iron[1]); patchOnLeftFace(grid, v1 + 1, a, a + 2, 9, 12, K.iron[1]); onLeftFace(grid, v1 + 1, a, a + 2, 11, K.iron[0]); }
-  for (const a of [v0 + 3, v1 - 3]) { patchOnRightFace(grid, u1 - 1, a, a + 2, 0, 9, K.iron[2]); patchOnRightFace(grid, u1, a, a + 2, 9, 12, K.iron[2]); }
-  const middle = (u0 + u1) >> 1;
-  patchOnLeftFace(grid, v1 + 1, middle - 1, middle + 2, 8, 11, K.lock); patchOnLeftFace(grid, v1, middle - 1, middle + 2, 6, 9, K.lock); onLeftFace(grid, v1, middle, middle + 1, 7, O);
+  const K = P.chest, { u0, u1, v0, v1 } = CHEST, top = CHEST_HEIGHT, middle = (v0 + v1) >> 1;
+  // the lid, open against the wall behind: its outside, then its inside turned to the room
+  ob(grid, u0, u0 + 3, v0 + 1, v1 - 1, top - 2, 12, K.wood, K.wood[0]);
+  patchOnRightFace(grid, u0 + 3, v0 + 2, v1 - 2, top, top + 8, K.wood[2]);
+  for (const v of [v0 + 3, v1 - 5]) patchOnRightFace(grid, u0 + 3, v, v + 2, top - 2, top + 10, K.iron[1]);
+  // the body, its straps and its lock on the front, a strap round its side
+  ob(grid, u0 + 2, u1, v0 + 1, v1 - 1, 0, top, K.wood);
+  for (const v of [v0 + 3, v1 - 5]) patchOnRightFace(grid, u1, v, v + 2, 0, top, K.iron[1]);
+  onRightFace(grid, u1, v0 + 1, v1 - 1, top - 1, K.iron[0]);
+  for (const u of [u0 + 4, u1 - 4]) patchOnLeftFace(grid, v1 - 1, u, u + 2, 0, top, K.iron[2]);
+  patchOnRightFace(grid, u1, middle - 1, middle + 2, top - 5, top - 1, K.lock); onRightFace(grid, u1, middle, middle + 1, top - 4, O);
+  // the gold heaped inside, a gem on it
+  fillTop(grid, u0 + 3, u1 - 1, v0 + 2, v1 - 2, top, (u, v) => ((u * 3 + v * 5) % 7 === 0 ? K.gold[0] : (u + v) % 3 === 0 ? K.gold[2] : K.gold[1]));
   art(grid, (layer) => {
-    const { x, y } = iso(middle, (v0 + v1) >> 1, 14);
-    layer.ellipse(x + 0.5, y - 1, 5, 2, K.gold[2]); layer.ellipse(x, y - 2, 3.6, 1.6, K.gold[1]); layer.ellipse(x - 1, y - 3, 2, 1, K.gold[0]);
-    layer.set(x + 2, y - 3, K.gem); layer.set(x + 2, y - 4, K.gemLight);
+    const { x, y } = iso((u0 + u1) >> 1, middle, top);
+    layer.ellipse(x + 0.5, y - 1, 6, 2.4, K.gold[1]); layer.ellipse(x, y - 2, 4, 1.6, K.gold[0]);
+    layer.points([[x - 4, y - 1], [x + 3, y], [x - 1, y - 3]], K.gold[2]);
+    layer.set(x + 2, y - 3, K.gem); layer.set(x + 3, y - 3, K.gem); layer.set(x + 2, y - 4, K.gemLight);
   });
-  for (const [u, v] of [[u0 + 1, v1 + 3], [u0 + 4, v1 + 5], [u1 - 2, v1 + 3]] as const) art(grid, (layer) => {
+  for (const [u, v] of [[u1 + 2, v0 + 4], [u1 + 4, v0 + 8], [u1 + 2, v1 - 3]] as const) art(grid, (layer) => {
     const { x, y } = iso(u, v); layer.rect(x - 1, y - 1, 3, 1, K.gold[1]); layer.set(x - 1, y - 1, K.gold[0]);
   });
 }
 
-/** The bookcase of spellbooks by the door, its shelves towards the room, a crystal ball on it. */
+/** The bookcase of spellbooks against the right wall, under the quest board, its shelves towards the room, a crystal ball on it. */
 function paintBookcase(grid: PixelGrid) {
-  const K = P.bookcase, { u0, u1, v0, v1 } = BOOKCASE, height = 24, shelves = 2, step = Math.floor((height - 3) / shelves);
+  const K = P.bookcase, { u0, u1, v0, v1 } = BOOKCASE, height = BOOKCASE_HEIGHT, shelves = 3, step = Math.floor((height - 3) / shelves);
   ob(grid, u0, u1, v0, v1, 0, height, K.wood, K.edge);
   for (let shelf = 0; shelf < shelves; shelf++) {
     const z0 = 3 + shelf * step;
-    patchOnRightFace(grid, u1, v0 + 2, v1 - 2, z0, z0 + step - 3, K.back);
-    for (let v = v0 + 2, index = shelf * 5; v < v1 - 2; index++) {
-      const width = 1 + ((index * 5) % 3), tall = Math.min(step - 4, 5 + ((index * 7) % 3));
-      if ((index * 11) % 9 === 4) { v += 2; continue; }
-      patchOnRightFace(grid, u1, v, Math.min(v1 - 2, v + width), z0, z0 + tall, K.books[index % K.books.length]);
-      onRightFace(grid, u1, v, Math.min(v1 - 2, v + width), z0 + tall - 2, tint(K.books[index % K.books.length], 1.2));
-      v += width + 1;
+    patchOnLeftFace(grid, v1, u0 + 2, u1 - 2, z0, z0 + step - 3, K.back);
+    for (let u = u0 + 2, index = shelf * 5; u < u1 - 2; index++) {
+      const width = 1 + ((index * 5) % 3), tall = Math.min(step - 3, 4 + ((index * 7) % 3)), book = K.books[index % K.books.length];
+      if ((index * 11) % 9 === 4) { u += 2; continue; }
+      patchOnLeftFace(grid, v1, u, Math.min(u1 - 2, u + width), z0, z0 + tall, book);
+      onLeftFace(grid, v1, u, Math.min(u1 - 2, u + width), z0 + tall - 2, tint(book, 1.2));
+      u += width + 1;
     }
-    onRightFace(grid, u1, v0 + 1, v1 - 1, z0 - 1, K.wood[2]);
+    onLeftFace(grid, v1, u0 + 1, u1 - 1, z0 - 1, K.wood[2]);
   }
   art(grid, (layer) => {
-    const C = P.crystal, { x, y } = iso(((u0 + u1) >> 1) + 2, ((v0 + v1) >> 1) + 2, height);
+    const C = P.crystal, { x, y } = iso((u0 + u1) >> 1, (v0 + v1) >> 1, height);
     layer.rect(x - 3, y - 2, 7, 2, C.stand[0]); layer.rect(x + 2, y - 2, 2, 2, C.stand[1]);
     layer.ellipse(x + 0.5, y - 6, 3.6, 3.6, C.glass); layer.ellipse(x + 1, y - 5.5, 2.2, 2.2, C.glow);
     layer.set(x - 1, y - 8, C.light); layer.set(x - 2, y - 7, C.light);
@@ -576,7 +597,7 @@ function paintVelvetCouch(grid: PixelGrid) {
   });
 }
 
-const GLOW: readonly string[] = [...F, ...P.torch.halo, ...P.torch.haloRight, P.bench.brew, P.bench.brewLight, P.bench.bubble, P.bench.fire, P.rug.rune, P.crystal.glow, P.crystal.light, P.brazier.coal];
+const GLOW: readonly string[] = [...F, P.torch.halo[0], P.torch.haloRight[0], P.bench.brew, P.bench.brewLight, P.bench.bubble, P.bench.fire, P.rug.rune, P.crystal.glow, P.crystal.light, P.brazier.coal];
 const VIEW: readonly string[] = [...P.view.day, ...P.view.dusk, ...P.view.night, P.view.sun, P.view.cloud, P.view.star, P.view.moon, P.view.hill, P.view.hillDusk, P.view.hillNight];
 
 export const dungeon: AmbianceDesign = {
@@ -591,6 +612,15 @@ export const dungeon: AmbianceDesign = {
   paintDoor,
   paintBoard: paintQuestBoard,
   clock: CLOCK,
+  // the offices' footprints, at the heights of what stands there
+  footprints: [
+    around(MONSTERA.u, MONSTERA.v, 6, 40),
+    { ...BENCH, height: 38 },
+    { u0: BARREL.u, u1: BARREL.u + BARREL.width, v0: BARREL.v, v1: BARREL.v + BARREL.width, height: 40 },
+    { u0: BOOKCASE.u0, u1: BOOKCASE.u1, v0: BOOKCASE.v0, v1: BOOKCASE.v1, height: BOOKCASE_HEIGHT + 12 },
+    { u0: CHEST.u0, u1: CHEST.u1, v0: CHEST.v0, v1: CHEST.v1, height: CHEST_HEIGHT + 20 },
+    around(LAMP.u, LAMP.v, 3, 50),
+  ],
   paintRoom(grid, time) {
     paintFlagstones(grid);
     paintStoneWalls(grid);

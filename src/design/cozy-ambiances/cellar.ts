@@ -25,7 +25,7 @@ export const cellar = {
     paper: '#fbf1d6', paperShade: '#eadcb8', pink: '#f6d6d6', ink: '#6a4228', inkFaint: '#b89a7a', label: '#8c2a3e', gold: '#d6a84a',
     pins: ['#d04a3a', '#4f7a8c', '#e0b84a'], cheese: '#f4d06a', cheeseShade: '#d8ac44', grape: '#7e3c8a', leaf: '#6a9a44',
   },
-  clock: { rim: '#4a3c36', rimShade: '#2c221e', face: '#f7ecd2', tick: '#5a463c' },
+  clock: { rim: '#c49a4a', rimShade: '#6e5226', face: '#f7ecd2', tick: '#5a463c' },
   /** the cheese counter: its open shelves of wheels, its butcher's block, what lies on it */
   counter: {
     body: ['#a8744a', '#8f5f3a', '#74482c'], back: '#4a2e20', plank: '#b8845a', top: ['#dcad70', '#c6955c', '#a87a46'], topEdge: '#e8c08a',
@@ -44,7 +44,7 @@ export const cellar = {
   shelf: ['#a8744a', '#8f5f3a', '#74482c'], shelfEdge: '#c08c5c',
   /** the casks: their staves, their iron hoops, their heads, their brass tap */
   cask: {
-    staves: ['#c48a56', '#a87244', '#8a5a34'], seam: '#724a2c', hoop: ['#7a6c66', '#5a4e4a', '#40363a'], head: '#d29c66', headRing: '#a8763e', grain: '#bc8854',
+    staves: ['#c48a56', '#a87244', '#8a5a34'], seam: '#724a2c', hoop: ['#6a5e5a', '#4c4240', '#36302e'], head: '#e0ac74', headRing: '#8e5e32', grain: '#c49058',
     cradle: ['#8f5f3a', '#74482c', '#5e3a24'], tap: '#e0b04a', tapShade: '#a87c2c', drip: '#8c1e3a',
   },
   crate: { wood: ['#dcb47c', '#c49862', '#a87c4a'], edge: '#ecc896', gap: '#7a5434', stamp: '#8a4a3a', inside: '#5a3a24' },

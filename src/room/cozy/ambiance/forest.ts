@@ -10,7 +10,7 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintDrawers, paintPlanks, paintWallBoxes, shadeAlongWalls, standing, type Drawers, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, WALL_THICKNESS, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, outlined, outlinedBox, patchOnLeftFace, wallEllipse, wallPatch, wallPixel,
+  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, wallEllipse, wallPatch, wallPixel,
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
@@ -129,7 +129,7 @@ function paintWindow(grid: PixelGrid, time: CozyTime) {
   wallPatch(grid, wall, a0, a1, CROSS.z - 1, CROSS.z + 2, W.frame[1]); wallPatch(grid, wall, a0, a1, CROSS.z + 1, CROSS.z + 2, W.frame[0]);
   wallPatch(grid, wall, CROSS.a - 2, CROSS.a - 1, z0, z1, W.frame[2]); wallPatch(grid, wall, a0, a1, CROSS.z - 2, CROSS.z - 1, W.frame[2]);
   if (time === 'day') for (const [a, z] of [[78, 82], [70, 58]] as const) for (let step = 0; step < 4; step++) wallPixel(grid, wall, a - step, z - step, W.glint);
-  ob(grid, 0, 7, a0 - 6, a1 + 6, z0 - 7, 3, W.sill, W.sillEdge);
+  ob(grid, 0, 7, a0 - 3, a1 + 3, z0 - 7, 3, W.sill, W.sillEdge);
   // a pinecone and a red mushroom in its little pot on the sill
   art(grid, (layer) => pinecone(layer, iso(3, a0 + 4, z0 - 4).x, iso(3, a0 + 4, z0 - 4).y));
   art(grid, (layer) => {
@@ -139,19 +139,25 @@ function paintWindow(grid: PixelGrid, time: CozyTime) {
   });
 }
 
-/** The red and cream checked curtains, tied back on either side of the window, and their rod. */
+/** The red checked curtains, gathered by their ties on either side of the window, and their rod. */
 function paintCurtains(grid: PixelGrid) {
-  const wall: Wall = 'left', K = P.curtain, { a0, a1, z0, z1 } = PANES, top = z1 + 6;
-  for (const [s0, s1] of [[a0 - 8, a0 + 1], [a1 - 1, a1 + 8]] as const) for (let a = s0; a < s1; a++) {
-    const edge = a === s0 || a === s1 - 1, bottom = Math.round(z0 - 2 + Math.abs(a - (s0 + s1 - 1) / 2) * 1.2);
-    wallPixel(grid, wall, a, bottom - 1, O);
+  const wall: Wall = 'left', K = P.curtain, { a0, a1, z0, z1 } = PANES, top = z1 + 6, bottom = z0 - 3, tie = CROSS.z - 6, full = 10;
+  // each panel hangs from its outer edge: full above, pinched at its tie, a little flared below; a cream check in the red
+  for (const [outer, inward] of [[a0 - 8, 1], [a1 + 7, -1]] as const) {
     for (let z = bottom; z < top; z++) {
-      const red = (Math.floor(a / 2) + Math.floor(z / 2)) % 2 === 0, stripe = Math.floor(z / 2) % 2 === 0 && Math.floor(a / 2) % 2 === 0;
-      const colour = stripe ? K.redShade : red ? K.red : K.cream;
-      wallPixel(grid, wall, a, z, edge ? (red ? K.redShade : K.creamShade) : colour);
+      const above = z >= tie, t = above ? Math.min(1, (z - tie) / (top - 6 - tie)) : (tie - z) / (tie - bottom);
+      const width = Math.round(above ? 4 + (full - 4) * Math.sqrt(t) : 4 + 2 * t);
+      for (let index = 0; index < width; index++) {
+        const a = outer + inward * index, band = (z - bottom) % 6 === 0, stripe = index % 5 === 2, fold = index === width - 1 || index % 3 === 1;
+        const colour = band && stripe ? K.creamShade : band || stripe ? K.cream : fold ? K.redShade : K.red;
+        wallPixel(grid, wall, a, z, colour);
+      }
+      wallPixel(grid, wall, outer + inward * width, z, O);
     }
+    for (let index = 0; index <= 4; index++) wallPixel(grid, wall, outer + inward * index, bottom - 1, O);
+    const near = outer - inward, far = outer + inward * 5;
+    wallPatch(grid, wall, Math.min(near, far), Math.max(near, far) + 1, tie - 1, tie + 2, O); wallPatch(grid, wall, Math.min(near, far) + 1, Math.max(near, far), tie, tie + 1, K.tie);
   }
-  for (const [s0, s1] of [[a0 - 9, a0 + 2], [a1 - 2, a1 + 9]] as const) { wallPatch(grid, wall, s0, s1, 55, 58, O); wallPatch(grid, wall, s0 + 1, s1 - 1, 56, 57, K.tie); }
   wallPatch(grid, wall, a0 - 12, a1 + 12, top - 1, top + 2, O); wallPatch(grid, wall, a0 - 11, a1 + 11, top, top + 1, K.rod);
   for (const a of [a0 - 12, a1 + 10]) { wallPatch(grid, wall, a, a + 2, top - 2, top + 3, O); wallPatch(grid, wall, a, a + 2, top - 1, top + 2, P.window.frame[0]); }
 }
@@ -392,13 +398,15 @@ const WOOD = DRAWERS[1];
 
 function paintWoodStack(grid: PixelGrid) {
   const K = P.logStack, { u0, u1, v0, v1, height } = WOOD;
+  // the board at the back end first: the logs stand in front of it, the board at the front end in front of them
+  ob(grid, u0, u1, v0, v0 + 2, 0, height + 5, K.frame);
   ob(grid, u0, u1 - 1, v0 + 1, v1 - 1, 0, height, [K.bark, K.bark, K.bark]);
   fillRightFace(grid, u1 - 1, v0 + 1, v1 - 1, 0, height, (a, z) => {
     const row = Math.floor(z / 6), ca = v0 + 4 + (row % 2) * 3 + Math.round((a - v0 - 4 - (row % 2) * 3) / 6) * 6, d = Math.hypot(a + 0.5 - ca, z + 0.5 - (row * 6 + 3));
     return d < 1.2 ? K.heart : d < 2.2 ? K.end : d < 2.9 ? K.ring : K.bark;
   });
   fillTop(grid, u0, u1 - 1, v0 + 1, v1 - 1, height, (u, v) => ((u + v) % 5 === 0 ? K.moss : null));
-  for (const [p0, p1] of [[v0, v0 + 2], [v1 - 2, v1]] as const) ob(grid, u0, u1, p0, p1, 0, height + 5, K.frame);
+  ob(grid, u0, u1, v1 - 2, v1, 0, height + 5, K.frame);
   art(grid, (layer) => {
     const { x, y } = iso((u0 + u1) / 2 + 2, (v0 + v1) / 2 + 2, height);
     mushroom(layer, x - 2, y, 3, P.mushroom.brown); mushroom(layer, x + 3, y + 1, 2, P.mushroom.brown);
@@ -427,9 +435,9 @@ function paintLogCouch(grid: PixelGrid) {
   const couch = office.couch, K = P.plaid;
   paintCouch(grid, couch, P.couch, 2, null);
   const [u0, va] = onCouchAt(couch, 0, 6), [u1, vb] = onCouchAt(couch, 7, 20);
-  const plaid = (a: number, z: number) => (a % 6 === 2 && z % 6 === 2 ? K.dark : a % 6 === 2 || z % 6 === 2 ? K.cream : (a + z) % 6 === 0 ? K.redShade : K.red);
-  fillTop(grid, u0, u1, va, vb, 26, (u, v) => plaid(v, u));
-  fillRightFace(grid, u1, va, vb, 15, 26, (a, z) => (z === 15 && a % 2 ? null : plaid(a, z)));
+  const stripe = (v: number) => ((v - va) % 5 === 1 ? K.cream : (v - va) % 5 === 3 ? K.dark : K.red);
+  fillTop(grid, u0, u1, va, vb, 26, (u, v) => (u === u0 ? K.redShade : stripe(v)));
+  fillRightFace(grid, u1, va, vb, 14, 26, (a, z) => (z === 14 ? (a % 2 ? K.cream : null) : z === 15 ? K.redShade : stripe(a)));
   art(grid, (layer) => {
     const { x, y } = iso(...onCouchAt(couch, 11, 30), 13), M = P.mushroom;
     layer.rect(x - 2, y - 4, 5, 4, M.stem[0]); layer.rect(x + 2, y - 4, 1, 4, M.stem[1]);
@@ -440,18 +448,26 @@ function paintLogCouch(grid: PixelGrid) {
 
 /* Hung on the walls, lying on the floor */
 
-/** The bird house on the right wall, on its post, a robin on its roof. */
+/** The bird house on the right wall, on its post: its roof's ridge along the wall, a gable at its side, its round door and its perch, a robin on the ridge. */
 function paintBirdhouse(grid: PixelGrid) {
-  const B = P.birdhouse, wall: Wall = 'right', u0 = 10, u1 = 22, depth = 8, z = 54, height = 13;
-  wallPatch(grid, wall, 14, 18, 36, z, O); wallPatch(grid, wall, 15, 17, 37, z, B.perch);
+  const B = P.birdhouse, wall: Wall = 'right', u0 = 10, u1 = 22, depth = 8, z = 50, height = 12, middle = (u0 + u1) / 2, ridge = depth / 2, peak = 5, top = z + height;
+  wallPatch(grid, wall, middle - 2, middle + 2, 32, z, O); wallPatch(grid, wall, middle - 1, middle + 1, 33, z, B.perch);
   ob(grid, u0, u1, 0, depth, z, height, B.body);
-  ob(grid, u0 - 2, u1 + 2, 0, depth + 3, z + height, 3, B.roof, B.roof[0]);
-  patchOnLeftFace(grid, depth, 14, 18, 59, 64, B.hole);
-  for (const [a, h] of [[14, 59], [17, 59], [14, 63], [17, 63]] as const) onLeftFace(grid, depth, a, a + 1, h, B.body[1]);
-  ob(grid, 15, 17, depth, depth + 3, 56, 1, [B.perch, B.perch, B.perch]);
   art(grid, (layer) => {
-    const { x, y } = iso(14, 5, z + height + 3);
-    layer.pattern(x - 3, y - 6, ['....bb.', '...bbek', 'bbbrrb.', '.bbrrb.', '..bbb..', '..f.f..'], { b: B.bird, e: B.eye, k: B.beak, r: B.breast, f: B.perch });
+    for (let rise = 0; rise < peak; rise++) {
+      const half = ridge * (1 - rise / peak);
+      onRightFace(layer, u1, Math.round(ridge - half), Math.round(ridge + half), top + rise, rise === 0 ? B.body[2] : B.body[1]);
+    }
+    for (let u = u0 - 1; u <= u1 + 1; u++) for (let v = 0; v <= depth + 1; v++) {
+      const at = iso(u, v, top - 1 + peak * (1 - Math.abs(v - ridge) / (ridge + 1)));
+      layer.rect(at.x, Math.round(at.y), 2, 2, u === u1 + 1 || v === depth + 1 ? B.roof[2] : v === ridge ? B.ridge : v < ridge ? B.roof[0] : B.roof[1]);
+    }
+  });
+  patchOnLeftFace(grid, depth, middle - 2, middle + 2, z + 2, z + 8, O); patchOnLeftFace(grid, depth, middle - 1, middle + 1, z + 3, z + 7, B.hole);
+  ob(grid, middle - 1, middle + 1, depth, depth + 3, z + 1, 1, [B.perch, B.perch, B.perch]);
+  art(grid, (layer) => {
+    const { x, y } = iso(middle + 2, ridge, top + peak);
+    layer.pattern(x - 3, Math.round(y) - 6, ['....bb.', '...bbek', 'bbbrrb.', '.bbrrb.', '..bbb..', '..f.f..'], { b: B.bird, e: B.eye, k: B.beak, r: B.breast, f: B.perch });
   });
 }
 

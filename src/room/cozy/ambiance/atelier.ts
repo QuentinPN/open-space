@@ -1,5 +1,5 @@
 // The creative studio (ambiance 'atelier'), furnished where the offices are (office.ts: the same desks, couch, door
-// and walks): white plaster walls splashed with paint, bricks where the plaster fell, whitewashed planks with drops of
+// and walks): white plaster walls splashed with paint, swatches tried on them, whitewashed planks with drops of
 // paint, a big steel window on the sky of the hour, a mint door with its drips, a cork board of sketches, a pegboard of
 // tools and drawings drying on a line, an easel with a painting under way, canvases leaning on the wall, a workbench
 // with its brushes and its kettle, a jug of water on a crate, a paint taboret, a flat file of art books, a snake plant,
@@ -34,6 +34,8 @@ const WINDOW = { a0: 30, a1: 84, z0: 34, z1: 94 } as const;
 const PANES = [WINDOW.a0 + 2, WINDOW.a1 - 2, WINDOW.z0 + 2, WINDOW.z1 - 2] as const;
 /** The steel bars across the panes: upright at these points along the wall, across at these heights. */
 const BARS_UP = [44, 57, 70] as const, BARS_ACROSS = [54, 73] as const;
+/** Where the hanging plant hangs along the left wall, between the corner and the window. */
+const HANGING_PLANT = 14;
 /** The rug in the middle of the room. */
 const RUG = { u0: 30, u1: 74, v0: 74, v1: 114 } as const;
 /** How much the sun through the window lights the floor by day. */
@@ -43,8 +45,7 @@ const SUNBEAM = 1.07;
 
 /** Drops of paint on the floor: (u, v), their radius, their paint. */
 const FLOOR_DROPS = [
-  [18, 23, 2.4, 0], [23, 9, 1.6, 1], [4, 20, 1.3, 2], [27, 18, 1.1, 3], [44, 64, 2, 2], [88, 46, 1.6, 4], [62, 68, 1.2, 1],
-  [92, 110, 2.2, 5], [40, 121, 1.5, 3], [82, 96, 1.2, 0], [112, 44, 1.4, 1], [20, 104, 1.3, 4], [76, 120, 1, 2],
+  [18, 23, 2.4, 0], [23, 9, 1.8, 1], [44, 64, 2.2, 2], [88, 46, 1.8, 4], [92, 110, 2.4, 5], [112, 44, 1.8, 1],
 ] as const;
 
 function paintBoards(grid: PixelGrid, time: CozyTime) {
@@ -54,8 +55,7 @@ function paintBoards(grid: PixelGrid, time: CozyTime) {
     fillTop(grid, Math.floor(cu - radius - 2), Math.ceil(cu + radius + 2), Math.floor(cv - radius - 2), Math.ceil(cv + radius + 2), 0, (u, v) => {
       const d = (u + 0.5 - cu) ** 2 + (v + 0.5 - cv) ** 2;
       if (d < (radius * 0.45) ** 2 && radius > 1.5) return tones[0];
-      if (d < radius * radius) return tones[1];
-      return d < (radius + 1.6) ** 2 && (u * 7 + v * 3) % 5 === 0 ? tones[1] : null;
+      return d < radius * radius ? tones[1] : null;
     });
   }
   shadeAlongWalls(grid);
@@ -70,8 +70,11 @@ const WALL_SPLASHES: readonly (readonly [Wall, number, number, number, number, n
   ['right', 34, 30, 1.4, 3, 4],
 ];
 
+/** Paints tried on the plaster between the window and the door: each swatch from a0 to a1 along the wall, z0 to z1 up, and its paint. */
+const SWATCHES = [[87, 92, 80, 88, 0], [94, 98, 81, 89, 1], [87, 92, 69, 77, 2], [94, 98, 70, 78, 3]] as const;
+
 function paintPlaster(grid: PixelGrid) {
-  const W = P.wall, B = P.baseboard, K = P.brick;
+  const W = P.wall, B = P.baseboard;
   paintWallBoxes(grid, W);
   for (const wall of ['left', 'right'] as const) {
     const speck = wall === 'left' ? W.speck : W.speckRight;
@@ -79,15 +82,13 @@ function paintPlaster(grid: PixelGrid) {
     wallPatch(grid, wall, 0, ROOM, WALL_HEIGHT - 4, WALL_HEIGHT - 3, speck);
     wallPatch(grid, wall, 0, ROOM, 0, 6, B.face); wallPatch(grid, wall, 0, ROOM, 5, 6, B.light); wallPatch(grid, wall, 0, ROOM, 0, 1, B.shade);
   }
-  // bricks where the plaster fell, between the window and the door and high on the right wall
-  for (const [wall, ca, cz, ra, rz] of [['left', 93, 78, 7, 9], ['right', 116, 92, 7, 3.6]] as const) {
-    fillWall(grid, wall, ca - ra - 2, ca + ra + 2, cz - rz - 2, Math.min(WALL_HEIGHT - 4, cz + rz + 2), (a, z) => {
-      const d = ((a + 0.5 - ca) / ra) ** 2 + ((z + 0.5 - cz) / rz) ** 2 - ((a * 7 + z * 3) % 5) / 14;
-      if (d >= 1.18) return null;
-      if (d >= 0.9) return K.edge;
-      const row = Math.floor(z / 3), shift = row % 2 ? 3 : 0;
-      if (z % 3 === 0 || (a + shift) % 6 === 0) return K.mortar;
-      return K.tones[(row + Math.floor((a + shift) / 6)) % K.tones.length];
+  // the swatches: brushed square, their last stroke lighter, a dry brush trailing off their far end
+  for (const [a0, a1, z0, z1, paint] of SWATCHES) {
+    const tones = P.paints[paint];
+    fillWall(grid, 'left', a0, a1 + 1, z0, z1, (a, z) => {
+      if (a === a1) return z % 2 ? tones[1] : null;
+      if (a === a0 && (z === z0 || z === z1 - 1)) return null;
+      return z === z1 - 1 ? tones[0] : tones[1];
     });
   }
   for (const [wall, a, z, radius, paint, run] of WALL_SPLASHES) {
@@ -252,14 +253,6 @@ const shapesPrint = (grid: PixelGrid) => paintPrint(grid, 'right', 4, 26, 52, 84
   wallPatch(grid, wall, a0, a1, z0 + 15, z0 + 16, O);
 });
 
-/** On the left wall, by the plant, a print of the hills at sunset. */
-const hillsPrint = (grid: PixelGrid) => paintPrint(grid, 'left', 4, 22, 54, 80, (a0, a1, z0, z1) => {
-  const wall: Wall = 'left', S = P.poster;
-  wallPatch(grid, wall, a0, a1, z0, z1, S.sky);
-  wallEllipse(grid, wall, a0 + 6, z0 + 11, 3.4, 3.4, S.sun);
-  fillWall(grid, wall, a0, a1, z0, z1, (a, z) => (z < z0 + 5 + Math.round(3 * Math.sin((a - a0) / 2.4)) ? S.hill : z < z0 + 9 - Math.round(2 * Math.cos((a - a0) / 3)) ? S.hillFar : null));
-});
-
 /** The pegboard over the workbench: scissors, a ruler, a set square, three brushes. */
 function paintPegboard(grid: PixelGrid) {
   const wall: Wall = 'right', K = P.pegboard;
@@ -304,13 +297,15 @@ function paintDryingLine(grid: PixelGrid) {
   }
 }
 
-/** A painter's palette on its nail, between the window and the door. */
+/** A painter's palette on its nail, between the window and the door: its thumb hole, six blobs of paint round its rim. */
 function paintWallPalette(grid: PixelGrid) {
   const wall: Wall = 'left', W = P.palette.wood;
-  wallEllipse(grid, wall, 93.5, 53.5, 7.6, 5.4, O);
-  wallEllipse(grid, wall, 93.5, 53.5, 6.6, 4.4, W[1]); wallEllipse(grid, wall, 94.5, 54.5, 4.6, 2.6, W[0], undefined);
-  wallEllipse(grid, wall, 89.5, 51.5, 1.4, 1.4, P.wall.left);
-  for (const [a, z, paint] of [[96, 56, PINK], [93, 57, YELLOW], [97, 52, BLUE], [92, 54, GREEN], [95, 50, ORANGE]] as const) { wallPatch(grid, wall, a, a + 2, z - 1, z + 1, paint[1]); wallPixel(grid, wall, a, z, paint[0]); }
+  wallEllipse(grid, wall, 93.5, 54, 7, 6.6, O);
+  wallEllipse(grid, wall, 93.5, 54, 6, 5.6, W[2]); wallEllipse(grid, wall, 93.5, 54.5, 5.2, 4.8, W[1]);
+  wallEllipse(grid, wall, 89.5, 56, 1.6, 1.6, W[2]); wallEllipse(grid, wall, 89.5, 56, 0.9, 0.9, P.wall.left);
+  for (const [a, z, paint] of [[92, 58, PINK], [95, 57, YELLOW], [97, 54, BLUE], [96, 51, GREEN], [93, 50, ORANGE], [90, 52, VIOLET]] as const) {
+    wallPatch(grid, wall, a, a + 2, z - 1, z + 1, paint[1]); wallPixel(grid, wall, a, z, paint[0]);
+  }
 }
 
 /** The rag rug: stripes of paint colours, flecks of white, a fringe at both ends. */
@@ -544,11 +539,10 @@ export const atelier: AmbianceDesign = {
   },
   dress(grid) {
     shapesPrint(grid);
-    hillsPrint(grid);
     paintPegboard(grid);
     paintDryingLine(grid);
     paintWallPalette(grid);
-    paintHangingPlant(grid, wallPoint('left', 28, 100), 20, 1);
+    paintHangingPlant(grid, wallPoint('left', HANGING_PLANT, 100), 20, 1);
     paintRug(grid);
     paintDoormat(grid);
   },

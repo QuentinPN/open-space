@@ -294,8 +294,10 @@ function paintMouseHole(grid: PixelGrid) {
     const da = (a + 0.5 - 99.5) / 3.6, dz = (z + 0.5) / 6;
     return da * da + dz * dz < 1 ? M.hole : da * da + dz * dz < 1.35 ? O : null;
   });
-  wallPixel(grid, wall, 98, 2, M.eye); wallPixel(grid, wall, 101, 2, M.eye);
-  wallPixel(grid, wall, 98, 3, M.fur); wallPixel(grid, wall, 101, 3, M.fur);
+  // a mouse peeking out: its grey head, its pink ears, its eyes and its nose
+  wallPatch(grid, wall, 98, 102, 0, 3, M.fur);
+  wallPixel(grid, wall, 97, 3, M.ear); wallPixel(grid, wall, 102, 3, M.ear); wallPixel(grid, wall, 98, 3, M.fur); wallPixel(grid, wall, 101, 3, M.fur);
+  wallPixel(grid, wall, 98, 1, M.eye); wallPixel(grid, wall, 101, 1, M.eye); wallPixel(grid, wall, 99, 0, M.ear); wallPixel(grid, wall, 100, 0, M.ear);
 }
 
 /** The kilim in the middle: a border of steps, a field of diamonds, a fringe at both ends. */
@@ -422,28 +424,30 @@ function paintCheeseCounter(grid: PixelGrid) {
 
 /** A cask lying on its cradle where the offices' water cooler is: its staves and hoops, its head towards the room, its brass tap, a glass on it. */
 function paintCask(grid: PixelGrid) {
-  const K = P.cask, { u, v, width } = CASK, front = v + width, middle = u + width / 2, radius = 6, centre = 5 + radius;
-  for (const cv of [v + 2, v + 8]) ob(grid, u + 1, u + width - 1, cv, cv + 3, 0, 5, K.cradle);
+  const K = P.cask, { u, v, width } = CASK, front = v + width, middle = u + width / 2, radius = 6.5, centre = 4 + radius;
+  for (const cv of [v + 2, v + 8]) ob(grid, u, u + width, cv, cv + 3, 0, 5, K.cradle);
   art(grid, (layer) => {
     for (let plane = v + 1; plane <= front; plane++) {
-      const t = (plane - (v + 1 + front) / 2) / ((front - v - 1) / 2), r = radius * (1 - 0.1 * t * t) - (plane === front ? 0.6 : 0);
-      const hoop = plane === v + 3 || plane === front - 2;
-      fillLeftFace(layer, plane, u - 1, u + width + 1, centre - radius - 1, centre + radius + 1, (a, z) => {
+      // the staves bulge in the middle; two iron hoops near each end; the head, ringed, towards the room
+      const t = (plane - (v + 1 + front) / 2) / ((front - v - 1) / 2), r = radius * (1 - 0.12 * t * t);
+      const hoop = plane === v + 2 || plane === v + 4 || plane === front - 3 || plane === front - 1;
+      fillLeftFace(layer, plane, u - 1, u + width + 1, 0, centre + radius + 1, (a, z) => {
         const da = a + 0.5 - middle, dz = z + 0.5 - centre, d = Math.sqrt(da * da + dz * dz);
         if (d >= r) return null;
-        if (plane === front) return d > r - 1.2 ? K.headRing : Math.abs(da) < 0.6 || Math.abs(dz + 2) < 0.5 ? K.grain : K.head;
-        const tone = dz > r * 0.35 ? 0 : dz < -r * 0.4 ? 2 : 1;
+        if (plane === front) return d > r - 1.3 ? K.headRing : Math.abs(dz - 1.5) < 0.5 || Math.abs(dz + 2.5) < 0.5 ? K.grain : K.head;
+        const tone = dz > r * 0.45 ? 0 : da > r * 0.35 || dz < -r * 0.5 ? 2 : 1;
         if (hoop) return K.hoop[tone];
-        return (Math.floor(Math.atan2(dz, da) * 3) % 2 === 0 && tone === 0) ? K.seam : K.staves[tone];
+        const stave = ((Math.atan2(dz, da) + Math.PI) / (2 * Math.PI)) * 18;
+        return stave - Math.floor(stave) < 0.16 ? K.seam : K.staves[tone];
       });
     }
   });
   art(grid, (layer) => {
     const { x, y } = iso(middle, front, centre - 3);
-    layer.rect(x - 1, y - 2, 3, 2, K.tap); layer.set(x - 1, y - 3, K.tapShade); layer.set(x, y - 3, K.tapShade);
+    layer.rect(x - 1, y - 2, 3, 2, K.tap); layer.set(x - 1, y - 3, K.tapShade); layer.set(x + 1, y - 3, K.tapShade);
     layer.rect(x, y, 1, 2, K.tapShade); layer.set(x, y + 3, K.drip);
   });
-  art(grid, (layer) => wineGlass(layer, ...xy(iso(middle - 1, v + 4, centre + radius))));
+  art(grid, (layer) => wineGlass(layer, ...xy(iso(middle + 1, v + 6, centre + radius))));
 }
 
 /** The crate of bottles where the offices' lemon drawers are: its slats, its stamp, the bottles standing in it. */
@@ -477,7 +481,7 @@ function paintBarrelTable(grid: PixelGrid) {
     }
   });
   art(grid, (layer) => cheeseBoard(layer, ...xy(iso(cu + 1, cv + 2, height + 1))));
-  art(grid, (layer) => candleBottle(layer, ...xy(iso(cu - 2, cv - 3, height + 1)), P.bottles[3]));
+  art(grid, (layer) => wineGlass(layer, ...xy(iso(cu - 2, cv - 3, height + 1))));
 }
 
 /** The iron candle stand where the offices' floor lamp is: three feet, its pole, three candles on its arms. */

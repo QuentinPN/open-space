@@ -32,7 +32,7 @@ export const forest = {
     frame: ['#8e6444', '#6e4a32', '#523624'], cork: '#d8ae78', corkDot: '#c2985e', papers: ['#fff6e0', '#fbe6ae', '#e4f2d4', '#fde0d6'],
     pins: ['#e0503e', '#4a8ad8', '#f0c040', '#5ab05a'], ink: '#6a5040', inkSoft: '#a8927e', leaf: ['#9ad070', '#6aac4a', '#468a38'], string: '#c84a3a',
   },
-  clock: { rim: '#c8965a', rimShade: '#7e4e2c', face: '#fff4dc', tick: '#8e5a32' },
+  clock: { rim: '#8e5a32', rimShade: '#5a3620', face: '#f4dcae', tick: '#8e5a32' },
   counter: {
     body: ['#b07846', '#946238', '#784c2c'], plank: '#5e3a22', plankLight: '#c08a54', top: ['#d09a64', '#b4804c', '#946438'], topEdge: '#e6b47c',
     kettle: ['#ee7a62', '#cc5440', '#a43c2e'], iron: '#463c3c', ironLight: '#6e6262', steam: '#fff8ee', cup: '#f6ecd8', cupShade: '#dccbb0', tea: '#9a5a2a',
@@ -48,7 +48,7 @@ export const forest = {
   logStack: { frame: ['#8e5a32', '#74482a', '#5a3820'], bark: '#6a4228', end: '#e6c088', ring: '#c8965a', heart: '#a8743e', moss: '#7cb050' },
   lantern: { post: ['#9a6238', '#7a4a28', '#5e3a22'], iron: '#463c3c', ironLight: '#6e6262', glass: '#ffd878', glassLight: '#fff2b4', flame: '#ff9a3a' },
   garland: { leaves: ['#9ad86e', '#62ac4a', '#3e8038'], vine: '#5a7a34', bulb: '#ffe08a', bulbShade: '#f0b050', berry: '#e0443a' },
-  birdhouse: { body: ['#8ad0c4', '#62b0a4', '#468e84'], roof: ['#e06c52', '#bc4e3a', '#94382a'], hole: '#3a2418', perch: '#6e4426', bird: '#8a6a52', breast: '#f08a50', beak: '#f0c040', eye: '#2a1a12' },
+  birdhouse: { body: ['#8ad0c4', '#62b0a4', '#468e84'], roof: ['#e88a6a', '#c4503c', '#8a3426'], ridge: '#f4a888', hole: '#3a2418', perch: '#6e4426', bird: '#8a6a52', breast: '#f08a50', beak: '#f0c040', eye: '#2a1a12' },
   shelf: { board: ['#c08a54', '#a0703e', '#7e5430'], jars: ['#f0b440', '#d65a48', '#86c460'], lid: '#f6ead2', herbs: ['#8ab85a', '#6a9a44'], twine: '#c8a468' },
   couch: { body: ['#b07846', '#946238', '#784c2c'], edge: '#c8925a', cushion: ['#a8d07c', '#86b45e', '#689646'], cushionEdge: '#c2e29c' },
   plaid: { red: '#d65a48', redShade: '#b04434', cream: '#f6ead2', dark: '#8a3428' },

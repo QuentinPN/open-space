@@ -23,11 +23,11 @@ export const tokyo = {
   },
   noren: ['#4a6aa0', '#3d5a8e', '#2f4a78'], norenInk: '#f6f0e4',
   genkan: { base: '#9a948c', light: '#aaa49c', edge: '#7a746c', slippers: [['#f7a6bf', '#e889a6'], ['#8fc4e8', '#6ea8d2']] },
-  board: { frame: '#a87650', frameLight: '#c48e64', cork: '#cf9e68', corkDark: '#b9875a', corkLight: '#dcae7a', pins: ['#e8504a', '#4a8ad8', '#f2c14e'], notes: ['#ffe58a', '#fbb8cc', '#b8e8c8', '#b8dcf6'], ink: '#6a5248', photo: '#fffdf6', photoSky: '#a8d4f0', photoHill: '#6a9a6a', sticker: '#f590b0', stickerLight: '#ffd2e0' },
+  board: { frame: '#a87650', frameLight: '#c48e64', cork: '#cf9e68', corkDark: '#b9875a', corkLight: '#dcae7a', pins: ['#e8504a', '#4a8ad8', '#f2c14e'], notes: ['#ffe68c', '#fbb8cc', '#b8e8c8', '#b8dcf6'], ink: '#6a5248', photo: '#fffdf6', photoSky: '#a8d4f0', photoHill: '#6a9a6a', sticker: '#f590b0', stickerLight: '#ffd2e0' },
   clock: { rim: '#2e2622', rimShade: '#52331f', face: '#fffaf0', tick: '#e8504a' },
   neon: {
     plate: '#2b2338', plateEdge: '#3d3350', pin: '#6a6280',
-    pink: '#ff79c1', pinkGlow: '#b84f90', cyan: '#7ef3fd', cyanGlow: '#3ea5bf', yellow: '#ffe179', yellowGlow: '#b8993f',
+    pink: '#ff79c1', pinkGlow: '#7c3468', cyan: '#7ef3fd', cyanGlow: '#2b6f86', yellow: '#ffe179', yellowGlow: '#7c6a32',
   },
   poster: { paper: '#fff4ea', glow: '#ffe4e8', sun: '#ec4f52', fuji: '#5e7fb8', fujiShade: '#4d6aa0', snow: '#fffdfa', branch: '#6a4430', blossom: '#f7a3bf', blossomLight: '#ffd6e3', blossomDeep: '#e57a9e', tape: '#f4e6b4' },
   counter: {
@@ -37,8 +37,8 @@ export const tokyo = {
   },
   vending: {
     body: ['#f2686a', '#d64d52', '#ad3a42'], edge: '#ff8a8a', panel: '#eaf6fb', panelShade: '#c9e3ee', header: '#fff6d8', logo: '#e8504a',
-    drinks: ['#4a8ad8', '#f2c14e', '#5cbf7a', '#ff8a5a', '#9a6ad8', '#f4f0e8'], cap: '#fffdf6', button: '#7dfca0', buttonOff: '#2e6a40',
-    coin: '#c9c2bc', coinShade: '#8e8680', slot: '#2e2622', flap: '#5a5250', sticker: '#fff6d8',
+    drinks: ['#4c8cda', '#f4c352', '#5ec17c', '#ff8c5c', '#9c6cda', '#f7f3ec'], cap: '#fefcf3', button: '#7dfca0', buttonOff: '#2e6a40',
+    coin: '#c9c2bc', coinShade: '#8e8680', slot: '#2e2622', flap: '#5a5250', sticker: '#fdf3d4',
   },
   tea: { stand: ['#a87650', '#8e5e3e', '#6e452c'], standEdge: '#c48e64', pot: '#fffaf3', potShade: '#e2d8ca', potTop: '#d8cfc2', flower: '#f590b0', leaf: '#6aae6a', button: '#4a8ad8', cup: ['#8a9a6a', '#6f7f52', '#56643e'] },
   tansu: ['#9a6844', '#7e5438', '#62402a'], iron: '#2e2622',
@@ -49,7 +49,6 @@ export const tokyo = {
   andon: { wood: ['#7e5438', '#62402a', '#4a2e1e'], paper: '#fff0cf', paperLight: '#fffae6', paperShade: '#f2dcae' },
   couch: { body: ['#5e6f9e', '#4b5a86', '#3b486c'], edge: '#7383b2', cushion: ['#e8d8c0', '#d4c2a6', '#b8a688'], cushionEdge: '#f4e8d6' },
   onigiri: { rice: '#fffcf5', riceShade: '#e6ddcf', nori: '#2e3a34', cheek: '#f7a6bf' },
-  zabuton: ['#f7a6bf', '#e889a6', '#c96a88'],
   desk: {
     top: ['#ecd2a6', '#d6b682', '#b99660'], edge: '#f6e2c0', leg: ['#5a4a46', '#463936', '#352a28'], monitor: ['#4a4652', '#3a3642', '#2c2932'], monitorEdge: '#5e5a68',
     stand: ['#5a4a46', '#463936', '#352a28'], vents: '#24212a', keyboard: ['#f6f2ea', '#ddd6ca', '#c6beb0'], key: '#d0c8ba',

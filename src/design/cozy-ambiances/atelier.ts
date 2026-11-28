@@ -10,8 +10,7 @@ const orange = ['#ffb48a', '#ff8a5c', '#d96a3e'] as const;
 
 export const atelier = {
   paints: [pink, yellow, blue, green, violet, orange],
-  wall: { left: '#f8f4ec', right: '#ece6db', capTop: '#fffdf8', capLeft: '#dbd3c5', capRight: '#cec5b5', speck: '#efe9de', speckRight: '#e1dacd', crack: '#d3c9b8' },
-  brick: { tones: ['#e59a74', '#d4825c', '#c27050'], mortar: '#f3e6d4', edge: '#cfc2ae' },
+  wall: { left: '#f8f4ec', right: '#ece6db', capTop: '#fffdf8', capLeft: '#dbd3c5', capRight: '#cec5b5', speck: '#efe9de', speckRight: '#e1dacd' },
   baseboard: { face: '#e2d2b4', light: '#f2e6cc', shade: '#c8b38e' },
   planks: { tones: ['#eadbc0', '#e4d2b4', '#efe2ca', '#e0cdac'], seam: '#c4a77f', joint: '#cfb38c' },
   /** the big steel window: its frame and bars, the sill, its clouds by day, a glint on the glass */

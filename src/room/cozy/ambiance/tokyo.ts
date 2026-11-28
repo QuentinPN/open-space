@@ -167,13 +167,13 @@ const RA = ['.###.', '.....', '#####', '....#', '..##.'];
 const LONG = ['.....', '.....', '#####', '.....', '.....'];
 const ME = ['....#', '.#.#.', '..#..', '.#.#.', '#....'];
 const N_ = ['#....', '.#..#', '...#.', '..#..', '##...'];
-const BOWL = ['.....#.#.', '....#.#..', '#########', '.#.....#.', '..#####..'];
+const BOWL = ['....#.#', '...#.#.', '#######', '.#...#.', '..###..'];
 /** "ラーメン" and a bowl in pink and yellow, over the kitchenette and the vending machine. */
 function paintRamenSign(grid: PixelGrid) {
   const N = P.neon, wall: Wall = 'right';
   neonPlate(grid, wall, 31, 71, 63, 76);
-  [RA, LONG, ME, N_].forEach((glyph, index) => { neon(grid, wall, 33 + index * 6, 72, glyph, N.pink, N.pinkGlow); });
-  neon(grid, wall, 59, 72, BOWL, N.yellow, N.yellowGlow);
+  [RA, LONG, ME, N_].forEach((glyph, index) => { neon(grid, wall, 33 + index * 7, 72, glyph, N.pink, N.pinkGlow); });
+  neon(grid, wall, 62, 72, BOWL, N.yellow, N.yellowGlow);
 }
 
 const TO = ['..#..', '..#..', '..##.', '..#.#', '..#..'];

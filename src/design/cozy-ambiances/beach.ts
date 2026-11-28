@@ -3,11 +3,11 @@
 // window's view (`view`), which is never darkened: its colours are its own.
 export const beach = {
   wall: { left: '#ecd39e', right: '#dfc38a', capTop: '#f2d98a', capLeft: '#cfa64e', capRight: '#b8913f' },
-  bamboo: { light: '#f6e0a4', base: '#e9c983', shade: '#d6af69', seam: '#a97a3e', node: '#bb8c4c' },
-  rattan: { light: '#e8c385', base: '#d4a663', dark: '#a8763c', gap: '#8a5a2e' },
-  rail: ['#f0d391', '#d9b268', '#b88a46'],
-  skirting: '#8a5a2e',
-  thatch: { tones: ['#f2d98a', '#e3c16a', '#d2ab55', '#ead07c'], tip: '#a98638', rope: '#8a6a3a', ropeLight: '#b08a52' },
+  bamboo: { light: '#f2d896', base: '#e2bc72', shade: '#cda059', seam: '#94672f', node: '#a87a3c' },
+  rattan: { light: '#d9a861', base: '#c08a48', dark: '#94622e', gap: '#6e4422' },
+  rail: ['#ecc77e', '#cc9c52', '#a0743a'],
+  skirting: '#6e4422',
+  thatch: { tones: ['#efd27c', '#ddb75c', '#c99f48', '#e6c76c'], tip: '#94702c', rope: '#8a6a3a', ropeLight: '#b08a52' },
   deck: { tones: ['#f0d6aa', '#e9cc9d', '#f4dcb4', '#ecd2a4'], light: '#fbe9c8', gap: '#b88f62', joint: '#cfa97c', nail: '#a88660', grain: '#e0c394' },
   sand: ['#f6e2b0', '#e8cc94'],
   window: {
@@ -46,7 +46,7 @@ export const beach = {
     shell: '#ffd9c8', shellShade: '#e8b4a0', tray: ['#e2d2b2', '#c8b08a', '#a08a66'], pens: ['#4ec3c8', '#ff8f70'],
   },
   clock: { rim: '#e0a85a', rimShade: '#b07a3a', face: '#fff8e8', tick: '#a07040' },
-  clockRays: ['#e9bd72', '#c99550'],
+  clockRays: ['#b87a34', '#7e4c20', '#e8b25e'],
   bar: {
     body: ['#e8c47a', '#d4a95e', '#b88a44'], pole: '#d8b064', poleLight: '#f2d896', poleDark: '#a0743a',
     top: ['#c88a52', '#ad7242', '#8f5a32'], topEdge: '#e0a468', skirt: ['#efd27e', '#d9b45c', '#b8953f'],
@@ -63,20 +63,20 @@ export const beach = {
     trunk: ['#dcae6e', '#bb894c', '#926536'], ring: '#7a5230',
     fronds: [['#a6e07a', '#72bf55', '#4a9440'], ['#8fd36a', '#5fae4b', '#3f8a3c']], coconut: ['#a86f42', '#7d4c2b'],
   },
-  chests: { natural: ['#e4bb78', '#cc9e58', '#a87a3c'], washed: ['#f4ead6', '#ddd0b4', '#bfae8e'] },
+  chests: { natural: ['#e4bb78', '#cc9e58', '#a87a3c'], coral: ['#ffc2ac', '#f49f84', '#d77c62'] },
   conch: { shell: '#ffe0d2', shade: '#f0b49c', inside: '#ff9aa8' },
   starfish: ['#ffb08a', '#ff9a6a', '#e07a4a'],
   sandcastle: { sand: ['#f6dfa4', '#e8c884', '#cfa964'], flag: '#ff6b6b', pole: '#8a6a4a', shell: '#fff0e6' },
   lamp: { pole: ['#e6c47a', '#c99a52', '#a0743a'], node: '#8f6234', shade: ['#e4bb78', '#cc9e58', '#a87a3c'], glow: '#fff0b8', glowWarm: '#ffd77a' },
-  couch: { body: ['#e4bb78', '#cc9e58', '#a87a3c'], edge: '#f2d496', cushion: ['#fff6e4', '#f2e2c4', '#dcc8a4'], cushionEdge: '#fffbf2', weave: '#b8884a' },
+  couch: { body: ['#d6a05a', '#b98040', '#94622e'], edge: '#ebbf7c', cushion: ['#c6efe6', '#9edbd0', '#72bdb2'], cushionEdge: '#e2fbf6', weave: '#8a5a2a' },
   pillows: [['#8fe2dc', '#4ec3c8', '#2fa0a8'], ['#ffb8a6', '#ff8f70', '#e06a50']],
   flower: { petal: '#fffaf0', heart: '#ffd23f' },
-  rug: { edge: '#a88450', rings: ['#ead2a0', '#dcbe86', '#c9a56c'], stitch: '#b8925a', wave: '#4ec3c8', waveLight: '#8fe0dc', middle: '#f2dcae', sun: '#f2c14e' },
+  rug: { edge: '#94703e', rings: ['#efd9a8', '#d6b47a', '#bf9a5e'], stitch: '#a8844e', wave: '#2fa8b0', waveLight: '#7fd8d4', middle: '#fff0b8', sun: '#f2b83e' },
   surfboard: {
     board: ['#fff4d8', '#f6e2b8', '#dcc294'], stripe: ['#6ad6d0', '#3fb0b0'], band: '#ff8f70', stringer: '#d8b884',
     peg: ['#b8864a', '#7a5230'], hibiscus: '#ff6b8a', hibiscusLight: '#ffa0b4', hibiscusHeart: '#ffd23f',
   },
-  net: { rope: '#c8a878', float: '#ff8f70', floatLight: '#ffb49c', shell: '#fff0e6', shellShade: '#e8c4b4' },
+  lifeRing: { white: ['#fffaf2', '#f2e6d6', '#d9c8b2'], band: ['#ff8a76', '#ef6a58', '#c84e40'], rope: '#7a5a36', peg: '#a0743a' },
   /** the string of lights under the thatch: they shine while someone is there */
   lights: { string: '#5a4030', bulbs: ['#ffe08a', '#ffb4a0', '#9ee8e0', '#fff0b0'] },
   desk: {
