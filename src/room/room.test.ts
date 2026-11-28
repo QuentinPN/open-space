@@ -36,7 +36,7 @@ import { PORTAL, pieceHeight, portalPoint } from './pixel-furniture.ts';
 import { WALL_EFFECT } from './themes/kit.ts';
 import { ROOM_THEMES } from '../../shared/room-themes.ts';
 import { DESK_COUNT, PERSON_SPACING, ROOM_BOX, ROOM_OUTLINE, ROOM_UNITS, couchArmDepth, couchDepth, deskPlace, feetOf, figureAt, fitOverview, iso, overviewLayout, roomAt } from './cozy/geometry.ts';
-import { AMBIANCES, AMBIANCE_IDS, ambianceFor, pickAmbiance, type AmbianceChoice, type AmbianceDesign } from './cozy/ambiance/index.ts';
+import { AMBIANCES, AMBIANCE_IDS, ambianceFor, pickAmbiance, type AmbianceChoice, type AmbianceMotion } from './cozy/ambiance/index.ts';
 import { MotionLayer, colourMask, type Pen } from './cozy/motion.ts';
 import { placeSitters } from './cozy/people.ts';
 import { hdArt, hdHeight } from './chibi-hd.ts';
@@ -48,6 +48,7 @@ import { METRICS_SCREEN } from './cozy/home/kit.ts';
 import { cozyPetOf, petZzzAt, type PetPixels } from './cozy/pet.ts';
 import { homeErrand, homePet, stepHomePet } from './cozy/home-pet.ts';
 import { ARCADE, ARCADE_FRONT, LOUNGE_PLACES } from './cozy/lounge.ts';
+import { LOUNGE_MOTION, loungeLayout } from './cozy/lounge-art.ts';
 import { DOOR as COZY_DOOR, newGrid, roomLayout } from './cozy/decor.ts';
 import { targetAt, thingAt } from './cozy/things.ts';
 import { COZY_TIMES, clockMinute, cozyTimeOf, sceneKey, type CozyTime } from './cozy/time.ts';
@@ -1971,13 +1972,18 @@ describe('the ambiance of a cozy project room', () => {
   });
 });
 
-describe('what moves in a cozy project room', () => {
-  const MOVING = DESIGNS.filter((design) => design.motion);
-  /** What a room's motion paints over its art at `frame`, through the layers its art gives it (decor.ts roomLayout). */
-  type Layout = ReturnType<typeof roomLayout>;
+describe('what moves in a cozy project room, and in the break room', () => {
+  /** A room whose decor moves: a project room of an ambiance that has motion, or the break room (its arcade's screen). */
+  interface Moving { id: string; motion: AmbianceMotion; layout: (lit: boolean, time: CozyTime) => Pick<ReturnType<typeof roomLayout>, 'back' | 'light' | 'masks'> }
+  const MOVING: Moving[] = [
+    ...DESIGNS.flatMap((design) => (design.motion ? [{ id: design.id, motion: design.motion, layout: (lit: boolean, time: CozyTime) => roomLayout('project', design, lit, time, null) }] : [])),
+    { id: 'lounge', motion: LOUNGE_MOTION, layout: (lit, time) => loungeLayout(lit, time, null) },
+  ];
+  /** What a room's motion paints over its art at `frame`, through the layers its art gives it (decor.ts roomLayout, lounge-art.ts loungeLayout). */
+  type Layout = ReturnType<Moving['layout']>;
   const layouts = new Map<string, Layout>();
-  const painted = (design: AmbianceDesign, lit: boolean, time: CozyTime, frame: number, masks: (layout: Layout) => Layout['masks'] = () => ({})) => {
-    const key = `${design.id} ${lit} ${time}`, layout = layouts.get(key) ?? roomLayout('project', design, lit, time, null);
+  const painted = (room: Moving, lit: boolean, time: CozyTime, frame: number, masks: (layout: Layout) => Layout['masks'] = () => ({})) => {
+    const key = `${room.id} ${lit} ${time}`, layout = layouts.get(key) ?? room.layout(lit, time);
     layouts.set(key, layout);
     const strokes: { layer: string; x: number; y: number; colour: string }[] = [];
     const layers = Object.fromEntries(Object.entries({ ...layout.masks, ...masks(layout) }).map(([name, { mask, colours }]) => {
@@ -1986,37 +1992,38 @@ describe('what moves in a cozy project room', () => {
       layer.pen = pen as unknown as Pen;
       return [name, layer];
     }));
-    design.motion?.paint(layers, frame, { time, lit, festival: null });
+    room.motion.paint(layers, frame, { time, lit, festival: null });
     return { strokes, layout };
   };
   const SCENES = COZY_TIMES.flatMap((time) => [true, false].map((lit) => ({ time, lit })));
 
   it('draws the same pixels for the same frame, and something else a moment later', () => {
-    for (const design of MOVING) {
-      for (const { time, lit } of SCENES) assert.deepEqual(painted(design, lit, time, 37).strokes, painted(design, lit, time, 37).strokes, `${design.id} ${time} ${lit}`);
-      const moves = SCENES.some(({ time, lit }) => [5, 23, 61].some((frame) => !isDeepStrictEqual(painted(design, lit, time, 0).strokes, painted(design, lit, time, frame).strokes)));
-      assert.ok(moves, `${design.id}: its layers find their colours in its art`);
+    for (const room of MOVING) {
+      for (const { time, lit } of SCENES) assert.deepEqual(painted(room, lit, time, 37).strokes, painted(room, lit, time, 37).strokes, `${room.id} ${time} ${lit}`);
+      const moves = SCENES.some(({ time, lit }) => [5, 23, 61].some((frame) => !isDeepStrictEqual(painted(room, lit, time, 0).strokes, painted(room, lit, time, frame).strokes)));
+      assert.ok(moves, `${room.id}: its layers find their colours in its art`);
     }
   });
 
   it('paints only what the room\'s light leaves as it is, or something see-through, so it matches the art at every hour', () => {
-    for (const design of MOVING) for (const { time, lit } of SCENES) for (const frame of [0, 9, 40]) {
-      const { strokes, layout } = painted(design, lit, time, frame);
+    for (const room of MOVING) for (const { time, lit } of SCENES) for (const frame of [0, 9, 40]) {
+      const { strokes, layout } = painted(room, lit, time, frame);
       for (const { x, y, colour } of strokes) {
         if (colour.startsWith('rgba') || !layout.light) continue;
-        assert.equal(layout.light(colour, x, y), colour, `${design.id} ${time} lit ${lit}: ${colour} at ${x},${y}`);
+        assert.equal(layout.light(colour, x, y), colour, `${room.id} ${time} lit ${lit}: ${colour} at ${x},${y}`);
       }
     }
   });
 
   it('moves a room\'s view inside its window only, even where its colours show elsewhere in the room', () => {
-    for (const design of MOVING) {
-      if (!design.glass) continue;
+    for (const design of DESIGNS) {
+      if (!design.motion || !design.glass) continue;
       const inside = new Set<string>();
       wallPatch({ set: (x, y) => inside.add(`${Math.floor(x)},${Math.floor(y)}`) }, design.glass.wall, design.glass.a0, design.glass.a1, design.glass.z0, design.glass.z1, '');
       for (const { time, lit } of SCENES) for (const frame of [0, 6, 37, 113, 245]) {
         // the view's colours wherever they are in the art, the window's glass not cut out of them
-        const { strokes } = painted(design, lit, time, frame, (layout) => ({ view: { mask: colourMask(layout.back, design.light.sky), colours: design.light.sky } }));
+        const room = MOVING.find(({ id }) => id === design.id)!;
+        const { strokes } = painted(room, lit, time, frame, (layout) => ({ view: { mask: colourMask(layout.back, design.light.sky), colours: design.light.sky } }));
         for (const { x, y, layer } of strokes) if (layer === 'view') assert.ok(inside.has(`${x},${y}`), `${design.id} ${time} frame ${frame}: ${x},${y} is outside its glass`);
       }
     }

@@ -21,7 +21,7 @@ import { iso, type Figure } from './geometry.ts';
 import { paintHome } from './home/art.ts';
 import { drawPetSprite, petPixels, petPose, petTop, petZzzAt, type CozyPet } from './pet.ts';
 import { homeThemeOf, metricsBadgeSpot, type CallFace } from './home/index.ts';
-import { loungeArt, paintArcade } from './lounge-art.ts';
+import { LOUNGE_MOTION, loungeArt, paintArcade } from './lounge-art.ts';
 import { PERSON_SCALE, type PlacedSitter } from './people.ts';
 import { outlineOf } from './pixels.ts';
 import type { CozyRoom } from './rooms.ts';
@@ -122,10 +122,11 @@ function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { r
   const art = lounge ? loungeArt(room.lit, options.hour, options.festival) : roomArt(room.kind === 'servers' ? 'servers' : 'project', design, room.lit, options.hour, options.festival);
   const clock = lounge ? ROOM_CLOCK : design.clock;
   context.drawImage(art.back, 0, 0);
-  // what moves in its decor, over its art and behind its people (ambiance/index.ts AmbianceMotion)
-  if (art.motion && design.motion && !lounge) {
+  // what moves in its decor, over its art and behind its people (ambiance/index.ts AmbianceMotion), the break room's arcade screen too
+  const motion = lounge ? LOUNGE_MOTION : design.motion;
+  if (art.motion && motion) {
     for (const name in art.motion.layers) art.motion.layers[name].pen = context;
-    design.motion.paint(art.motion.layers, frame, art.motion.scene);
+    motion.paint(art.motion.layers, frame, art.motion.scene);
   }
   context.drawImage(clockHands(clock, options.hour), 0, 0);
   // the white line around its things under the pointer: its clock, its door, its board, the arcade

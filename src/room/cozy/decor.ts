@@ -10,7 +10,7 @@ import { COZY_PALETTE as C } from '../../design/room-palette.ts';
 import { paintWholeClock, type WallClock } from './clock.ts';
 import { FESTIVE_DECOR, FESTIVE_GLOW, paintFestiveFloor, paintFestiveWalls } from './festive.ts';
 import { SKY_GLOW, lamp, lightingOf, type Rgb } from './light.ts';
-import type { AmbianceDesign, AmbianceScene } from './ambiance/index.ts';
+import type { AmbianceDesign, AmbianceMotion, AmbianceScene } from './ambiance/index.ts';
 import { MotionLayer, colourMask, withinWall, type CellMask } from './motion.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
 import { ORIGIN, ROOM_BOX, ROOM_UNITS, WALL_HEIGHT, WALL_THICKNESS, couchArmDepth, cozyDepth, deskPlace, iso, onCouchAt, type Couch, type Desk } from './geometry.ts';
@@ -437,6 +437,19 @@ export interface RoomArt {
 /** A room's motion layers (ambiance/index.ts AmbianceMotion), made with its art, and the scene they follow. */
 export interface RoomMotion { layers: Readonly<Record<string, MotionLayer>>; scene: AmbianceScene }
 
+/** The cells of a room's back layer each of its motion's layers draws over, by name: taken before its light (AmbianceMotion masks). */
+export type MotionMasks = Record<string, { mask: CellMask; colours: readonly string[] }>;
+
+/** The masks of `motion` (none for none) on the back layer `back`, before its light. */
+export const motionMasks = (back: PixelGrid, motion: AmbianceMotion | undefined): MotionMasks =>
+  Object.fromEntries(Object.entries(motion?.masks ?? {}).map(([name, colours]) => [name, { mask: colourMask(back, colours), colours }]));
+
+/** The layers made from a room's masks, and the scene they follow; null when nothing moves. */
+export function roomMotion(masks: MotionMasks, scene: AmbianceScene): RoomMotion | null {
+  const layers = Object.fromEntries(Object.entries(masks).map(([name, { mask, colours }]) => [name, new MotionLayer(mask, colours)]));
+  return Object.keys(layers).length ? { layers, scene } : null;
+}
+
 /**
  * Something standing on the floor of the back layer, from (u0, v0) to (u1, v1): they are painted from the back to the
  * front, so that one in front covers one behind wherever they meet on the screen, whatever order they are listed in.
@@ -564,23 +577,19 @@ export function roomLayout(kind: 'project' | 'servers', design: AmbianceDesign, 
   const shine = new Set(sky);
   const lightOf: RoomLight = light && ((colour, x, y) => (shine.has(colour) ? colour : light(colour, x, y)));
   const motion = kind === 'project' ? design.motion : undefined;
-  const masks: Record<string, { mask: CellMask; colours: readonly string[] }> = {};
-  if (motion) {
-    for (const [name, colours] of Object.entries(motion.masks)) masks[name] = { mask: colourMask(back, colours), colours };
-    if (design.glass && !masks.view) masks.view = { mask: withinWall(colourMask(back, sky), design.glass), colours: sky };
-  }
+  const masks = motionMasks(back, motion);
+  if (motion && design.glass && !masks.view) masks.view = { mask: withinWall(colourMask(back, sky), design.glass), colours: sky };
   return { back, floor, pieces, light: lightOf, masks };
 }
 
 /** A project room in its ambiance, or the server room (roomLayout), lit, on its canvases. */
 function build(kind: 'project' | 'servers', design: AmbianceDesign, lit: boolean, time: CozyTime, festival: Festival | null): RoomArt {
   const { back, floor, pieces, light, masks } = roomLayout(kind, design, lit, time, festival);
-  const layers = Object.fromEntries(Object.entries(masks).map(([name, { mask, colours }]) => [name, new MotionLayer(mask, colours)]));
   return {
     back: toCanvas(back, light),
     pieces: pieces.map(({ depth, paint }) => ({ depth, canvas: toCanvas(pieceGrid(depth, paint, floor), light) })),
     frontOf: frontLayers(floor, light),
-    motion: Object.keys(layers).length ? { layers, scene: { time, lit, festival } } : null,
+    motion: roomMotion(masks, { time, lit, festival }),
   };
 }
 

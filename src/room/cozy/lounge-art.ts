@@ -1,19 +1,21 @@
 // The cozy break room drawn (src/room/cozy/lounge.ts for where its places are): the project rooms' walls, floor, window,
 // door and clock (decor.ts), a sage sofa under the window and a peach loveseat along the right wall, a bookshelf in the
 // back corner by a floor lamp, a coffee table with a game console on a mint rug, three beanbags, a tea corner with its
-// kettle and teapot and an arcade cabinet along the right wall, pictures and hanging plants. Drawn once per mood of the hour and festival, lights on
-// while someone naps there, like the other rooms.
+// kettle and teapot and an arcade cabinet along the right wall, pictures and hanging plants. Drawn once per mood of the
+// hour and festival, lights on while someone naps there, like the other rooms; the arcade's screen plays on its own
+// while they are on (LOUNGE_MOTION, drawn each frame like an ambiance's motion).
 import type { Festival } from '../../../shared/festivals.ts';
 import { COZY_PALETTE as C } from '../../design/room-palette.ts';
 import { paintClockFace } from './clock.ts';
+import type { AmbianceMotion } from './ambiance/index.ts';
 import {
   ROOM_CLOCK, newGrid, paintCouch, paintCouchArm, paintDoor, paintDoormat, paintFloor, paintHangingPlant, paintLamp, paintWalls, paintWindow,
-  frontLayers, pieceGrid, roomLight, standing, toCanvas, type RoomArt, type Standing,
+  frontLayers, motionMasks, pieceGrid, roomLight, roomMotion, standing, toCanvas, type RoomArt, type Standing,
 } from './decor.ts';
 import { FESTIVE_DECOR, paintFestiveFloor, paintFestiveWalls } from './festive.ts';
 import { couchArmDepth, iso } from './geometry.ts';
 import { ARCADE, ARCADE_FRONT, BOOKSHELF, COFFEE_TABLE, LOUNGE_BEANBAGS, LOUNGE_COUCH_SEATS, LOUNGE_COUCHES, LOUNGE_FESTIVE_SPOT, READING_LAMP, RUG, TEA_CORNER } from './lounge.ts';
-import { onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from './pixels.ts';
+import { onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, tint, wallPatch, wallPixel, wallPoint, type PixelGrid, type Tones } from './pixels.ts';
 import { cozyTimeOf, sceneCache, sceneKey, type CozyTime } from './time.ts';
 
 const O = C.outline, L = C.lounge;
@@ -111,12 +113,15 @@ function paintTeaCorner(grid: PixelGrid) {
   }
 }
 
+/** The arcade's screen on the cabinet's front (v = ARCADE.v1): from `a0` to `a1` along it, `z0` to `z1` up. */
+const ARCADE_SCREEN = { a0: ARCADE.u0 + 2, a1: ARCADE.u1 - 2, z0: 26, z1: 38 } as const;
+
 /** The arcade cabinet against the right wall, its screen and its buttons towards the room: a step of free floor in front of it (a click plays, things.ts). */
 export function paintArcade(grid: PixelGrid) {
-  const { u0, u1, v0, v1, height } = ARCADE, A = L.arcade;
+  const { u0, u1, v0, v1, height } = ARCADE, A = L.arcade, S = ARCADE_SCREEN;
   ob(grid, u0, u1, v0, v1, 0, height, A.body, A.edge);
   ob(grid, u0, u1, v1, v1 + 4, 18, 3, A.body, A.edge);
-  patchOnLeftFace(grid, v1, u0 + 2, u1 - 2, 26, 38, A.screen);
+  patchOnLeftFace(grid, v1, S.a0, S.a1, S.z0, S.z1, A.screen);
   for (const [a, z, index] of [[u0 + 4, 34, 0], [u0 + 7, 31, 1], [u0 + 9, 34, 3], [u0 + 5, 29, 2], [u0 + 10, 29, 0]] as const) patchOnLeftFace(grid, v1, a, a + 1, z, z + 1, A.pixel[index]);
   patchOnLeftFace(grid, v1, u0 + 1, u1 - 1, 40, 44, A.marquee); patchOnLeftFace(grid, v1, u0 + 2, u1 - 2, 42, 43, A.marqueeLight);
   art(grid, (layer) => {
@@ -144,7 +149,42 @@ function paintRug(grid: PixelGrid) {
   for (let index = 0; index < 24; index++) { const angle = index / 24 * Math.PI * 2; grid.set(Math.round(x + Math.cos(angle) * 31.5), Math.round(y + Math.sin(angle) * 15.2), index % 2 ? R.dots : R.leaf); }
 }
 
-function build(lit: boolean, time: CozyTime, festival: Festival | null): RoomArt {
+/**
+ * What moves in the break room: its arcade's screen, while its lights are on, in its own colours (never darkened then,
+ * like the screens): stars scrolling down, a row of tiny aliens marching, a ship firing up at them, and now and then
+ * the screen flickering. Only the screen's cells take it (its mask), so whoever plays in front of it hides it.
+ */
+export const LOUNGE_MOTION: AmbianceMotion = {
+  masks: { screen: [L.arcade.screen, ...L.arcade.pixel] },
+  paint(layers, frame, scene) {
+    if (!scene.lit) return;
+    const screen = layers.screen, A = L.arcade, { a0, a1, z0, z1 } = ARCADE_SCREEN, width = a1 - a0, top = z1 - 1;
+    const dot = (a: number, z: number, colour: string) => { if (a >= a0 && a < a1 && z >= z0 && z <= top) onLeftFace(screen, ARCADE.v1, a, a + 1, z, colour); };
+    patchOnLeftFace(screen, ARCADE.v1, a0, a1, z0, z1, A.screen);
+    // a flicker: a frame now and then with the screen gone dark but for a line
+    if (frame % 53 === 0) { for (let a = a0; a < a1; a++) dot(a, z0 + (frame % (z1 - z0)), A.pixel[2]); return; }
+    for (let star = 0; star < 3; star++) dot(a0 + ((star * 3 + 1) % width), top - (((frame >> 1) + star * 4) % (z1 - z0)), A.pixel[2]);
+    // three aliens going from side to side, their feet stepping
+    const march = (frame >> 3) % 4, across = march < 3 ? march : 1, beat = (frame >> 2) % 2;
+    for (let alien = 0; alien < 3; alien++) {
+      const a = a0 + across + alien * 2, colour = alien === 1 ? A.pixel[1] : A.pixel[0];
+      dot(a, top - 1, colour);
+      dot(a, top - 2 + beat, colour);
+    }
+    // the ship sliding under them, a shot going up now and then
+    const ship = a0 + 1 + Math.round(((Math.sin(frame / 9) + 1) * (width - 3)) / 2);
+    dot(ship, z0 + 1, A.pixel[3]); dot(ship - 1, z0, A.pixel[3]); dot(ship + 1, z0, A.pixel[3]);
+    const shot = frame % 14;
+    if (shot < 8) dot(ship, z0 + 3 + shot, A.pixel[3]);
+  },
+};
+
+/**
+ * The break room before its light: its floor, walls and window, what hangs and lies on the floor, then what stands
+ * there from back to front (`back`); the sofas' front arms apart; the light that goes over all of them; the cells its
+ * motion draws over (LOUNGE_MOTION). Pure.
+ */
+export function loungeLayout(lit: boolean, time: CozyTime, festival: Festival | null) {
   const back = newGrid();
   paintFloor(back);
   paintWalls(back);
@@ -181,10 +221,16 @@ function build(lit: boolean, time: CozyTime, festival: Festival | null): RoomArt
     { depth: couchArmDepth(left), paint: (grid: PixelGrid) => paintCouchArm(grid, left, L.sage) },
     { depth: couchArmDepth(right), paint: (grid: PixelGrid) => paintCouchArm(grid, right, L.peach) },
   ];
+  return { back, floor, pieces, light, masks: motionMasks(back, LOUNGE_MOTION) };
+}
+
+function build(lit: boolean, time: CozyTime, festival: Festival | null): RoomArt {
+  const { back, floor, pieces, light, masks } = loungeLayout(lit, time, festival);
   return {
     back: toCanvas(back, light),
     pieces: pieces.map(({ depth, paint }) => ({ depth, canvas: toCanvas(pieceGrid(depth, paint, floor), light) })),
     frontOf: frontLayers(floor, light),
+    motion: roomMotion(masks, { time, lit, festival }),
   };
 }
 
