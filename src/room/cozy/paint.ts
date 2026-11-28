@@ -15,7 +15,8 @@ import { PLAYER_ID, type Scene, type SceneFloor } from '../scene.ts';
 import type { Pose, SpriteSource } from '../sprites.ts';
 import type { Activity } from '../visitors.ts';
 import { clockHands, clockOutline } from './clock.ts';
-import { ROOM_CLOCK, paintCode, paintDoor, paintIdleScreen, paintWhiteboard, paintZzzAt, roomArt } from './decor.ts';
+import { designOf } from './ambiance/index.ts';
+import { ROOM_CLOCK, paintCode, paintDoor, paintIdleScreen, paintZzzAt, roomArt } from './decor.ts';
 import { iso, type Figure } from './geometry.ts';
 import { paintHome } from './home/art.ts';
 import { drawPetSprite, petPixels, petPose, petTop, petZzzAt, type CozyPet } from './pet.ts';
@@ -99,9 +100,6 @@ function paintSitter(context: CanvasRenderingContext2D, sprites: SpriteSource, p
   sprites.draw(context, placed.id, placed.pose, feet.x, feet.y);
 }
 
-/** The white line around a room's things under the pointer (a home draws its own): its door, its whiteboard, its clock. */
-const OUTLINED = { door: paintDoor, board: paintWhiteboard } as const;
-
 function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { room, at, sitters, visitors, carrying }: FrameRoom, options: CozyFrameOptions) {
   const frame = options.reducedMotion ? 0 : frameOf(options.time);
   context.setTransform(options.scale, 0, 0, options.scale, at.x * options.scale, at.y * options.scale);
@@ -119,11 +117,16 @@ function paintRoom(context: CanvasRenderingContext2D, sprites: SpriteSource, { r
     if (zzz) paintZzzAt(context, ...zzz, frame);
     return;
   }
-  const art = room.kind === 'lounge' ? loungeArt(room.lit, options.hour, options.festival) : roomArt(room.kind, room.lit, options.hour, options.festival);
+  // the break room's own, else the room in its ambiance (the server room in the offices')
+  const design = designOf(room), lounge = room.kind === 'lounge';
+  const art = lounge ? loungeArt(room.lit, options.hour, options.festival) : roomArt(room.kind === 'servers' ? 'servers' : 'project', design, room.lit, options.hour, options.festival);
+  const clock = lounge ? ROOM_CLOCK : design.clock;
   context.drawImage(art.back, 0, 0);
-  context.drawImage(clockHands(ROOM_CLOCK, options.hour), 0, 0);
-  if (hovered === 'clock') context.drawImage(clockOutline(ROOM_CLOCK), 0, 0);
-  if (hovered === 'door' || hovered === 'board') context.drawImage(outlineOf(OUTLINED[hovered]), 0, 0);
+  context.drawImage(clockHands(clock, options.hour), 0, 0);
+  // the white line around its things under the pointer: its clock, its door, its board
+  if (hovered === 'clock') context.drawImage(clockOutline(clock), 0, 0);
+  if (hovered === 'door') context.drawImage(outlineOf(lounge ? paintDoor : design.paintDoor), 0, 0);
+  if (hovered === 'board') context.drawImage(outlineOf(design.paintBoard), 0, 0);
   // the screens of the back desks, towards us: code going by while their session works
   for (const { sitter } of sitters) {
     if (sitter.desk?.kind !== 'back') continue;

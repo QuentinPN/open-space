@@ -5,6 +5,7 @@ import { HOME_THEMES, type HomeTheme } from '../../../../shared/protocol.ts';
 import type { Look } from '../../../../shared/look.ts';
 import { insideConvex, type Point } from '../../geometry.ts';
 import { clockAt, type WallClock } from '../clock.ts';
+import { designOf } from '../ambiance/index.ts';
 import { ROOM_CLOCK } from '../decor.ts';
 import { iso, type Place } from '../geometry.ts';
 import { wallPoint, type Painter } from '../pixels.ts';
@@ -53,8 +54,11 @@ export function metricsBadgeSpot(theme: HomeTheme): Point {
   return { x, y };
 }
 
-/** The clock on a room's wall: the home's own, else the offices' (the server room's too). */
-export const clockOf = (room: CozyRoom): WallClock => (room.kind === 'home' ? HOME_DESIGNS[room.home ?? homeThemeOf(undefined)].clock : ROOM_CLOCK);
+/** The clock on a room's wall: the home's own, a project room's ambiance's, else the offices' (the break room's and the server room's). */
+export function clockOf(room: CozyRoom): WallClock {
+  if (room.kind === 'home') return HOME_DESIGNS[room.home ?? homeThemeOf(undefined)].clock;
+  return room.kind === 'project' ? designOf(room).clock : ROOM_CLOCK;
+}
 
 /** Whether a point of a room (in its pixels) falls on its clock: a click there tells the time. */
 export const roomClockAt = (room: CozyRoom, point: Point) => clockAt(clockOf(room), point);

@@ -4,12 +4,13 @@
 // stopped, whatever its project, naps in the break room, as in the classic office (cast.ts roomSessions 'lounge').
 // Pure: tested without a DOM.
 import { isInside, WORKTREES_FOLDER } from '../../../shared/worktrees.ts';
-import type { HomeTheme, SessionInfo } from '../../../shared/protocol.ts';
+import type { CozyAmbiance, HomeTheme, SessionInfo } from '../../../shared/protocol.ts';
 import type { ConversationSpan } from '../../../shared/usage.ts';
 import { projectNames, projectOf, projectsOf } from '../../state/projects.ts';
 import type { SeenSequences } from '../../state/queue.ts';
 import { planRoom, roomSessions, unseatedSessions, type Person, type RoomPlan } from '../cast.ts';
-import { DESKS } from './geometry.ts';
+import { ambianceFor, type AmbianceChoice } from './ambiance/index.ts';
+import { DESK_COUNT } from './geometry.ts';
 import { homeThemeOf } from './home/index.ts';
 import { LOUNGE_PLACES } from './lounge.ts';
 
@@ -38,6 +39,8 @@ export interface CozyRoom {
   pinned: boolean;
   /** the flat's look (Preferences.homeTheme); only on the flat */
   home?: HomeTheme;
+  /** a project room's look and furniture (ambiance/index.ts ambianceFor); only on a project room */
+  ambiance?: CozyAmbiance;
 }
 
 export const HOME_ID = 'home';
@@ -104,19 +107,21 @@ export interface CozyInput {
   automata: boolean;
   /** Preferences.homeTheme: how the flat looks (the studio when absent or unknown) */
   homeTheme?: unknown;
+  /** the settings that give each project room its ambiance (the offices for none) */
+  ambiances?: AmbianceChoice;
   /** who sat where in each room until now, so nobody changes seats as others come and go */
   previous: (roomId: string, part: 'desks' | 'resting') => ReadonlyMap<string, number>;
   /** the break room's places the user sits on or walks to (scene.ts playerSeats), kept free of sessions */
   playerSeats?: ReadonlySet<number>;
 }
 
-/** A project's room: its sessions at work or waiting at the desks by the office's order; its lights on while one is there. */
+/** A project's room in its ambiance: its sessions at work or waiting at the desks by the office's order; its lights on while one is there. */
 export function projectRoom(folder: string, name: string, input: Omit<CozyInput, 'projects' | 'automata'>): CozyRoom {
   const own = input.sessions.filter((session) => projectOf(session) === folder);
-  const desks = planRoom(own, input.seen, input.previous(folder, 'desks'), DESKS.length, 'office');
+  const desks = planRoom(own, input.seen, input.previous(folder, 'desks'), DESK_COUNT, 'office');
   const unseated = unseatedSessions(own, input.seen, 'office', desks);
   const lit = desks.people.length + desks.hiddenSessions > 0;
-  return { id: folder, kind: 'project', folder, name, desks, unseated, resting: EMPTY_PLAN, lit, pinned: input.pinned.includes(folder) };
+  return { id: folder, kind: 'project', folder, name, desks, unseated, resting: EMPTY_PLAN, lit, pinned: input.pinned.includes(folder), ambiance: ambianceFor(folder, input.ambiances ?? {}) };
 }
 
 /**

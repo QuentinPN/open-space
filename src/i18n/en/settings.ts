@@ -181,6 +181,11 @@ export const settings: Dictionary['settings'] = {
       theme: { title: 'Office theme', hint: 'The office and the break room get a new setting, furniture included.', options: { office: 'Office', space: 'Space shuttle', tokyo: 'Neon Tokyo', dungeon: 'Dungeon', beach: 'Beach', pirate: 'Pirate ship', forest: 'Treehouse', cellar: 'Hacker cellar' } },
       roomStyle: { title: 'Room style', hint: 'One big open space, or a little room per project with your flat in the middle.', options: { classic: 'Classic', cozy: 'Cozy' } },
       homeTheme: { title: 'Your place', hint: 'Your home in the middle of the cozy rooms, where your crew joins you on a video call.', options: { studio: 'Cosy studio', loft: 'Loft', chalet: 'Chalet', japonais: 'Japanese flat' } },
+      cozyAmbianceMode: {
+        title: 'Room ambiance', hint: 'The same for every room, one per project at random (always the same for a project), or the one picked on each room’s plate.',
+        options: { same: 'The same everywhere', random: 'At random', manual: 'Picked per room' },
+      },
+      cozyAmbiance: { title: 'Default ambiance', hint: 'The one of every room, or of those without a pick of their own.' },
       festivals: { title: 'Holidays', hint: 'The office dresses up for Christmas, Halloween, birthdays…' },
       officeLife: { title: 'Office life', hint: 'Your free crew drops by for a coffee, a book, a look out of the window.' },
       hideNames: { title: 'Hide the names', hint: 'In the room, a session with tags shows them alone; its name comes back on hover, or when it has no tag.' },

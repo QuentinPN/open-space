@@ -34,6 +34,11 @@ export const room: Dictionary['room'] = {
     lounge: 'Break room',
     description: (rooms, sessions) => `${plural(rooms, 'room', 'rooms')}, ${plural(sessions, 'session', 'sessions')}.`,
     clock: { hint: 'See the time', time: (time) => `It is ${time}` },
+    ambiance: { pick: (project) => `${project}'s ambiance` },
+    ambiances: {
+      office: 'Office', space: 'Space station', tokyo: 'Neon Tokyo', dungeon: 'Dungeon', beach: 'Beach', pirate: 'Pirate ship', forest: 'Forest cabin',
+      cellar: 'Hacker cellar', cafe: 'Bookshop café', atelier: 'Creative studio',
+    },
   },
   speaker: (label) => `${label}:`,
   petLines: {

@@ -15,7 +15,7 @@ export const ROWS: Readonly<Record<SettingRow, SettingsSection>> = {
   thinking: 'claude', outputStyle: 'claude', responseLanguage: 'claude', promptSuggestions: 'claude', autoCompact: 'claude', idleCompact: 'claude', autoContinue: 'claude', autoModeInPlan: 'claude',
   workflows: 'claude', ultracodeKeyword: 'claude', workflowSize: 'claude', inbound: 'claude', artifacts: 'claude',
   roots: 'folders', defaultFolder: 'folders',
-  theme: 'office', roomStyle: 'office', homeTheme: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
+  theme: 'office', roomStyle: 'office', homeTheme: 'office', cozyAmbianceMode: 'office', cozyAmbiance: 'office', festivals: 'office', officeLife: 'office', radio: 'office', hideNames: 'office', previewFestival: 'office', previewHour: 'office', crew: 'office', automata: 'connections', hooksAddress: 'connections', phoneAccess: 'connections',
   journalFolder: 'folders', automataFolder: 'connections',
   version: 'about', claude: 'about', account: 'about', links: 'about', dockApp: 'about',
 };
@@ -29,10 +29,13 @@ export const CONFIG_LABELS: Readonly<Partial<Record<SettingRow, string>>> = {
   ultracodeKeyword: 'Ultracode keyword trigger', workflowSize: 'Dynamic workflow size', inbound: 'Messages from your other sessions', artifacts: 'Artifacts',
 };
 
+/** The rows the cozy rooms alone have: the settings dialog shows them only in that style. */
+const COZY_ROWS: ReadonlySet<SettingRow> = new Set(['homeTheme', 'cozyAmbianceMode', 'cozyAmbiance']);
+
 /** The rows and the sections without rows, with the words they answer to (their title, hint and section). */
 export function settingEntries(roomStyle?: string): SettingEntry[] {
   const words = t.settings.prefs;
-  const rows = (Object.keys(ROWS) as SettingRow[]).filter((row) => (row !== 'dockApp' || IS_MAC) && (row !== 'terminal' || IS_WINDOWS) && (row !== 'homeTheme' || roomStyle === 'cozy')).map((row) => {
+  const rows = (Object.keys(ROWS) as SettingRow[]).filter((row) => (row !== 'dockApp' || IS_MAC) && (row !== 'terminal' || IS_WINDOWS) && (!COZY_ROWS.has(row) || roomStyle === 'cozy')).map((row) => {
     const { title, hint } = words.rows[row] as { title: string; hint?: string };
     return { section: ROWS[row], row, label: title, sectionLabel: words.sections[ROWS[row]], words: `${hint ?? ''} ${CONFIG_LABELS[row] ? `${CONFIG_LABELS[row]} /config` : ''}` };
   });

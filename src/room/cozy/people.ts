@@ -9,7 +9,8 @@ import { unitsOf, type CozyFloor } from './floor.ts';
 import { blinkOffsetOf, type Gesture, type Pose, type SpriteSource } from '../sprites.ts';
 import type { CozyRoom } from './rooms.ts';
 import { homePlace, homeThemeOf } from './home/index.ts';
-import { DESKS, deskPlace, feetOf, personDepth, type Desk, type Figure, type Place } from './geometry.ts';
+import { deskPlace, feetOf, personDepth, type Desk, type Figure, type Place } from './geometry.ts';
+import { designOf } from './ambiance/index.ts';
 import { LOUNGE_PLACES, loungeDepth } from './lounge.ts';
 import type { Point } from '../geometry.ts';
 
@@ -24,10 +25,12 @@ export interface Sitter {
   napping: boolean;
 }
 
-/** Someone on their seat of a room's plan: at a desk of a project room, on a place of the break room (napping). */
-const seated = (room: CozyRoom, person: Person, seat: number): Sitter => (room.kind === 'lounge'
-  ? { id: person.id, person, place: LOUNGE_PLACES[seat], desk: null, napping: true }
-  : { id: person.id, person, place: deskPlace(DESKS[seat]), desk: DESKS[seat], napping: false });
+/** Someone on their seat of a room's plan: at a desk of a project room (its ambiance's), on a place of the break room (napping). */
+function seated(room: CozyRoom, person: Person, seat: number): Sitter {
+  if (room.kind === 'lounge') return { id: person.id, person, place: LOUNGE_PLACES[seat], desk: null, napping: true };
+  const desk = designOf(room).desks[seat];
+  return { id: person.id, person, place: deskPlace(desk), desk, napping: false };
+}
 
 /** Everyone seated in a room: the desks' people on the seat their plan gave them, the break room's on their place. */
 export function sittersOf(room: CozyRoom): Sitter[] {
@@ -69,9 +72,9 @@ export function sitterPose(sitter: Sitter, time: number, reducedMotion: boolean)
  */
 export interface PlacedSitter extends Figure { sitter: Sitter; pose: Pose; depth: number; free?: boolean }
 
-/** Someone's draw order on their place: the break room's sofas, the couch, or the floor. */
+/** Someone's draw order on their place: the break room's sofas, a project room's couch, or the floor. */
 const depthIn = (room: CozyRoom, place: Place, sitting: boolean) =>
-  (room.kind === 'lounge' && sitting ? loungeDepth(place) : personDepth(place.u, place.v, sitting));
+  (room.kind === 'lounge' && sitting ? loungeDepth(place) : personDepth(place.u, place.v, sitting, room.kind === 'project' ? designOf(room).couch : null));
 
 export function placeSitters(room: CozyRoom, at: Point, sprites: Pick<SpriteSource, 'height'>, time: number, reducedMotion: boolean): PlacedSitter[] {
   return sittersOf(room).map((sitter) => {

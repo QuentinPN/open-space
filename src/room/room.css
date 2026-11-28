@@ -128,6 +128,10 @@
 }
 .cp-cozy__list li button { width: 100%; text-align: left; padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--color-text); font: var(--text-sm) var(--font-ui); }
 .cp-cozy__list li button:hover { background: var(--color-surface-sunken); }
+/* a room's ambiances open upwards, over the room they change, clear of the windows along the bottom; the one it has checked */
+.cp-cozy__ambiances { top: auto; bottom: calc(100% + var(--space-1)); }
+.cp-cozy__ambiances li button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.cp-cozy__ambiances .cp-icon { width: 14px; height: 14px; flex: none; color: var(--color-accent); }
 /* the time a room's clock tells, in a card over it (its tail under it points at the clock) */
 .cp-cozy__clock {
   position: absolute; left: var(--clock-x); top: var(--clock-y); translate: -50% calc(-100% - 6px); z-index: 3;

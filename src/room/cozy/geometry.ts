@@ -58,18 +58,15 @@ export const around = (u: number, v: number, half: number, height: number): Foot
 export interface Place { u: number; v: number; direction: Direction; lift: number }
 
 /**
- * The four desks of a project room. The two at the back face the back wall (their people are seen from behind, their
- * screens towards us); the two on the right face the left wall (their people are seen from the front, behind the desk).
- * Placed so that no head hides another: two people sit PERSON_SPACING apart across the screen at least, or one sits a
- * whole seated person lower than the other.
+ * A desk of a project room: at the back ('back', facing the right wall, from (u, v) `length` units along u, its person
+ * seen from behind, their screen towards us) or on the right ('side', facing the left wall, from (u, v) `length` units
+ * along v, its person seen from the front, behind the desk). Each ambiance places four (ambiance/index.ts): no head may
+ * hide another, PERSON_SPACING apart across the screen at least, or one a whole seated person lower than the other.
  */
-export const DESKS = [
-  { kind: 'back', u: 30, v: 24, length: 36 },
-  { kind: 'back', u: 70, v: 24, length: 36 },
-  { kind: 'side', u: 104, v: 57, length: 30 },
-  { kind: 'side', u: 104, v: 90, length: 30 },
-] as const;
-export type Desk = (typeof DESKS)[number];
+export interface Desk { kind: 'back' | 'side'; u: number; v: number; length: number }
+
+/** A project room has this many desks, whatever its ambiance: its sessions at work beyond them are its "+N". */
+export const DESK_COUNT = 4;
 
 /**
  * Where whoever works at a desk sits: in front of it, a chair's height up. At a back desk, left of their screen (it
@@ -98,30 +95,22 @@ export const onCouchAt = (couch: Couch, across: number, along: number): [number,
 /** The draw order of a couch's front arm, a piece of its own in front of whoever sits at that end. */
 export const couchArmDepth = (couch: Couch) => cozyDepth(...onCouchAt(couch, 11, couch.length - 3));
 
-/** The couch along the left wall, under the window: two places at its two ends, facing the room. */
-export const COUCH: Couch = { u: 0, v: 34, depth: 18, length: 44 };
-export const COUCH_PLACES: readonly Place[] = [
-  { u: 12, v: 42, direction: 'down-right', lift: 9 },
-  { u: 12, v: 66, direction: 'down-right', lift: 9 },
-];
+/** A couch's draw order, by its footprint's middle (decor.ts paints it there). */
+export const couchDepth = (couch: Couch) => cozyDepth(couch.u + (couch.alongU ? couch.length : couch.depth) / 2, couch.v + (couch.alongU ? couch.depth : couch.length) / 2);
+
+/** Whether a floor point is on a couch's footprint. */
+const onCouch = (couch: Couch, u: number, v: number) => {
+  const [u1, v1] = onCouchAt(couch, couch.depth, couch.length);
+  return u >= couch.u && u <= u1 && v >= couch.v && v <= v1;
+};
 
 /**
- * The couch's draw order, by its footprint's middle (decor.ts paints it there), and its front arm's, a piece of its
- * own in front of whoever sits at that end.
+ * Draw order of someone at (u, v), `seated` or standing, in a room with `couch`: on it, they sit on its seat in front
+ * of its back, so they come after the couch (not before it, as the place's own depth at the couch's far end would
+ * say), but before its front arm.
  */
-export const COUCH_DEPTH = cozyDepth(COUCH.u + COUCH.depth / 2, COUCH.v + COUCH.length / 2);
-export const COUCH_ARM_DEPTH = couchArmDepth(COUCH);
-
-/** Whether a floor point is on the couch's footprint. */
-const onCouch = (u: number, v: number) => u >= COUCH.u && u <= COUCH.u + COUCH.depth && v >= COUCH.v && v <= COUCH.v + COUCH.length;
-
-/**
- * Draw order of someone at (u, v), `seated` or standing: on the couch, they sit on its seat in front of its back, so
- * they come after the couch (not before it, as the place's own depth at the couch's far end would say), but before
- * its front arm.
- */
-export const personDepth = (u: number, v: number, seated: boolean) =>
-  seated && onCouch(u, v) ? Math.max(cozyDepth(u, v), COUCH_DEPTH + 1) : cozyDepth(u, v);
+export const personDepth = (u: number, v: number, seated: boolean, couch: Couch | null) =>
+  seated && couch && onCouch(couch, u, v) ? Math.max(cozyDepth(u, v), couchDepth(couch) + 1) : cozyDepth(u, v);
 
 /** Someone's feet in the room's box: the place on the floor, raised by the seat. */
 export const feetOf = (place: Place): Point => iso(place.u, place.v, place.lift);

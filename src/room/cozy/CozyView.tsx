@@ -21,7 +21,7 @@ import { sessionsIn } from '../../state/docking.ts';
 import { useSessions } from '../../state/sessions.ts';
 import { useProjects } from '../../state/useProjects.ts';
 import { USER_SPEAKER, onSpeech } from '../../state/speech.ts';
-import { BackIcon, PinIcon, UnpinIcon } from '../../command/Icons.tsx';
+import { BackIcon, CheckIcon, PaletteIcon, PinIcon, UnpinIcon } from '../../command/Icons.tsx';
 import { bubbleText, pruneBubbles, pushBubble, type Bubble } from '../bubbles.ts';
 import { chibiHead } from '../chibi.ts';
 import { hdSprites } from '../chibi-hd.ts';
@@ -41,7 +41,8 @@ import { Scene, type SceneFloor } from '../scene.ts';
 import { keepSeats, savedSeats } from '../seats.ts';
 import { useCarry } from '../useCarry.ts';
 import { COZY_VIEW, CozyFloor, cozyFloorPlan, tileOf, walkable } from './floor.ts';
-import { DESKS, iso } from './geometry.ts';
+import { AMBIANCE_IDS, ambianceChoiceOf, designOf, pickAmbiance, type AmbianceId } from './ambiance/index.ts';
+import { DESK_COUNT, iso } from './geometry.ts';
 import { LOUNGE_PLACES } from './lounge.ts';
 import { useRoomFrame, type HomeOf } from '../useRoomFrame.ts';
 import { BUBBLE_BAND, ROOM_BOX, fitOverview, overviewLayout, type Box, type Overview } from './geometry.ts';
@@ -125,7 +126,7 @@ const VISITOR_PREFIX = visitorId('');
  * The room opened big as it is walked (scene.ts on its floor, floor.ts): its scene, set out for a festival and a home,
  * synced with its people once the sessions are known; where the seats its people are moved to are kept (rooms.ts cozySeatsKey).
  */
-interface Walk { id: string; kind: CozyRoom['kind']; festival: Festival | null; home: CozyRoom['home']; scene: Scene<CozyFloor>; synced: boolean; seatsKey: string | null }
+interface Walk { id: string; kind: CozyRoom['kind']; festival: Festival | null; home: CozyRoom['home']; ambiance: CozyRoom['ambiance']; scene: Scene<CozyFloor>; synced: boolean; seatsKey: string | null }
 
 /**
  * A click on the floor of a room opened big (`point`, in its pixels): the user sits on the free seat there, or walks
@@ -148,6 +149,10 @@ export function CozyView({ day }: { day: FestivalDay }) {
   const show = useSessions((s) => s.show);
   const pinned = useSessions((s) => s.preferences.pinnedProjects);
   const homeTheme = useSessions((s) => s.preferences.homeTheme);
+  const ambianceMode = useSessions((s) => s.preferences.cozyAmbianceMode);
+  const ambiance = useSessions((s) => s.preferences.cozyAmbiance);
+  const projectAmbiances = useSessions((s) => s.preferences.projectAmbiances);
+  const ambiances = useMemo(() => ambianceChoiceOf({ cozyAmbianceMode: ambianceMode, cozyAmbiance: ambiance, projectAmbiances }), [ambianceMode, ambiance, projectAmbiances]);
   // the header's break room tab, the search's "break room": the break room opened big, like the classic one
   const inLounge = useSessions((s) => s.view === 'repos');
   const automata = useSessions(hasAutomata);
@@ -197,20 +202,20 @@ export function CozyView({ day }: { day: FestivalDay }) {
   const [keptIn] = useState(() => (roomId: string) => {
     const lounge = roomId === LOUNGE_ID, key = cozySeatsKey({ kind: lounge ? 'lounge' : 'project', folder: roomId })!;
     let saved = kept.current.get(key);
-    if (!saved) { saved = savedSeats(readPreference<unknown>(key, {}), lounge ? LOUNGE_PLACES.length : DESKS.length); kept.current.set(key, saved); }
+    if (!saved) { saved = savedSeats(readPreference<unknown>(key, {}), lounge ? LOUNGE_PLACES.length : DESK_COUNT); kept.current.set(key, saved); }
     return saved;
   });
   // counts the moves by hand: the rooms are planned again from the seats they leave
   const [moves, setMoves] = useState(0);
   const rooms = useMemo(() => cozyRooms({
-    sessions: list, seen, projects: folders, pinned: pins, automata, homeTheme,
+    sessions: list, seen, projects: folders, pinned: pins, automata, homeTheme, ambiances,
     // kept by hand, then who sat where until now, then where the room opened big has them now (a move just made)
     previous: (roomId, part) => {
       const walked = walk.current?.id === roomId ? walk.current.scene.seats() : [];
       return new Map([...keptIn(roomId), ...(seats.current.get(`${roomId}:${part}`) ?? []), ...walked]);
     },
     playerSeats: walk.current?.id === LOUNGE_ID ? walk.current.scene.playerSeats() : undefined,
-  }), [list, seen, folders, pins, automata, homeTheme, keptIn, moves]);
+  }), [list, seen, folders, pins, automata, homeTheme, ambiances, keptIn, moves]);
   roomsRef.current = rooms;
   // the crew without a session, who may drop by an office (Preferences.officeLife), as in the classic room
   const free = useMemo(() => availability(crew, list).filter((person) => person.place === 'free').map((person) => person.member.name), [crew, list]);
@@ -233,10 +238,10 @@ export function CozyView({ day }: { day: FestivalDay }) {
   useLayoutEffect(() => {
     if (!zoomedRoom || !walkable(zoomedRoom)) { walk.current = null; return; }
     let current = walk.current;
-    if (current?.id !== zoomedRoom.id || current.festival !== festival || current.home !== zoomedRoom.home) {
+    if (current?.id !== zoomedRoom.id || current.festival !== festival || current.home !== zoomedRoom.home || current.ambiance !== zoomedRoom.ambiance) {
       const scene = new Scene(new CozyFloor(cozyFloorPlan(zoomedRoom, festival)), { atDoor: zoomedRoom.kind !== 'home', view: COZY_VIEW });
       scene.heightOf = (personId) => sprites.height(STANDING, personId);
-      current = { id: zoomedRoom.id, kind: zoomedRoom.kind, festival, home: zoomedRoom.home, scene, synced: false, seatsKey: cozySeatsKey(zoomedRoom) };
+      current = { id: zoomedRoom.id, kind: zoomedRoom.kind, festival, home: zoomedRoom.home, ambiance: zoomedRoom.ambiance, scene, synced: false, seatsKey: cozySeatsKey(zoomedRoom) };
       walk.current = current;
     }
     if (!ready) return;
@@ -295,6 +300,14 @@ export function CozyView({ day }: { day: FestivalDay }) {
     const next = pins.includes(folder) ? pins.filter((pin) => pin !== folder) : [...pins, folder];
     useSessions.getState().setPreferences({ pinnedProjects: next });
   };
+  // an ambiance picked on a room's plate: that room alone changes (ambiance/index.ts pickAmbiance)
+  const [pickingFor, setPickingFor] = useState<string | null>(null);
+  const pickFor = (folder: string, id: AmbianceId) => {
+    setPickingFor(null);
+    const shownFolders = rooms.flatMap((room) => (room.kind === 'project' ? [room.folder] : []));
+    const changes = pickAmbiance(ambiances, folder, id, shownFolders);
+    if (changes) useSessions.getState().setPreferences(changes);
+  };
 
   // the canvas takes the largest size that fits beside the status card; its pixels follow the screen's, so the tags stay sharp
   useLayoutEffect(() => {
@@ -340,8 +353,8 @@ export function CozyView({ day }: { day: FestivalDay }) {
   scene.current.tagScale = tagScale;
   const selected = useRef(openIds);
   selected.current = openIds;
-  // the office life: one project room at a time is visited, the one opened big, else the first with its lights on
-  const visiting = useRef<{ id: string | null; visits: Visits | null }>({ id: null, visits: null });
+  // the office life: one project room at a time is visited, the one opened big, else the first with its lights on (in its ambiance)
+  const visiting = useRef<{ id: string | null; key: string | null; visits: Visits | null }>({ id: null, key: null, visits: null });
   // the user's pet, living at home only (home-pet.ts), the same whether the home is opened big or not; none for none
   const petHome = useRef<HomePet | null>(null);
   const visitorsIn = (room: CozyRoom, at: Point, time: number): PlacedVisitor[] => {
@@ -349,7 +362,7 @@ export function CozyView({ day }: { day: FestivalDay }) {
     if (!visits || room.id !== id) return [];
     return [...visits.visitors.values()].filter((visitor) => visitor.outside <= 0).map((visitor) => {
       const { pose, lift } = visitorPose(visitor, { time, reducedMotion });
-      const { feet, depth } = visitorFeet(visitor.position, lift);
+      const { feet, depth } = visitorFeet(visitor.position, lift, designOf(room).couch);
       return {
         id: visitor.id, name: visitor.name, pose, depth, feet: { x: feet.x + at.x, y: feet.y + at.y }, top: sprites.height(pose, visitor.id),
         activity: visitor.phase === 'staying' ? visitor.spot.activity : null, blinkOffset: visitor.blinkOffset,
@@ -386,10 +399,11 @@ export function CozyView({ day }: { day: FestivalDay }) {
       // through a door: the other room opens, the user coming in at its door
       if (walked?.scene.playerWentOut) { walked.scene.playerWentOut = false; state.setView(walked.kind === 'lounge' ? 'salle' : 'repos'); }
       const visited = visitedRoom(scene.current.rooms, scene.current.zoomed);
-      const visit = visiting.current;
-      if ((visited?.id ?? null) !== visit.id) {
+      const visit = visiting.current, visitKey = visited ? `${visited.id}|${visited.ambiance}` : null;
+      if (visitKey !== visit.key) {
+        visit.key = visitKey;
         visit.id = visited?.id ?? null;
-        visit.visits = visited ? new Visits(cozyVisitFloor(() => dayRef.current.festival)) : null;
+        visit.visits = visited ? new Visits(cozyVisitFloor(() => dayRef.current.festival, designOf(visited))) : null;
       }
       // a visitor does not sit where the user does
       const blocked = walked && walked.id === visit.id ? walked.scene.playerSpot?.at ?? null : null;
@@ -560,7 +574,9 @@ export function CozyView({ day }: { day: FestivalDay }) {
             <RoomPlate
               key={room.id} room={room} at={layout.slots[index]} scale={scale} hovered={hoveredRoom === room.id} zoomed={zoomedRoom !== null}
               listOpen={openList === room.id} onOpen={() => open(room)} onPin={() => togglePin(room.folder)}
-              onList={() => setOpenList((current) => (current === room.id ? null : room.id))} onShow={(id) => { show(id); setOpenList(null); }}
+              onList={() => { setPickingFor(null); setOpenList((current) => (current === room.id ? null : room.id)); }} onShow={(id) => { show(id); setOpenList(null); }}
+              picking={pickingFor === room.id} onPicker={() => { setOpenList(null); setPickingFor((current) => (current === room.id ? null : room.id)); }}
+              onPick={(id) => pickFor(room.folder, id)} onClosePicker={() => setPickingFor(null)}
             />
           ))}
           <div className="cp-room__bubbles" aria-hidden="true">
@@ -604,12 +620,16 @@ function ClockCard({ x, y, onClose }: { x: number; y: number; onClose: () => voi
 }
 
 interface PlateProps {
-  room: CozyRoom; at: Point; scale: number; hovered: boolean; zoomed: boolean; listOpen: boolean;
+  room: CozyRoom; at: Point; scale: number; hovered: boolean; zoomed: boolean; listOpen: boolean; picking: boolean;
   onOpen: () => void; onPin: () => void; onList: () => void; onShow: (sessionId: string) => void;
+  onPicker: () => void; onPick: (ambiance: AmbianceId) => void; onClosePicker: () => void;
 }
 
-/** Under each room: its name (a click opens it), the pin of a project, and "+N" for the sessions without a desk (a click lists them). */
-function RoomPlate({ room, at, scale, hovered, zoomed, listOpen, onOpen, onPin, onList, onShow }: PlateProps) {
+/**
+ * Under each room: its name (a click opens it), for a project its pin and its ambiance (a click lists them all to
+ * pick from), and "+N" for the sessions without a desk (a click lists them).
+ */
+function RoomPlate({ room, at, scale, hovered, zoomed, listOpen, picking, onOpen, onPin, onList, onShow, onPicker, onPick, onClosePicker }: PlateProps) {
   const words = t.room.cozy;
   const name = roomName(room);
   const hidden = room.unseated.length;
@@ -622,9 +642,15 @@ function RoomPlate({ room, at, scale, hovered, zoomed, listOpen, onOpen, onPin, 
           {room.pinned ? <UnpinIcon /> : <PinIcon />}
         </button>
       )}
+      {room.kind === 'project' && (
+        <button type="button" className="cp-cozy__pin" aria-expanded={picking} aria-haspopup="menu" title={words.ambiance.pick(name)} aria-label={words.ambiance.pick(name)} onClick={onPicker}>
+          <PaletteIcon />
+        </button>
+      )}
       {hidden > 0 && (
         <button type="button" className="cp-cozy__more" aria-expanded={listOpen} title={t.room.hidden.more(hidden)} onClick={onList}>+{hidden}</button>
       )}
+      {picking && <AmbiancePicker current={designOf(room).id} label={words.ambiance.pick(name)} onPick={onPick} onClose={onClosePicker} />}
 
       {listOpen && (
         <ul className="cp-cozy__list" aria-label={t.room.hidden.list}>
@@ -635,4 +661,29 @@ function RoomPlate({ room, at, scale, hovered, zoomed, listOpen, onOpen, onPin, 
   );
 }
 
-
+/** The ambiances a project room may have, the one it has checked: a pick changes that room alone. Escape or a click elsewhere closes it. */
+function AmbiancePicker({ current, label, onPick, onClose }: { current: string; label: string; onPick: (ambiance: AmbianceId) => void; onClose: () => void }) {
+  const menu = useRef<HTMLUListElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    // before the room's own Escape (back to all the rooms) and before a click elsewhere does what it does
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.isComposing) { event.preventDefault(); event.stopPropagation(); close.current(); } };
+    const onPointer = (event: PointerEvent) => { if (!menu.current?.parentElement?.contains(event.target as Node)) close.current(); };
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPointer, true);
+    return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onPointer, true); };
+  }, []);
+  return (
+    <ul ref={menu} className="cp-cozy__list cp-cozy__ambiances" role="menu" aria-label={label}>
+      {AMBIANCE_IDS.map((id) => (
+        <li key={id} role="none">
+          <button type="button" role="menuitemradio" aria-checked={id === current} onClick={() => onPick(id)}>
+            <span>{t.room.cozy.ambiances[id]}</span>{id === current && <CheckIcon />}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}

@@ -184,6 +184,11 @@ export const settings = {
       theme: { title: 'Thème du bureau', hint: 'Le bureau et la salle de repos changent de décor, meubles compris.', options: { office: 'Bureau', space: 'Navette spatiale', tokyo: 'Tokyo néon', dungeon: 'Donjon', beach: 'Plage', pirate: 'Bateau pirate', forest: 'Cabane en forêt', cellar: 'Cave de hackers' } },
       roomStyle: { title: 'Style de la salle', hint: 'Un grand open space, ou une petite pièce par projet avec ton appart au milieu.', options: { classic: 'Classique', cozy: 'Cozy' } },
       homeTheme: { title: 'Chez toi', hint: 'Ton chez-toi au milieu des pièces cozy, où ton équipe te rejoint en visio.', options: { studio: 'Studio cosy', loft: 'Loft', chalet: 'Chalet', japonais: 'Appart japonais' } },
+      cozyAmbianceMode: {
+        title: 'Ambiance des pièces', hint: 'La même pour toutes, une par projet au hasard (toujours la même pour un projet), ou celle choisie sur l’étiquette de chaque pièce.',
+        options: { same: 'La même partout', random: 'Au hasard', manual: 'Au choix' },
+      },
+      cozyAmbiance: { title: 'Ambiance par défaut', hint: 'Celle de toutes les pièces, ou de celles sans choix à elles.' },
       festivals: { title: 'Fêtes', hint: 'Le bureau se décore pour Noël, Halloween, les anniversaires…' },
       officeLife: { title: 'Vie au bureau', hint: 'Ton équipe libre passe prendre un café, lire, regarder par la fenêtre.' },
       hideNames: { title: 'Cacher les prénoms', hint: 'Dans la salle, une session avec des tags ne montre qu’eux ; son prénom revient au survol, ou s’il n’y a pas de tag.' },

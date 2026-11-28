@@ -605,6 +605,12 @@ export interface Preferences {
   pinnedProjects?: string[];
   /** how the user's home looks in the cozy rooms (src/room/cozy/home/); absent means the studio */
   homeTheme?: HomeTheme;
+  /** how the cozy project rooms get their ambiance (src/room/cozy/ambiance/): see CozyAmbianceMode; absent means 'same' */
+  cozyAmbianceMode?: CozyAmbianceMode;
+  /** the ambiance of every cozy project room ('same'), and of those without a pick ('manual'); absent means the offices */
+  cozyAmbiance?: CozyAmbiance;
+  /** the ambiance picked for a project's room, by its folder ('manual'); absent means none */
+  projectAmbiances?: Record<string, CozyAmbiance>;
 }
 
 /**
@@ -635,6 +641,15 @@ export type RoomStyle = (typeof ROOM_STYLES)[number];
 /** Preferences.homeTheme: the user's home in the cozy rooms, the first one by default. */
 export const HOME_THEMES = ['studio', 'loft', 'chalet', 'japonais'] as const;
 export type HomeTheme = (typeof HOME_THEMES)[number];
+/**
+ * Preferences.cozyAmbiance: the looks a cozy project room may have, cozy versions of the classic themes and two of its
+ * own. A version that does not draw one yet shows the offices instead (src/room/cozy/ambiance/index.ts).
+ */
+export const COZY_AMBIANCES = ['office', 'space', 'tokyo', 'dungeon', 'beach', 'pirate', 'forest', 'cellar', 'cafe', 'atelier'] as const;
+export type CozyAmbiance = (typeof COZY_AMBIANCES)[number];
+/** Preferences.cozyAmbianceMode: every room in the same ambiance, each in one of them by its folder, or each as picked on its plate. */
+export const COZY_AMBIANCE_MODES = ['same', 'random', 'manual'] as const;
+export type CozyAmbianceMode = (typeof COZY_AMBIANCE_MODES)[number];
 export const TIME_FORMATS = ['auto', '24h', '12h'] as const;
 export type TimeFormat = (typeof TIME_FORMATS)[number];
 

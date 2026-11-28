@@ -7,7 +7,8 @@ import type { TerminalKind } from '../../shared/terminal.ts';
 import { applyGlassOpacity } from '../design/glass.ts';
 import { IS_MAC, IS_WINDOWS } from '../lib/platform.ts';
 import { INBOUND_POLICIES, WORKFLOW_SIZES, type ClaudeSettings, type ClaudeSwitch } from '../../shared/claude-settings.ts';
-import { ACCOUNTS_BROWSERS, EFFORTS, GLASS_OPACITY, HOME_THEMES, WINDOW_STYLES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, PERMISSION_MODES, ROOM_STYLES, TIME_FORMATS, type HomeTheme, type Preferences, type RoomStyle } from '../../shared/protocol.ts';
+import { ACCOUNTS_BROWSERS, COZY_AMBIANCE_MODES, EFFORTS, GLASS_OPACITY, HOME_THEMES, WINDOW_STYLES, IDLE_COMPACT_MINUTES, ISOLATE_MODES, PERMISSION_MODES, ROOM_STYLES, TIME_FORMATS, type CozyAmbianceMode, type HomeTheme, type Preferences, type RoomStyle } from '../../shared/protocol.ts';
+import { AMBIANCE_IDS, registeredAmbiance, type AmbianceId } from '../room/cozy/ambiance/index.ts';
 import { ROOM_THEMES, type RoomTheme } from '../../shared/room-themes.ts';
 import { matchesAll } from '../../shared/search.ts';
 import { t } from '../i18n/index.ts';
@@ -54,7 +55,7 @@ const LAYOUT: Readonly<Partial<Record<SettingsSection, readonly (readonly [Group
   ],
   folders: [['places', ['roots', 'defaultFolder']], ['files', ['journalFolder']]],
   // what Open Space looks like: the windows, then the room and its people
-  office: [['appearance', ['windowStyle', 'glassOpacity', 'tagColors', 'reduceMotion']], ['life', ['theme', 'roomStyle', 'homeTheme', 'festivals', 'officeLife', 'hideNames', 'radio', 'previewFestival', 'previewHour']], ['crew', ['crew']]],
+  office: [['appearance', ['windowStyle', 'glassOpacity', 'tagColors', 'reduceMotion']], ['life', ['theme', 'roomStyle', 'homeTheme', 'cozyAmbianceMode', 'cozyAmbiance', 'festivals', 'officeLife', 'hideNames', 'radio', 'previewFestival', 'previewHour']], ['crew', ['crew']]],
   // what starts sessions without the user at the keyboard, and the chat bots and programs that reach Open Space (body())
   connections: [['automata', ['automata', 'hooksAddress', 'automataFolder']], ['phone', ['phoneAccess']]],
   about: [['appearance', ['version', 'claude', 'account', 'links', 'dockApp']]],
@@ -419,6 +420,21 @@ function SettingsEditor() {
         <Row key={id} id={id} flash={flash} icon={<HomeIcon />} title={rows.homeTheme.title} hint={rows.homeTheme.hint}>
           <select aria-labelledby={`setting-${id}-title`} value={draft.homeTheme ?? 'studio'} onChange={(e) => change({ homeTheme: e.target.value as HomeTheme })}>
             {HOME_THEMES.map((theme) => <option key={theme} value={theme}>{rows.homeTheme.options[theme]}</option>)}
+          </select>
+        </Row>
+      );
+      // how the cozy project rooms look (src/room/cozy/ambiance/): one ambiance for all, one each at random, or as picked on a room's plate
+      case 'cozyAmbianceMode': return draft.roomStyle !== 'cozy' ? null : (
+        <Row key={id} id={id} flash={flash} icon={<SparklesIcon />} title={rows.cozyAmbianceMode.title} hint={rows.cozyAmbianceMode.hint}>
+          <select aria-labelledby={`setting-${id}-title`} value={draft.cozyAmbianceMode ?? 'same'} onChange={(e) => change({ cozyAmbianceMode: e.target.value as CozyAmbianceMode })}>
+            {COZY_AMBIANCE_MODES.map((mode) => <option key={mode} value={mode}>{rows.cozyAmbianceMode.options[mode]}</option>)}
+          </select>
+        </Row>
+      );
+      case 'cozyAmbiance': return draft.roomStyle !== 'cozy' ? null : (
+        <Row key={id} id={id} flash={flash} icon={<RoomsIcon />} title={rows.cozyAmbiance.title} hint={rows.cozyAmbiance.hint}>
+          <select aria-labelledby={`setting-${id}-title`} value={registeredAmbiance(draft.cozyAmbiance) ?? 'office'} onChange={(e) => change({ cozyAmbiance: e.target.value as AmbianceId })}>
+            {AMBIANCE_IDS.map((ambiance) => <option key={ambiance} value={ambiance}>{t.room.cozy.ambiances[ambiance]}</option>)}
           </select>
         </Row>
       );

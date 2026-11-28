@@ -4,16 +4,18 @@
 // seat's own tile, walked onto last. A project room's seats are its desks' chairs, the break room's its sofas' and
 // beanbags' places; where the user may sit: at home, their desk's chair (where they start) and the theme's other spots
 // (its bed, sofa, armchair or cushion); in a project room, the visitors' couch; in the break room, a free place.
-// People come in through the door on the left wall (decor.ts DOOR). Pure: tested without a DOM.
+// People come in through the door on the left wall (a project room's ambiance's, the break room's decor.ts DOOR). Pure:
+// tested without a DOM.
 import type { Festival } from '../../../shared/festivals.ts';
 import type { PlayerSpot, Seat } from '../../../shared/room-layout.ts';
 import type { Point } from '../geometry.ts';
 import { aisleRoute } from '../paths.ts';
 import type { SceneFloor, SceneView } from '../scene.ts';
 import type { Direction } from '../sprites.ts';
-import { DOOR, FESTIVE_SPOT, ROOM_FOOTPRINTS } from './decor.ts';
+import { designOf, type AmbianceDesign } from './ambiance/index.ts';
+import { DOOR, type DoorSpot } from './decor.ts';
 import { FESTIVE_DECOR } from './festive.ts';
-import { COUCH_PLACES, DESKS, ORIGIN, ROOM_UNITS, around, deskPlace, iso, type Footprint, type Place } from './geometry.ts';
+import { ORIGIN, ROOM_UNITS, around, deskPlace, iso, onCouchAt, type Footprint, type Place } from './geometry.ts';
 import { HOME_DESIGNS, homePlace, homeThemeOf } from './home/index.ts';
 import { LOUNGE_FESTIVE_SPOT, LOUNGE_FOOTPRINTS, LOUNGE_PLACES } from './lounge.ts';
 import type { CozyRoom } from './rooms.ts';
@@ -80,8 +82,8 @@ export interface CozyFloorPlan {
   spots: readonly { place: Place; atDesk: boolean }[];
   /** a sessions' seat the user may sit on too (the break room's): kept free of sessions while they do */
   sharedSeats: boolean;
-  /** the room has the door on its left wall people come in by */
-  door: boolean;
+  /** the door on its left wall people come in by, if it has one */
+  door: DoorSpot | null;
 }
 
 export class CozyFloor implements SceneFloor {
@@ -111,9 +113,9 @@ export class CozyFloor implements SceneFloor {
       if (!this.avoided.has(`${x},${y}`) && plan.furniture.some((box) => under(box, u, v))) this.blocked.add(`${x},${y}`);
     }
     // in through the door on the left wall, one step inside; a room without one is come into at its first spot
-    const doorway = tileOf(0, (DOOR.a0 + DOOR.a1) / 2);
-    this.door = plan.door ? { x: 0.3, y: doorway.y } : { ...spots[0].at };
-    this.inside = plan.door ? { x: 1.5, y: doorway.y } : { ...spots[0].at };
+    const doorway = plan.door && tileOf(0, (plan.door.a0 + plan.door.a1) / 2);
+    this.door = doorway ? { x: 0.3, y: doorway.y } : { ...spots[0].at };
+    this.inside = doorway ? { x: 1.5, y: doorway.y } : { ...spots[0].at };
   }
 
   isFreeTile = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < FLOOR_TILES && y < FLOOR_TILES && !this.blocked.has(`${x},${y}`);
@@ -157,21 +159,34 @@ export class CozyFloor implements SceneFloor {
 export const festiveFootprints = (festival: Festival | null, spot: { u: number; v: number }): Footprint[] =>
   (festival && FESTIVE_DECOR[festival].floor ? [around(spot.u, spot.v, 6, 30)] : []);
 
-/** What a room's floor is made of: its furniture, its seats and its spots, by its kind (and the home's theme). */
-export function cozyFloorPlan(room: Pick<CozyRoom, 'kind' | 'home'>, festival: Festival | null = null): CozyFloorPlan {
+/** What stands on a project room's floor in an ambiance, its festival's decoration aside: its furniture, its couch and its desks (their chairs are seats). */
+export function roomFootprints(design: AmbianceDesign): Footprint[] {
+  const { couch } = design, [u1, v1] = onCouchAt(couch, couch.depth, couch.length);
+  return [
+    ...design.footprints,
+    { u0: couch.u, u1, v0: couch.v, v1, height: 20 },
+    ...design.desks.map((desk): Footprint => (desk.kind === 'back'
+      ? { u0: desk.u, u1: desk.u + desk.length, v0: desk.v, v1: desk.v + 14, height: 36 }
+      : { u0: desk.u, u1: desk.u + 14, v0: desk.v, v1: desk.v + desk.length, height: 36 })),
+  ];
+}
+
+/** What a room's floor is made of: its furniture, its seats and its spots, by its kind (and the home's theme, a project room's ambiance). */
+export function cozyFloorPlan(room: Pick<CozyRoom, 'kind' | 'home' | 'ambiance'>, festival: Festival | null = null): CozyFloorPlan {
   if (room.kind === 'home') {
     const theme = room.home ?? homeThemeOf(undefined), design = HOME_DESIGNS[theme];
     return {
       furniture: [...design.furniture, ...festiveFootprints(festival, design.festiveSpot)], seats: [],
-      spots: [{ place: homePlace(theme), atDesk: true }, ...design.spots.map((place) => ({ place, atDesk: false }))], sharedSeats: false, door: false,
+      spots: [{ place: homePlace(theme), atDesk: true }, ...design.spots.map((place) => ({ place, atDesk: false }))], sharedSeats: false, door: null,
     };
   }
   if (room.kind === 'lounge') {
-    return { furniture: [...LOUNGE_FOOTPRINTS, ...festiveFootprints(festival, LOUNGE_FESTIVE_SPOT)], seats: LOUNGE_PLACES, spots: LOUNGE_PLACES.map((place) => ({ place, atDesk: false })), sharedSeats: true, door: true };
+    return { furniture: [...LOUNGE_FOOTPRINTS, ...festiveFootprints(festival, LOUNGE_FESTIVE_SPOT)], seats: LOUNGE_PLACES, spots: LOUNGE_PLACES.map((place) => ({ place, atDesk: false })), sharedSeats: true, door: DOOR };
   }
+  const design = designOf(room);
   return {
-    furniture: [...ROOM_FOOTPRINTS, ...festiveFootprints(festival, FESTIVE_SPOT)], seats: DESKS.map(deskPlace),
-    spots: COUCH_PLACES.map((place) => ({ place, atDesk: false })), sharedSeats: false, door: true,
+    furniture: [...roomFootprints(design), ...festiveFootprints(festival, design.festiveSpot)], seats: design.desks.map(deskPlace),
+    spots: design.couchPlaces.map((place) => ({ place, atDesk: false })), sharedSeats: false, door: design.door,
   };
 }
 

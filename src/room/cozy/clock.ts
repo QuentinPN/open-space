@@ -10,9 +10,11 @@ import { clockMinute } from './time.ts';
 
 /**
  * A clock on a back wall: its middle (`a` along the wall, `z` up) and its radius; `shape`: the room's own drawing of
- * it (the chalet's cuckoo clock), whose face this one does not draw, but that its outline and its clicks follow.
+ * it (the chalet's cuckoo clock), whose face this one does not draw, but that its outline and its clicks follow;
+ * `tones`: its rim, face and marks, if not the offices' pink ones.
  */
-export interface WallClock { wall: Wall; a: number; z: number; radius: number; shape?: (target: PixelTarget) => void }
+export interface WallClock { wall: Wall; a: number; z: number; radius: number; shape?: (target: PixelTarget) => void; tones?: ClockTones }
+export type ClockTones = Readonly<Record<'rim' | 'rimShade' | 'face' | 'tick', string>>;
 
 /** Along the wall, which way the screen's right is: the left wall runs the other way (pixels.ts wallPoint). */
 const rightward = (wall: Wall) => (wall === 'right' ? 1 : -1);
@@ -20,7 +22,7 @@ const rightward = (wall: Wall) => (wall === 'right' ? 1 : -1);
 /** The clock's face, with a mark at each quarter: drawn once, with the room. */
 export function paintClockFace(grid: PixelGrid, clock: WallClock) {
   if (clock.shape) return;
-  const { wall, a, z, radius } = clock, K = C.wallClock, side = rightward(wall);
+  const { wall, a, z, radius } = clock, K = clock.tones ?? C.wallClock, side = rightward(wall);
   wallEllipse(grid, wall, a + 0.5, z + 0.5, radius + 1.4, radius + 1.4, K.rimShade);
   wallEllipse(grid, wall, a + 0.5, z + 1, radius + 1, radius + 1, K.rim);
   wallEllipse(grid, wall, a + 0.5, z + 0.5, radius, radius, K.face);
@@ -46,7 +48,7 @@ export function paintClockHands(target: PixelTarget, clock: WallClock, hour: num
 }
 
 /** The clock as it hangs on its wall, face and rim, or the room's own drawing of it. */
-function paintWholeClock(grid: PixelGrid, clock: WallClock) {
+export function paintWholeClock(grid: PixelGrid, clock: WallClock) {
   if (clock.shape) clock.shape(grid);
   else paintClockFace(grid, clock);
 }

@@ -1,5 +1,6 @@
 import type { Festival } from '../../../shared/festivals.ts';
 import type { PetKind } from '../../../shared/pets.ts';
+import type { CozyAmbiance } from '../../../shared/protocol.ts';
 import { plural } from '../index.ts';
 
 export const room = {
@@ -41,6 +42,12 @@ export const room = {
     description: (rooms: number, sessions: number) => `${plural(rooms, 'pièce', 'pièces')}, ${plural(sessions, 'session', 'sessions')}.`,
     /** a room's clock: what a click on it does, and the time it then tells */
     clock: { hint: 'Voir l’heure', time: (time: string) => `Il est ${time}` },
+    /** a project room's ambiance, picked on its plate */
+    ambiance: { pick: (project: string) => `Ambiance de ${project}` },
+    ambiances: {
+      office: 'Bureau', space: 'Station spatiale', tokyo: 'Tokyo néon', dungeon: 'Donjon', beach: 'Plage', pirate: 'Bateau pirate', forest: 'Cabane en forêt',
+      cellar: 'Cave de hackers', cafe: 'Café-librairie', atelier: 'Atelier créatif',
+    } satisfies Record<CozyAmbiance, string>,
   },
   /** before someone's words in a speech bubble */
   speaker: (label: string) => `${label} :`,

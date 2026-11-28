@@ -1,85 +1,79 @@
 // Life in the cozy offices (Preferences.officeLife): the classic room's visits (visitors.ts: who comes, when, for how
-// long, by the hour's rhythm) walked in a project room of the cozy style: a coffee at the counter, a glass at the water
-// cooler, a look out of the window, a book from the drawers, a moment on the couch (the sessions at rest nap in the
-// break room, not there), and on a festival the classic office gathers for, a party by its tree or balloons. They come
-// in from the front of the room.
+// long, by the hour's rhythm) walked in a project room of the cozy style, to the spots of its ambiance
+// (ambiance/index.ts AmbianceVisits): in the offices a coffee at the counter, a glass at the water cooler, a look out
+// of the window, a book from the drawers; a moment on the couch in every one (the sessions at rest nap in the break
+// room, not there), and on a festival the classic office gathers for, a party by its tree or balloons. They come in
+// from the front of the room.
 // Visitors walk in tiles: here a tile is VISIT_UNIT room units. Pure: tested without a DOM.
 import type { Festival } from '../../../shared/festivals.ts';
 import { festivalVisits, type VisitSpot } from '../../../shared/room-layout.ts';
 import { distance, type Point } from '../geometry.ts';
 import type { VisitFloor } from '../visitors.ts';
-import { COUCH_PLACES, feetOf, personDepth } from './geometry.ts';
+import { designOf, type AmbianceDesign, type AmbianceSpot, type FloorPoint } from './ambiance/index.ts';
+import { feetOf, personDepth, type Couch } from './geometry.ts';
 import type { CozyRoom } from './rooms.ts';
 
 /** Room units in a tile of the visits: they walk at the classic room's pace across a cozy room in a few seconds. */
 export const VISIT_UNIT = 8;
 
 /** A floor point (u, v) of a cozy room, in the visits' tiles. */
-const tile = (u: number, v: number): Point => ({ x: u / VISIT_UNIT, y: v / VISIT_UNIT });
+const tile = ([u, v]: FloorPoint): Point => ({ x: u / VISIT_UNIT, y: v / VISIT_UNIT });
 
-/** A cozy spot: the classic spot, and the floor points (u, v) walked through to reach it from the middle of the room. */
-interface CozySpot extends VisitSpot { via: readonly (readonly [number, number])[] }
+/** A cozy spot: the classic spot, and the floor points walked through to reach it from the middle of the room, in tiles. */
+interface CozySpot extends VisitSpot { via: readonly Point[] }
 
-/** Where they come in (the front of the floor) and the open middle they cross (the rug). */
-const DOOR = [50, 124] as const;
-const MIDDLE = [50, 84] as const;
+const spotOf = ({ at, via, ...spot }: AmbianceSpot): CozySpot => ({ ...spot, at: tile(at), via: via.map(tile) });
 
-/** Past the second back desk's chair and along the side desks' far end: the way to the room's back right corner. */
-const BACK_RIGHT = [[96, 50], [116, 40]] as const;
+/** What visitors come for in a room of an ambiance, its couch's places included, and its party's places: the same ones each time. */
+interface RoomVisits { spots: readonly CozySpot[]; party: readonly CozySpot[]; parties: Map<Festival | null, readonly CozySpot[]> }
+const visitsOf = new WeakMap<AmbianceDesign, RoomVisits>();
 
-/**
- * The spots, each where nothing of the room hides the visitor (the counter stands behind the desks: only the gap
- * between the two back desks gets a coffee; the water cooler stands in the back right corner, clear of them).
- * Facing: classic directions (geometry.ts facingVector), 0 towards the right wall, 6 towards the left one, 2 towards
- * the front, 3 straight down the screen, 7 straight up it.
- */
-const SPOTS: readonly CozySpot[] = [
-  { activity: 'coffee', at: tile(60, 19), facing: 0, via: [[64, 62], [65, 42]] },
-  // in front of the cooler's taps, turned to them
-  { activity: 'water', at: tile(120, 24), facing: 0, via: BACK_RIGHT },
-  { activity: 'window', at: tile(28, 58), facing: 6, via: [[36, 66]] },
-  { activity: 'books', at: tile(24, 92), facing: 6, via: [[34, 94]] },
-  ...COUCH_PLACES.map((place): CozySpot => ({ activity: 'sofa', at: tile(place.u, place.v), facing: 2, lift: place.lift, via: [[place.u + 18, place.v]] })),
-];
+function roomVisits(design: AmbianceDesign): RoomVisits {
+  let found = visitsOf.get(design);
+  if (!found) {
+    const { couch } = design;
+    // onto the couch from right in front of it
+    const sofa = design.couchPlaces.map((place): AmbianceSpot => ({
+      activity: 'sofa', at: [place.u, place.v], facing: 2, lift: place.lift, via: [couch.alongU ? [place.u, place.v + 18] : [place.u + 18, place.v]],
+    }));
+    found = { spots: [...design.visits.spots, ...sofa].map(spotOf), party: design.visits.party.map(spotOf), parties: new Map() };
+    visitsOf.set(design, found);
+  }
+  return found;
+}
 
-/**
- * A festival's party, by its tree, pumpkins or balloons (decor.ts FESTIVE_SPOT, between the drawers and the cooler):
- * alone, turned to them; two, turned to each other.
- */
-const PARTY: readonly CozySpot[] = [
-  { activity: 'party', at: tile(104, 18), facing: 7, together: 3, via: BACK_RIGHT },
-  { activity: 'party', at: tile(112, 30), facing: 7, together: 7, via: BACK_RIGHT },
-];
-
-const parties = new Map<Festival | null, readonly CozySpot[]>();
 /**
  * The party's places on a festival: as many as the classic office has for it (none on most), coming two by two there
  * too. The same spots each time: a visitor keeps theirs only while the room still offers it, so the party breaks up
  * when the festival ends (visitors.ts Visits.step).
  */
-function partyOn(festival: Festival | null): readonly CozySpot[] {
-  let spots = parties.get(festival);
+function partyOn(design: AmbianceDesign, festival: Festival | null): readonly CozySpot[] {
+  const visits = roomVisits(design);
+  let spots = visits.parties.get(festival);
   if (!spots) {
     const classic = festivalVisits(festival);
-    spots = PARTY.slice(0, classic.length).map(({ together, ...spot }, index) => (classic[index].together === undefined ? spot : { ...spot, together }));
-    parties.set(festival, spots);
+    spots = visits.party.slice(0, classic.length).map(({ together, ...spot }, index) => (classic[index].together === undefined ? spot : { ...spot, together }));
+    visits.parties.set(festival, spots);
   }
   return spots;
 }
 
-/** The spots a visitor may go to in a project room: the room's own and, on a festival, the party's. */
-export const visitSpotsIn = (festival: Festival | null = null): readonly VisitSpot[] => [...SPOTS, ...partyOn(festival)];
+/** The spots a visitor may go to in a project room of an ambiance (the offices by default): the room's own and, on a festival, the party's. */
+export const visitSpotsIn = (festival: Festival | null = null, design: AmbianceDesign = designOf({ kind: 'project' })): readonly VisitSpot[] =>
+  [...roomVisits(design).spots, ...partyOn(design, festival)];
 
-const viaOf = (to: Point) => [...SPOTS, ...PARTY].reduce((best, spot) => (distance(spot.at, to) < distance(best.at, to) ? spot : best)).via.map(([u, v]) => tile(u, v));
-
-/** A cozy project room as the visits see it (visitors.ts VisitFloor): `festival()` is the festival it is dressed for, read at each step. */
-export function cozyVisitFloor(festival: () => Festival | null = () => null): VisitFloor {
-  const door = tile(...DOOR), middle = tile(...MIDDLE);
+/**
+ * A cozy project room as the visits see it (visitors.ts VisitFloor), in its ambiance (the offices by default):
+ * `festival()` is the festival it is dressed for, read at each step.
+ */
+export function cozyVisitFloor(festival: () => Festival | null = () => null, design: AmbianceDesign = designOf({ kind: 'project' })): VisitFloor {
+  const door = tile(design.visits.entry), middle = tile(design.visits.middle), { spots, party } = roomVisits(design);
+  const viaOf = (to: Point) => [...spots, ...party].reduce((best, spot) => (distance(spot.at, to) < distance(best.at, to) ? spot : best)).via;
   return {
     door,
-    layout: { get visitSpots() { return visitSpotsIn(festival()); } },
+    layout: { get visitSpots() { return visitSpotsIn(festival(), design); } },
     route: (_from, to) => [middle, ...viaOf(to)],
-    pathToDoor: (from) => [...viaOf(from).reverse(), middle, { ...door }],
+    pathToDoor: (from) => [...viaOf(from).toReversed(), middle, { ...door }],
   };
 }
 
@@ -89,8 +83,8 @@ export function visitedRoom(rooms: readonly CozyRoom[], zoomed: string | null): 
   return projects.find((room) => room.id === zoomed) ?? projects.find((room) => room.lit) ?? projects[0] ?? null;
 }
 
-/** A visitor's place in a room: their feet (raised on the couch), their draw order, from their position in tiles. */
-export function visitorFeet(position: Point, lift: number): { u: number; v: number; feet: Point; depth: number } {
+/** A visitor's place in a room with `couch`: their feet (raised on the couch), their draw order, from their position in tiles. */
+export function visitorFeet(position: Point, lift: number, couch: Couch): { u: number; v: number; feet: Point; depth: number } {
   const u = position.x * VISIT_UNIT, v = position.y * VISIT_UNIT;
-  return { u, v, feet: feetOf({ u, v, direction: 'down-right', lift }), depth: personDepth(u, v, lift > 0) };
+  return { u, v, feet: feetOf({ u, v, direction: 'down-right', lift }), depth: personDepth(u, v, lift > 0, couch) };
 }

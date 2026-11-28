@@ -5,7 +5,8 @@
 import type { Point } from '../geometry.ts';
 import { isOnPet } from '../pet.ts';
 import { PLAYER_ID } from '../scene.ts';
-import { paintDoor, paintWhiteboard } from './decor.ts';
+import { designOf } from './ambiance/index.ts';
+import { paintDoor } from './decor.ts';
 import { figureAt, roomAt, type Figure } from './geometry.ts';
 import { homeThemeOf, metricsPainter, pcAt, roomClockAt } from './home/index.ts';
 import { paintedAt } from './pixels.ts';
@@ -13,15 +14,19 @@ import type { CozyRoom } from './rooms.ts';
 
 export type CozyThing = 'computer' | 'metrics' | 'board' | 'door' | 'clock';
 
-/** The thing a point of a room (in its pixels) falls on: the home's computer and numbers screen, a project room's whiteboard, the doors, the clocks. */
+/** The thing a point of a room (in its pixels) falls on: the home's computer and numbers screen, a project room's board (its ambiance's), the doors, the clocks. */
 export function thingAt(room: CozyRoom, point: Point): CozyThing | null {
   if (room.kind === 'home') {
     const theme = room.home ?? homeThemeOf(undefined);
     if (pcAt(theme, point)) return 'computer';
     if (paintedAt(metricsPainter(theme), point)) return 'metrics';
   }
-  if ((room.kind === 'project' || room.kind === 'lounge') && paintedAt(paintDoor, point)) return 'door';
-  if (room.kind === 'project' && paintedAt(paintWhiteboard, point)) return 'board';
+  if (room.kind === 'lounge' && paintedAt(paintDoor, point)) return 'door';
+  if (room.kind === 'project') {
+    const design = designOf(room);
+    if (paintedAt(design.paintDoor, point)) return 'door';
+    if (paintedAt(design.paintBoard, point)) return 'board';
+  }
   return roomClockAt(room, point) ? 'clock' : null;
 }
 

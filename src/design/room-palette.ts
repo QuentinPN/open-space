@@ -472,6 +472,96 @@ export const COZY_HOME_PALETTE = {
   },
 } as const;
 
+/**
+ * The ambiances of the cozy project rooms (src/room/cozy/ambiance/), one look each beside the offices' (COZY_PALETTE).
+ * Tones go light, base, dark. Hex only: the room's art lights them for the hour and its lamps (cozy/light.ts).
+ */
+export const COZY_AMBIANCE_PALETTE = {
+  /** the bookshop café: sage walls over a walnut wainscot, a parquet, a bar of marble, books everywhere */
+  cafe: {
+    wall: { left: '#7a9a7c', right: '#6c8d70', capTop: '#f3e6cf', capLeft: '#cdbb98', capRight: '#bfac88', top: '#8fae90', topShade: '#7d9c80' },
+    wainscot: { left: '#8a5a3a', right: '#7a4e32', panel: '#6a4228', light: '#a8714a', rail: '#c9a24a', railLight: '#ecc96e', base: '#4a2e1e', baseLight: '#6a4228' },
+    tiles: { tile: '#f4efe6', shade: '#e6dfd2', grout: '#cfc5b4' },
+    parquet: { tones: ['#b98352', '#a8744a', '#c48e5c', '#ad7a4c'], seam: '#7a4e30', light: '#d39e6a' },
+    window: { frame: '#2f4f3a', frameLight: '#4d7258', pane: '#f7f3ea', mullion: '#3f6249', sill: ['#b07a4e', '#97643e', '#7c4f30'], sillEdge: '#c99062' },
+    curtain: ['#fffaf0', '#f1e6d2', '#dccdb2'],
+    curtainRod: '#c9a24a',
+    basil: { pot: ['#d98a5a', '#c0703f', '#9e5830'], leaves: ['#8fd36a', '#5fae4b', '#3f8a3c'] },
+    door: {
+      frame: '#5e3a24', frameLight: '#8a5a3a', leaf: '#3f6b4f', leafLight: '#55866a', leafShade: '#2f5440', panel: '#35604a', panelLight: '#5f9474',
+      glass: '#cfe7ee', glassLight: '#eef8fa', knob: '#e0b84a', knobShade: '#b08a2a', sign: '#fff4dc', signInk: '#6a4228', mat: ['#c9a06a', '#b08850', '#8f6a3a'],
+    },
+    chalkboard: { frame: '#7a4e32', frameLight: '#a0683f', surface: '#2f3a35', surfaceLight: '#3a4842', chalk: '#f2efe6', chalkFaint: '#b9bdb4', inks: ['#f5a3b5', '#f6d77a', '#9fd3e6', '#a8dca0'], tray: ['#a0683f', '#7a4e32', '#5e3a24'] },
+    clock: { rim: '#e0b84a', rimShade: '#a88430', face: '#fffaf0', tick: '#6a4228' },
+    counter: {
+      body: ['#9a6440', '#84542f', '#6b4226'], slat: '#5e3a24', slatLight: '#ad7650', marble: ['#f7f4ef', '#e6e1d8', '#cfc8bc'], marbleEdge: '#ffffff', vein: '#c4bdb2',
+      chrome: ['#eef1f4', '#c9cfd6', '#9ea6ae'], chromeEdge: '#ffffff', copper: '#d08a50', copperLight: '#ecb07a', group: '#4a4a50', gauge: '#fffdf5', needle: '#d04a3a',
+      cup: '#ffffff', cupShade: '#dcd6cb', coffee: '#6a3c22', glass: ['#e6f4f6', '#cfe7ee', '#b4d6e0'], glassEdge: '#f7fcfd', croissant: '#e2a45a', croissantShade: '#b97a38',
+      macarons: ['#f5a3b5', '#a8dca0', '#f6d77a'],
+    },
+    water: { stand: ['#b07a4e', '#97643e', '#7c4f30'], standEdge: '#c99062', glass: '#dff2f6', glassShade: '#bfe0e8', water: '#c6e9f0', lemon: '#f6d34a', lemonLight: '#fff0a0', mint: '#5fae4b', tap: '#c9a24a', cups: '#f7fcfd' },
+    cabinet: ['#a8704a', '#8f5c3a', '#74482c'],
+    cake: { dome: '#e6f4f6', domeLight: '#ffffff', plate: '#fffaf0', sponge: '#f3d9b0', icing: '#f7a8bc', cream: '#fffaf0', cherry: '#d8394a' },
+    shelf: ['#8a5a3a', '#74482c', '#5e3a24'], shelfBack: '#4a2e1e', shelfEdge: '#a8714a',
+    books: ['#b85a4a', '#4f7a8c', '#d9a84a', '#6b8f5a', '#8c5a7a', '#e8dcc0', '#3f5a6b', '#c97a4a'],
+    couch: { body: ['#5c9873', '#467e5e', '#33644a'], edge: '#72ad88', cushion: ['#6aa680', '#528c6a', '#3d7256'], cushionEdge: '#86c09a', button: '#2a4a36' },
+    pillow: ['#f2c95c', '#dcaa3a', '#b98a28'],
+    pendant: { shade: ['#e8c870', '#c9a24a', '#9a7a30'], bulb: '#fff2c0', cord: '#3b2620' },
+    lamp: { shade: ['#6aa680', '#467e5e', '#33644a'], brass: '#c9a24a', brassLight: '#ecc96e', bulb: '#fff2c0' },
+    rug: { edge: '#6a2a2a', base: '#a8443a', border: '#c9684a', field: '#8c3a34', motif: '#e0a060', light: '#f2d8a8', fringe: '#efe2c4' },
+    print: { frame: '#c9a24a', mat: '#fffaf0', cup: '#ffffff', cupShade: '#dcd6cb', coffee: '#6a3c22', steam: '#c4bdb2', saucer: '#e8c9a0' },
+    wallShelf: ['#a8714a', '#8a5a3a', '#6a4228'], mugs: ['#f7a8bc', '#9fd3e6', '#f6d77a'], pothos: ['#9be27a', '#62b24d', '#3e8a3a'],
+    desk: { top: ['#b07a4e', '#97643e', '#7c4f30'], edge: '#c99062', leg: ['#5a5250', '#48413f', '#373130'], monitor: ['#4a4448', '#3a3538', '#2c282b'], monitorEdge: '#5e575b', stand: ['#5a5250', '#48413f', '#373130'], vents: '#26222a', keyboard: ['#f2eee6', '#d8d2c6', '#c4bdaf'], key: '#cfc8ba' },
+    seats: [['#d08a52', '#b8723e', '#9a5c2e'], ['#6aa07e', '#548a68', '#407254'], ['#c4686c', '#a85257', '#8c3f45'], ['#e8b84a', '#cf9e34', '#b08428']],
+    chair: { base: ['#5a5250', '#48413f', '#373130'], pole: ['#6a6260', '#524a48', '#3a3432'] },
+    latte: { cup: '#fffdf8', shade: '#e6e0d6', foam: '#e8c9a0', heart: '#fffaf0', saucer: '#efe8dc' },
+    light: {
+      on: { day: [1, 0.98, 0.95], dusk: [0.94, 0.8, 0.74], night: [0.6, 0.53, 0.62] },
+      off: { day: [0.84, 0.83, 0.86], dusk: [0.66, 0.57, 0.62], night: [0.42, 0.38, 0.52] },
+      lamp: { dusk: [0.42, 0.29, 0.12], night: [0.8, 0.56, 0.24] },
+    },
+  },
+  /** the space station: pale hull panels with their lights, a deck of plates, a porthole on the stars, pastel modules */
+  space: {
+    wall: { left: '#e6e9f2', right: '#d6dbe8', capTop: '#f4f6fb', capLeft: '#b8bfd0', capRight: '#a9b1c4' },
+    hull: { seam: '#b3bacd', seamLight: '#f7f9fd', lower: '#a9b2c8', lowerRight: '#9aa3bb', vent: '#6f7893', rivet: '#c4cad8', strip: '#8ff0f6', stripDim: '#5fc8d6', decal: '#f59ac8' },
+    deck: { tones: ['#b9c0d4', '#b2b9ce', '#c0c6d8', '#adb4ca'], seam: '#8a92aa', light: '#d4d9e6', rivet: '#e0e4ee', hazard: '#f2c94c', hazardDark: '#4a4e62' },
+    porthole: { frame: ['#f4f6fb', '#c4cad8', '#9aa2b8'], bolt: '#8a92aa', glass: '#9fb3ff' },
+    /** what the porthole shows: never darkened by the room's light */
+    view: {
+      day: ['#141a44', '#1a2152', '#212a62', '#283372'], dusk: ['#2a1a48', '#3a2058', '#4c2a68', '#5e3474'], night: ['#090b22', '#0d1030', '#111640', '#151b4c'],
+      star: '#fffff2', starBlue: '#bfe8ff', nebula: '#c97ac8', nebulaDeep: '#7d5cc2',
+      planet: '#7fc8e8', planetLight: '#b8e6f6', planetShade: '#3f7fae', planetNight: '#1e3a62', band: '#f0c39a', ring: '#f6dca8', ringShade: '#c9a878', sun: '#ffd27a', sunGlow: '#ff9d6a',
+    },
+    door: { frame: ['#c4cad8', '#a9b1c4', '#8a92aa'], leaf: '#d6dbe8', leafLight: '#eef1f8', leafShade: '#b3bacd', seam: '#5a6280', slit: '#8ff0f6', hazard: '#f2c94c', hazardDark: '#4a4e62', light: '#7cff9b', mat: ['#6f7893', '#5a6280', '#4a4e62'] },
+    board: { frame: '#4a4e62', frameLight: '#6f7893', screen: '#1b2140', grid: '#2a3462', line: '#8ff0f6', orbit: '#5fb2e3', dots: ['#f59ac8', '#ffd23f', '#7cdb8f'], sun: '#ffd27a' },
+    clock: { rim: '#8ff0f6', rimShade: '#5a6280', face: '#eef1f8', tick: '#6f7893' },
+    galley: {
+      body: ['#f4f6fb', '#dfe3ee', '#c4cad8'], edge: '#ffffff', panel: '#b3bacd', top: ['#c4cad8', '#a9b1c4', '#8a92aa'], topEdge: '#dfe3ee',
+      unit: ['#5a6280', '#454c68', '#353b54'], unitEdge: '#6f7893', screen: '#1b2140', text: '#8ff0f6', led: '#7cff9b', nozzle: '#c4cad8', cup: '#ffffff', cupShade: '#c4cad8',
+      pouches: ['#f59ac8', '#7cdb8f', '#ffd23f'],
+    },
+    tank: { base: ['#c4cad8', '#a9b1c4', '#8a92aa'], baseEdge: '#dfe3ee', glass: '#d4f1fb', water: '#5fb2e3', waterLight: '#8fd0f2', bubble: '#e8f8ff', cap: '#6f7893', tap: '#f59ac8' },
+    pot: { light: '#ffffff', base: '#e6e9f2', shade: '#c4cad8', rim: '#dfe3ee', led: '#8ff0f6' },
+    lockers: { lavender: ['#cfc6f4', '#b3a6e8', '#9686d6'], mint: ['#c4f0e0', '#a0ddc8', '#7ec5ad'] },
+    rocket: { body: '#f4f6fb', shade: '#c4cad8', fin: '#f59ac8', window: '#5fb2e3', flame: '#ffd27a' },
+    pads: ['#5a6280', '#8ff0f6', '#454c68'],
+    couch: { body: ['#d4c8f4', '#b8a8e8', '#9c8cd6'], edge: '#e6defa', cushion: ['#c4f0e0', '#a0ddc8', '#7ec5ad'], cushionEdge: '#e2f8f0' },
+    lamp: { base: ['#6f7893', '#5a6280', '#454c68'], tube: '#d4fafc', tubeLight: '#ffffff', tubeShade: '#8ff0f6', cap: '#c4cad8' },
+    hatch: { rim: '#8a92aa', rimLight: '#c4cad8', plate: '#a3abc2', ring: '#949db6', middle: '#bcc3d6', bolt: '#e0e4ee', hazard: '#f2c94c', hazardDark: '#4a4e62' },
+    desk: { top: ['#f4f6fb', '#dfe3ee', '#c4cad8'], edge: '#ffffff', leg: ['#9aa2b8', '#7f88a0', '#6a7290'], monitor: ['#5a6280', '#454c68', '#353b54'], monitorEdge: '#6f7893', stand: ['#9aa2b8', '#7f88a0', '#6a7290'], vents: '#2c3044', keyboard: ['#e6e9f2', '#c4cad8', '#a9b1c4'], key: '#9aa2b8' },
+    chair: { base: ['#9aa2b8', '#7f88a0', '#6a7290'], pole: ['#b3bacd', '#9aa2b8', '#7f88a0'] },
+    seats: [['#cfc6f4', '#b3a6e8', '#9686d6'], ['#c4f0e0', '#a0ddc8', '#7ec5ad'], ['#fbc4de', '#f59ac8', '#d87aac'], ['#ffe7a0', '#f6d06a', '#d8b04a']],
+    mug: { body: '#f4f6fb', shade: '#c4cad8', band: '#7fc8e8', coffee: '#5a3424' },
+    orb: { base: '#5a6280', glass: '#d4f1fb', glow: '#8ff0f6' },
+    light: {
+      on: { day: [0.98, 0.99, 1.03], dusk: [0.86, 0.82, 0.94], night: [0.55, 0.58, 0.8] },
+      off: { day: [0.8, 0.83, 0.93], dusk: [0.62, 0.6, 0.76], night: [0.4, 0.42, 0.64] },
+      lamp: { dusk: [0.18, 0.3, 0.38], night: [0.34, 0.56, 0.72] },
+    },
+  },
+} as const;
+
 /** A colour of the rainbow, `hue` in degrees: the cozy home's gaming lights. */
 export const hueColour = (hue: number, { saturation, lightness }: { saturation: number; lightness: number }) => `hsl(${((hue % 360) + 360) % 360}, ${saturation}%, ${lightness}%)`;
 
