@@ -291,6 +291,8 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
     }
     case 'log': return sessionId ? { t: 'log', sessionId, after: Math.max(0, Math.floor(asNumber(raw.after))) } : null;
     case 'directories': return { t: 'directories' };
+    case 'getLogs': return { t: 'getLogs' };
+    case 'clearLogs': return { t: 'clearLogs' };
     case 'updateClaude': return { t: 'updateClaude' };
     case 'claudeLogin': return { t: 'claudeLogin' };
     case 'claudeLogout': return { t: 'claudeLogout' };

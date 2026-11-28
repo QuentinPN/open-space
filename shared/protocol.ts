@@ -665,6 +665,11 @@ export interface NoteMatch { name: string; count: number; excerpt: string }
 /** A folder offered at the onboarding as a place for sessions to run in: how many projects it holds (-1: not looked into). */
 export interface RootSuggestion { path: string; projects: number }
 
+/** A line of Settings > Logs, already redacted (shared/redact.ts): an error of the server, or a toast shown. */
+export interface LogEntry { at: number; level: 'error' | 'info'; source: 'server' | 'toast'; text: string }
+/** How many of the server's lines Settings > Logs keeps (server/server-log.ts), on the server and in an open page. */
+export const MAX_SERVER_LOG = 500;
+
 export type ClientMessage =
   | { t: 'create'; options: SessionOptions }
   /** the Claude Code conversations of a folder, to resume one; with `query`, those whose messages contain its words */
@@ -725,6 +730,9 @@ export type ClientMessage =
   | { t: 'cleanBranches'; cwd: string; branches: CleanedBranch[] }
   /** events of a session after a sequence number (0 = from the start) */
   | { t: 'log'; sessionId: string; after: number }
+  /** the server's lines of Settings > Logs (answered with `logs`), or none of them any more */
+  | { t: 'getLogs' }
+  | { t: 'clearLogs' }
   | { t: 'directories' }
   /** a new session that goes on from this one's conversation, which stays as it is */
   | { t: 'duplicate'; sessionId: string }
@@ -919,6 +927,10 @@ export type ServerMessage =
   /** a value a mod's page saved (null: none) */
   | { t: 'modStore'; id: string; name: string; value: unknown }
   | { t: 'toast'; kind: 'info' | 'error'; text: string }
+  /** the server's lines of Settings > Logs, oldest first, redacted (server/server-log.ts); `cleared`: emptied from a page, every page empties its own toasts too */
+  | { t: 'logs'; entries: LogEntry[]; cleared?: true }
+  /** a line the server just kept for Settings > Logs, redacted */
+  | { t: 'logEntry'; entry: LogEntry }
   /** a session's browser changed tabs or address; null once it is closed */
   | { t: 'browser'; sessionId: string; lane: number; browser: BrowserState | null };
 

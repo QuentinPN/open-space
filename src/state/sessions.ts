@@ -6,6 +6,7 @@ import { appendRunEvents, type RunLog } from './automata.ts';
 import type { ModInfo, ModSettings } from '../../shared/mods.ts';
 import { heardModEnv, heardModStore } from './mods.ts';
 import { heardPaths } from './path-mentions.ts';
+import { keepToast } from './logs.ts';
 import type { KeysState, SecretEntry, VaultScope } from '../../shared/secrets.ts';
 import type { MessengerInput } from '../../shared/messengers.ts';
 import { create } from 'zustand';
@@ -23,8 +24,8 @@ import { DEFAULT_PET } from '../../shared/pets.ts';
 import { startTrip, type PetTrip } from '../room/pet-trip.ts';
 import type { Look } from '../../shared/look.ts';
 import type { MusicApp, MusicTrack, NowPlaying } from '../../shared/music.ts';
-import { GLASS_OPACITY } from '../../shared/protocol.ts';
-import type { AppUpdate, Aside, BranchRow, FolderRepo, ClaudeAccount, ClaudeInfo, ClaudeUpdate, ClientMessage, Note, NoteFile, NoteMatch, Preferences, RootSuggestion, Conversation, CrewMember, FolderCode, ImageUpload, ContextUsage, InspectView, LoggedEvent, McpServer, UsageReport, PermissionDecision, SearchHit, Quota, ServerMessage, SessionChanges, SessionInfo, SessionOptions, SlashCommand, ModelChoice } from '../../shared/protocol.ts';
+import { GLASS_OPACITY, MAX_SERVER_LOG } from '../../shared/protocol.ts';
+import type { AppUpdate, Aside, BranchRow, FolderRepo, LogEntry, ClaudeAccount, ClaudeInfo, ClaudeUpdate, ClientMessage, Note, NoteFile, NoteMatch, Preferences, RootSuggestion, Conversation, CrewMember, FolderCode, ImageUpload, ContextUsage, InspectView, LoggedEvent, McpServer, UsageReport, PermissionDecision, SearchHit, Quota, ServerMessage, SessionChanges, SessionInfo, SessionOptions, SlashCommand, ModelChoice } from '../../shared/protocol.ts';
 import type { CostReport } from '../../shared/usage.ts';
 import { chime, errorChime, sampleChime } from '../lib/chime.ts';
 import { readPreference, writePreference } from '../lib/preferences.ts';
@@ -64,7 +65,7 @@ const writeWindows = (state: CommandPostState) =>
 export const maxColumnsIn = (view: View) => maxColumns(window.innerWidth, tilingOf(view));
 
 /** The parts of the settings dialog, in the order of its menu. */
-export const SETTINGS_SECTIONS = ['general', 'office', 'sessions', 'claude', 'folders', 'connections', 'keys', 'usage', 'shortcuts', 'about'] as const;
+export const SETTINGS_SECTIONS = ['general', 'office', 'sessions', 'claude', 'folders', 'connections', 'keys', 'usage', 'shortcuts', 'logs', 'about'] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /** The latest search sent over every session's thread: only its answer is kept. */
@@ -268,6 +269,10 @@ export interface CommandPostState {
   /** focus mode: the launcher shown as one more window beside the open sessions, rather than in their place */
   launcherOpen: boolean;
   toasts: Toast[];
+  /** the toasts this page raised itself, for Settings > Logs (state/logs.ts); the server keeps those it sent */
+  shownToasts: LogEntry[];
+  /** the server's lines of Settings > Logs, once asked for */
+  serverLogs: LogEntry[] | null;
   /** a session was asked for: the next unknown one that appears gets selected */
   awaitingNew: boolean;
   /** what the user has already seen of each session (kept in localStorage) */
@@ -402,7 +407,10 @@ export interface CommandPostState {
   becomeSelf: (name: string) => boolean;
   openNewSession: (draft: NewSessionDraft | null) => void;
   closeLauncher: () => void;
-  toast: (kind: Toast['kind'], text: string) => void;
+  /** `fromServer`: a toast the server sent, which it keeps among its own lines (so the page does not) */
+  toast: (kind: Toast['kind'], text: string, fromServer?: boolean) => void;
+  /** empties Settings > Logs: the toasts this page showed and the server's lines */
+  clearLogs: () => void;
 
   /** false when the message could not leave (too long, not connected): the Launcher then keeps what was typed */
   createSession: (options: SessionOptions) => boolean;
@@ -547,14 +555,21 @@ export const useSessions = create<CommandPostState>((set, get) => ({
   newSession: null,
   launcherOpen: false,
   toasts: [],
+  shownToasts: [],
+  serverLogs: null,
   awaitingNew: false,
   seen: readPreference<SeenSequences>('seen', {}),
   send: () => false,
 
-  toast: (kind, text) => {
+  toast: (kind, text, fromServer = false) => {
     const id = ++toastId;
-    set((s) => ({ toasts: [...s.toasts, { id, kind, text }].slice(-4) }));
+    set((s) => ({ toasts: [...s.toasts, { id, kind, text }].slice(-4), ...(fromServer ? {} : { shownToasts: keepToast(s.shownToasts, kind, text, Date.now()) }) }));
     setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), kind === 'error' ? 8000 : 4500);
+  },
+
+  clearLogs: () => {
+    // only once the server has the order: otherwise both lists stay as they are
+    if (get().send({ t: 'clearLogs' })) set({ shownToasts: [], serverLogs: [] });
   },
 
   receive: (message) => {
@@ -729,7 +744,11 @@ export const useSessions = create<CommandPostState>((set, get) => ({
       case 'modCreated': get().openMod(message.id); break;
       case 'modEnv': heardModEnv(message.id, message.env); break;
       case 'modStore': heardModStore(message.id, message.name, message.value); break;
-      case 'toast': s.toast(message.kind, message.text); break;
+      case 'toast': s.toast(message.kind, message.text, true); break;
+      // emptied from a page (this one or another): this page's own toasts go too
+      case 'logs': set({ serverLogs: message.entries, ...(message.cleared ? { shownToasts: [] } : {}) }); break;
+      // once Settings > Logs asked for the list: before, the list it asks for will hold this line
+      case 'logEntry': if (s.serverLogs) set({ serverLogs: [...s.serverLogs, message.entry].slice(-MAX_SERVER_LOG) }); break;
     }
   },
 

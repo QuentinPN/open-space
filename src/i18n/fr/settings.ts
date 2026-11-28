@@ -53,6 +53,16 @@ export const settings = {
     // around <code>python3 scripts/macos-app.py</code>
     elsewhere: ['Ton prénom, ton perso et les anniversaires se changent dans Équipe. Sur Mac, l’app du Dock se crée (ou prend ton nouveau perso comme icône) avec ', '.'],
   },
+  logs: {
+    refresh: 'Rafraîchir',
+    copy: 'Copier',
+    copied: 'Copié',
+    clear: 'Effacer',
+    empty: 'Rien pour l’instant. Les erreurs du serveur et les notifications s’afficheront ici.',
+    sources: { server: 'Serveur', toast: 'Notification' },
+    levels: { error: 'Erreur', info: 'Info' },
+    words: 'logs erreurs notifications messages historique ECONNRESET',
+  },
   keys: {
     everywhere: 'Partout',
     add: 'Ajouter une clé',
@@ -91,7 +101,7 @@ export const settings = {
     menu: 'Rubriques',
     sections: {
       general: 'Général', sessions: 'Sessions', claude: 'Claude Code', folders: 'Dossiers et notes', office: 'Apparence', connections: 'Automates et connexions', keys: 'Clés',
-      usage: 'Usage et coûts', shortcuts: 'Raccourcis', about: 'À propos',
+      usage: 'Usage et coûts', shortcuts: 'Raccourcis', logs: 'Journaux', about: 'À propos',
     },
     intros: {
       general: 'La langue, l’affichage des fils, les sons et les notifications.',
@@ -103,6 +113,7 @@ export const settings = {
       keys: 'Collées une fois, données aux agents par leur nom. Personne ne voit leur valeur, toi compris.',
       usage: 'Ce que Claude Code a consommé sur cet ordinateur.',
       shortcuts: 'Tout se fait aussi au clavier.',
+      logs: 'Les erreurs du serveur et les notifications passées, pour relire celles qui disparaissent trop vite. Les clés et ton dossier personnel sont masqués, et rien n’est écrit sur le disque.',
       about: 'La version d’Open Space et de Claude Code.',
     },
     groups: {

@@ -28,6 +28,7 @@ Mets **http://127.0.0.1:4848** en favori. Cette adresse ne change jamais et ne c
 | `session-state.ts` | machine d'états pure, sans compteur |
 | `session.ts` | une session : processus, machine, journal, et la seule table des demandes en attente |
 | `session-log.ts` | JSONL par session, écriture ordonnée, numéro de séquence, réouverture après une erreur d'écriture |
+| `server-log.ts` | Réglages > Journaux : les 500 dernières erreurs de `log()` et notifications envoyées, en mémoire seulement, masquées avant d'être gardées (`shared/redact.ts` : secret, clé MCP, clés des sessions, du coffre, des automates, des mods et des bots, formes connues de jetons, dossier personnel en `~`) ; la page les demande avec `getLogs` et y ajoute les notifications qu'elle a levées elle-même (celles du serveur n'y sont qu'une fois) ; les nouvelles lignes arrivent seules (`logEntry`) |
 | `sessions.ts` | collection, persistance `sessions.json` (fichier temporaire unique), commandes slash, arrêt |
 | `crew.ts` | l'équipe (`crew.json`) : prénoms et looks, validés par `shared/look.ts` |
 | `changes.ts` | ce qu'une session a changé : les fichiers écrits par ses outils d'édition (transcripts de Claude Code, sous-agents compris) et leur diff git |

@@ -12,6 +12,11 @@ export const formatClock = (at: number) => new Date(at).toLocaleTimeString(local
   hour: '2-digit', minute: '2-digit', ...(clockFormat === 'auto' ? {} : { hour12: clockFormat === '12h' }),
 });
 
+/** "12/03 14:05:09": when a line of Settings > Logs came, to the second, as the user writes times. */
+export const formatLogTime = (at: number) => new Date(at).toLocaleString(locale(), {
+  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', ...(clockFormat === 'auto' ? {} : { hour12: clockFormat === '12h' }),
+});
+
 export function formatDuration(ms: number): string {
   const { duration } = t.common;
   const seconds = Math.max(0, Math.round(ms / 1000));

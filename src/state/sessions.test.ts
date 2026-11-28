@@ -32,3 +32,20 @@ describe('the windows a reload brings back', () => {
     assert.deepEqual(asked.sort(), ['alice', 'ines']);
   });
 });
+
+describe('the toasts of Settings > Logs', () => {
+  it('keeps the toasts the page raised, not those the server sent and keeps itself', () => {
+    useSessions.setState({ shownToasts: [] });
+    useSessions.getState().receive({ t: 'toast', kind: 'error', text: 'read ECONNRESET' });
+    useSessions.getState().toast('info', 'copied');
+    assert.deepEqual(useSessions.getState().shownToasts.map((toast) => toast.text), ['copied']);
+  });
+
+  it('empties them when the server says the logs were cleared, not on an empty list alone', () => {
+    useSessions.setState({ shownToasts: [{ at: 1, level: 'info', source: 'toast', text: 'copied' }] });
+    useSessions.getState().receive({ t: 'logs', entries: [] });
+    assert.equal(useSessions.getState().shownToasts.length, 1);
+    useSessions.getState().receive({ t: 'logs', entries: [], cleared: true });
+    assert.deepEqual(useSessions.getState().shownToasts, []);
+  });
+});

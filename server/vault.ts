@@ -102,6 +102,9 @@ export class Vault {
 
   has(id: string) { return this.entries.some((entry) => entry.id === id); }
 
+  /** Every value it holds, for nothing but masking them in Settings > Logs (server/server-log.ts). */
+  values(): string[] { return this.entries.flatMap((entry) => (entry.value ? [entry.value] : [])); }
+
   /** The key a session of `project` gets under `name`: the project's own first, else the one for every session. */
   lookup(name: string, project: string): { id: string; value: string; scope: 'project' | 'all'; allowed: boolean } | null {
     const usable = (entry: Entry) => entry.name === name && entry.value !== null;

@@ -176,6 +176,11 @@ export class SecretStore {
     this.onChange(sessionId);
   }
 
+  /** Every value held, the sessions' own and the vault's, for nothing but masking them in Settings > Logs (server/server-log.ts). */
+  values(): string[] {
+    return [...[...this.kept.values()].flatMap((keys) => [...keys.values()].map((kept) => kept.value)), ...(this.vault?.values() ?? [])];
+  }
+
   /** Forgets the keys given more than SECRET_TTL_MS ago (those of the vault do not expire). */
   sweep() {
     for (const [sessionId, keys] of this.kept) {

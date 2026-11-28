@@ -49,6 +49,16 @@ export const settings: Dictionary['settings'] = {
     automataFolderInvalid: `The external runs folder must be a full path (${FULL_PATH}), or stay empty.`,
     elsewhere: ['Your first name, your character and birthdays are changed in Crew. On a Mac, the Dock app is created (or takes your new character as its icon) with ', '.'],
   },
+  logs: {
+    refresh: 'Refresh',
+    copy: 'Copy',
+    copied: 'Copied',
+    clear: 'Clear',
+    empty: 'Nothing yet. The server’s errors and the notifications will show here.',
+    sources: { server: 'Server', toast: 'Notification' },
+    levels: { error: 'Error', info: 'Info' },
+    words: 'errors notifications toasts messages history ECONNRESET',
+  },
   keys: {
     everywhere: 'Everywhere',
     add: 'Add a key',
@@ -87,7 +97,7 @@ export const settings: Dictionary['settings'] = {
     menu: 'Sections',
     sections: {
       general: 'General', sessions: 'Sessions', claude: 'Claude Code', folders: 'Folders and notes', office: 'Appearance', connections: 'Automatons and connections', keys: 'Keys',
-      usage: 'Usage and costs', shortcuts: 'Shortcuts', about: 'About',
+      usage: 'Usage and costs', shortcuts: 'Shortcuts', logs: 'Logs', about: 'About',
     },
     intros: {
       general: 'Language, how threads look, sounds and notifications.',
@@ -99,6 +109,7 @@ export const settings: Dictionary['settings'] = {
       keys: 'Pasted once, handed to the agents by name. Nobody sees their value, you included.',
       usage: 'What Claude Code used on this computer.',
       shortcuts: 'Everything works from the keyboard too.',
+      logs: 'The server’s errors and past notifications, to read again those that vanish too fast. Keys and your home folder are masked, and nothing is written to disk.',
       about: 'The versions of Open Space and Claude Code.',
     },
     groups: {

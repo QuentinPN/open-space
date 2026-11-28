@@ -171,6 +171,9 @@ export class Messengers {
 
   has(id: string) { return this.bots.some((bot) => bot.id === id); }
 
+  /** The bots' tokens, for nothing but masking them in Settings > Logs (server/server-log.ts). */
+  tokens(): string[] { return this.bots.map((bot) => bot.token); }
+
   start() {
     for (const bot of this.bots) this.listen(bot);
     this.timer ??= setInterval(() => { this.tick().catch((error: unknown) => this.deps.log('messengers: cannot tell the bots', error)); }, TICK_MS);

@@ -17,7 +17,7 @@ import { outdatedSessions, SETTINGS_SECTIONS, useSessions, type SettingsSection 
 import { CONFIG_LABELS, settingEntries, type SettingRow } from '../state/settings-index.ts';
 import {
   ActivityIcon, AgentIcon, AutomatonIcon, TagIcon, BellIcon, DiffIcon, BranchIcon, PipIcon, CursorIcon, DownloadIcon, CalendarIcon, ChangelogIcon, ChartIcon, ClockIcon, CloseIcon, CoffeeIcon, CopyIcon, RadioIcon, CrewIcon, DeskIcon, ExternalLinkIcon, FestivalIcon, FolderIcon,
-  CompactIcon, FreeWindowsIcon, GaugeIcon, GlobeIcon, InboxIcon, InfoIcon, ItsMeIcon, KeyIcon, KeyboardIcon, LanguageIcon, MessageIcon, NotesIcon, PlanIcon, RefreshIcon, SearchIcon, SettingsIcon, SoundIcon,
+  CompactIcon, FreeWindowsIcon, GaugeIcon, GlobeIcon, InboxIcon, InfoIcon, ItsMeIcon, KeyIcon, KeyboardIcon, LanguageIcon, LogsIcon, MessageIcon, NotesIcon, PlanIcon, RefreshIcon, SearchIcon, SettingsIcon, SoundIcon,
   OpacityIcon, PaletteIcon, PhoneIcon, SparklesIcon, TerminalIcon, ThinkingIcon, TimerIcon, TuneIcon, UltracodeIcon, WebhookIcon, WorkflowIcon,
 } from './Icons.tsx';
 import { Copyable } from './Copyable.tsx';
@@ -32,6 +32,7 @@ import { AccessGroup, ConnectionsGroups } from './ConnectionsPage.tsx';
 import { Switch } from './Switch.tsx';
 import { UsagePanel } from './UsagePanel.tsx';
 import { KeysPanel } from './KeysPanel.tsx';
+import { LogsPanel } from './LogsPanel.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { Row } from './PrefsRow.tsx';
 
@@ -40,7 +41,7 @@ export const REPOSITORY = 'https://github.com/Fantomiald/open-space';
 const IN_APP = /Electron/.test(navigator.userAgent);
 
 const SECTION_ICONS: Record<SettingsSection, () => ReactNode> = {
-  general: SettingsIcon, sessions: TuneIcon, claude: TerminalIcon, folders: FolderIcon, office: PaletteIcon, connections: MessageIcon, keys: KeyIcon, usage: ChartIcon, shortcuts: KeyboardIcon, about: InfoIcon,
+  general: SettingsIcon, sessions: TuneIcon, claude: TerminalIcon, folders: FolderIcon, office: PaletteIcon, connections: MessageIcon, keys: KeyIcon, usage: ChartIcon, shortcuts: KeyboardIcon, logs: LogsIcon, about: InfoIcon,
 };
 
 type Group = keyof typeof t.settings.prefs.groups;
@@ -542,6 +543,7 @@ function SettingsEditor() {
     if (shown === 'usage') return <UsagePanel />;
     if (shown === 'keys') return <KeysPanel />;
     if (shown === 'shortcuts') return <Shortcuts />;
+    if (shown === 'logs') return <LogsPanel />;
     const groups = (LAYOUT[shown] ?? []).map(([group, rows]) => (
       <section key={group} className="cp-prefs__group" aria-label={words.groups[group]}>
         {((LAYOUT[shown]?.length ?? 0) > 1 || shown === 'connections') && <h4 className="cp-prefs__group-title">{words.groups[group]}</h4>}

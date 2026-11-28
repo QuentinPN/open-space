@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inspect } from 'node:util';
 import type { WebSocket } from 'ws';
 import { defaultFolder } from '../shared/folders.ts';
 import { isPermissionMode, type AccountsBrowser, type AppUpdate, type ClaudeAccount, type ClaudeInfo, type ClientMessage, type ServerMessage, type SessionOptions } from '../shared/protocol.ts';
@@ -61,6 +62,8 @@ import { installFilter } from './playwright-filter.ts';
 import { answerSecrets, installScript, SecretStore, secretsKey } from './secrets.ts';
 import { accountsBrowserOf, Browsers, browserKey, browserMcpConfig, findChrome, openUserChrome, testerAgents, testerLane, userMcpServers } from './browser.ts';
 import { browserId, laneOf, sessionOfBrowser } from '../shared/browser.ts';
+import { maskKnown, redact } from '../shared/redact.ts';
+import { ServerLog } from './server-log.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
@@ -76,13 +79,49 @@ const OPEN_IF_ALONE_AFTER_MS = 3000;
 /** how often the installed Claude Code is asked its version */
 const CLAUDE_CHECK_MS = 10 * 60_000;
 
+/** Each place a key of Open Space lives, set as soon as it is made: Settings > Logs masks their values from the first line on. */
+const keyStores: { secret?: string; vault?: Vault | null; secretStore?: SecretStore; externalKey?: ExternalKey; triggerKeys?: KeyShelf; modKeys?: KeyShelf; messengers?: Messengers } = {};
+/** The values of a shelf's keys, every owner's. */
+const shelfValues = (shelf?: KeyShelf) => (shelf ? Object.keys(shelf.all()).flatMap((owner) => shelf.entries(owner).map((entry) => entry.value)) : []);
+/** Every key at hand now: the server's own, the MCP's, those given to the sessions, the vault's, the triggers', the mods' and the chat bots'. */
+const knownSecrets = (): string[] => [
+  keyStores.secret ?? '', keyStores.externalKey?.current ?? '', ...(keyStores.secretStore?.values() ?? keyStores.vault?.values() ?? []),
+  ...shelfValues(keyStores.triggerKeys), ...shelfValues(keyStores.modKeys), ...(keyStores.messengers?.tokens() ?? []),
+];
+/** set while a line goes to the pages: a failure there must not come back as one more line to send */
+let pushingLog = false;
+const serverLog = new ServerLog({
+  known: knownSecrets, home: os.homedir(),
+  onAdd: (entry) => {
+    if (pushingLog) return;
+    pushingLog = true;
+    try { broadcast({ t: 'logEntry', entry }); } catch { /* never logged: it would come back here */ } finally { pushingLog = false; }
+  },
+});
+/** `live` false: kept for Settings > Logs, not sent to the pages (a failure of their own connection). */
+function record(message: string, error: unknown, live: boolean) {
+  const detail = error instanceof Error ? error.message : (error ?? '');
+  console.error(`  !  ${message}`, detail);
+  // a line Settings > Logs cannot keep is still on the console, and never throws from here (uncaughtException)
+  try {
+    const kept = error instanceof Error ? errorText(error) : typeof detail === 'string' ? detail : inspect(detail);
+    serverLog.add('error', 'server', kept === '' ? message : `${message} ${kept}`, { live });
+  } catch { /* the console has it */ }
+}
+/** What Settings > Logs keeps of an error: its stack (else its message), then its cause's. */
+function errorText(error: Error): string {
+  const own = error.stack ?? error.message;
+  if (error.cause === undefined) return own;
+  return `${own}\nCaused by: ${error.cause instanceof Error ? (error.cause.stack ?? error.cause.message) : inspect(error.cause)}`;
+}
 // An unexpected error is logged, never fatal: one bad request must not kill running sessions.
-const log = (message: string, error?: unknown) => console.error(`  !  ${message}`, error instanceof Error ? error.message : (error ?? ''));
+const log = (message: string, error?: unknown) => record(message, error, true);
 process.on('unhandledRejection', (reason) => log('unhandled rejection', reason));
 process.on('uncaughtException', (error) => log('uncaught exception', error));
 
 const config = loadConfig(process.env, os.homedir());
 const secret = readOrCreateSecret(path.join(config.dataDir, 'secret'));
+keyStores.secret = secret;
 const policy = loopbackPolicy(DEV ? [config.port, DEV_PORT] : [config.port], secret);
 const claude = await findClaude();
 // the compiled UI's version: an open tab reloads itself when it changes
@@ -111,10 +150,27 @@ appPort?.on('message', ({ data }) => {
   broadcast({ t: 'appUpdate', update: appUpdate });
 });
 
+/**
+ * A message about to be sent (called once per send): a toast leaves with the keys it might name masked (those of 4
+ * characters or more: shorter ones would hide ordinary words on screen) and is kept once for Settings > Logs; any
+ * other message as it is. Never throws: when the keys cannot be read, the toast still goes, redacted without them.
+ */
+function outgoing(message: ServerMessage): ServerMessage {
+  if (message.t !== 'toast') return message;
+  try {
+    const known = knownSecrets();
+    serverLog.add(message.kind, 'toast', message.text, { known });
+    return { ...message, text: maskKnown(message.text, known, { short: false }) };
+  } catch {
+    return { ...message, text: redact(message.text) };
+  }
+}
+
 function broadcast(message: ServerMessage) {
-  const payload = JSON.stringify(message);
-  for (const client of clients) {
-    if (client.readyState !== client.OPEN) continue;
+  const open = [...clients].filter((client) => client.readyState === client.OPEN);
+  if (!open.length) return;
+  const payload = JSON.stringify(outgoing(message));
+  for (const client of open) {
     // a client that does not read (frozen tab) must not make the bridge accumulate memory
     if (client.bufferedAmount > MAX_BUFFERED_BYTES) { client.terminate(); continue; }
     client.send(payload);
@@ -148,6 +204,7 @@ function browserMcp(sessionId: string, untrusted: boolean, chosen: AccountsBrows
 /** the keys kept beyond a session (server/vault.ts): only inside the desktop app, with a real keyring; otherwise every key stays in memory */
 const vaultAt = vaultPlace(process.env);
 const vault = vaultAt && appPort ? await Vault.open(vaultAt.file, appCipher(appPort), vaultAt.storage) : null;
+keyStores.vault = vault;
 /** the keys the user gives the sessions, and the os-secret command that uses them (server/secrets.ts) */
 const secretStore = new SecretStore((sessionId) => sessions.secretsChanged(sessionId), Date.now, {
   vault,
@@ -157,6 +214,7 @@ const secretStore = new SecretStore((sessionId) => sessions.secretsChanged(sessi
     return place && { name: place.name, project: place.project ?? projectOf(place.cwd), trigger: place.trigger, untrusted: place.untrusted || place.spawned };
   },
 });
+keyStores.secretStore = secretStore;
 setInterval(() => secretStore.sweep(), 60_000).unref();
 /** Where the keys of each trigger or each mod live: the vault, once the file they were in is moved there; else that file. */
 async function keyShelf(kind: 'trigger' | 'mod', file: string): Promise<KeyShelf> {
@@ -292,9 +350,11 @@ const messengers = new Messengers({
   onChange: () => broadcast(triggersMessage()),
   log,
 });
+keyStores.messengers = messengers;
 
 /** the keys each trigger hands its runs: in the vault, else in a file (server/key-file.ts) */
 const triggerKeys = await keyShelf('trigger', 'trigger-keys.json');
+keyStores.triggerKeys = triggerKeys;
 
 /** The triggers (server/triggers.ts): their runs are sessions started by startSession, in Remote Control when they say so, with their trigger's keys. */
 const triggers = new Triggers({
@@ -332,6 +392,7 @@ triggers.start();
 messengers.start();
 /** the open-space MCP access of another program of this computer (server/mcp.ts) */
 const externalKey = new ExternalKey(path.join(config.dataDir, 'mcp-key'));
+keyStores.externalKey = externalKey;
 /** the port that only answers webhooks, once it listens (config.hooksPort) */
 let hooksPort: number | null = null;
 /** this computer's Tailscale name the bridge is served under, for the phone (applyPhoneAccess); null while that access is off */
@@ -497,7 +558,9 @@ const preferencesMessage = (): ServerMessage => ({ t: 'preferences', preferences
 prepareSounds(config.dataDir, log);
 /** the kit the mods load, and the guide their sessions read: beside the page once built, in public/ while developing */
 const MOD_KIT = path.join(DEV ? path.join(ROOT, 'public') : DIST, 'mod-kit');
-const mods = new Mods({ folder: modsFolder(config.dataDir), kitDir: MOD_KIT, seenFile: path.join(config.dataDir, 'mods-seen.json'), keys: await keyShelf('mod', 'mods-env.json'), trashFile: path.join(config.dataDir, 'mods-trashed.json'), secret, port: config.modsPort, onChange: (list) => broadcast({ t: 'mods', mods: list }), log });
+const modKeys = await keyShelf('mod', 'mods-env.json');
+keyStores.modKeys = modKeys;
+const mods = new Mods({ folder: modsFolder(config.dataDir), kitDir: MOD_KIT, seenFile: path.join(config.dataDir, 'mods-seen.json'), keys: modKeys, trashFile: path.join(config.dataDir, 'mods-trashed.json'), secret, port: config.modsPort, onChange: (list) => broadcast({ t: 'mods', mods: list }), log });
 await mods.prepare();
 // a key of the vault changed: the sessions it was handed to, Settings > Keys, the triggers' and the mods' names
 if (vault) writeVaultOwners(VAULT_OWNERS, vault);
@@ -549,7 +612,7 @@ const { server, hooksServer, modsServer } = createWebServer({ policy, distDir: D
 
 function onConnection(socket: WebSocket) {
   clients.add(socket);
-  const send = (message: ServerMessage) => { if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message)); };
+  const send = (message: ServerMessage) => { if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(outgoing(message))); };
   let alive = true;
   socket.on('pong', () => { alive = true; });
   const heartbeat = setInterval(() => {
@@ -558,7 +621,7 @@ function onConnection(socket: WebSocket) {
     socket.ping();
   }, PING_INTERVAL_MS);
   socket.on('close', () => { clients.delete(socket); presence.delete(socket); clearInterval(heartbeat); });
-  socket.on('error', (error) => log('websocket error', error));
+  socket.on('error', (error) => record('websocket error', error, false));
 
   send({
     t: 'hello', claude: claudeInfo(), roots: config.roots,
@@ -685,6 +748,8 @@ async function handle(message: ClientMessage, send: (message: ServerMessage) => 
       break;
     }
     case 'log': send({ t: 'log', sessionId: message.sessionId, ...sessions.logSince(message.sessionId, message.after) }); break;
+    case 'getLogs': send({ t: 'logs', entries: serverLog.list() }); break;
+    case 'clearLogs': serverLog.clear(); broadcast({ t: 'logs', entries: [], cleared: true }); break;
     case 'directories': send({ t: 'directories', directories: sessions.directories() }); break;
     case 'duplicate': {
       const taken = new Set(sessions.list().map((session) => session.name));
