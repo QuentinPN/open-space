@@ -463,3 +463,14 @@ export function shade(hex: string, factor: number): string {
     Math.round(factor > 1 ? channel + (255 - channel) * (factor - 1) : channel * factor));
   return `rgb(${channels.join(',')})`;
 }
+
+/**
+ * The cozy rooms' HD pets (src/room/pet-hd/): what lights and shades a fur towards warm, their eyes, blush, noses and
+ * mouths, and what each kind wears whatever its colour. Their own colour comes from ROOM_PALETTE.pet (or the user's).
+ */
+export const PET_HD_PALETTE = {
+  outline: COZY_PALETTE.outline,
+  warmLight: '#fff4dc', warmShade: '#8c4a36',
+  glint: '#ffffff', eye: '#3b2620', blush: '#f7909a', mouth: '#a8433f', tongue: '#f2707e', nose: '#e8798d',
+  earInside: '#f7a8b6', cream: '#fff6e8', creamShade: '#ecdcc4',
+} as const;
