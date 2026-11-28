@@ -8,11 +8,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, ceilingAt, paintCouch, paintCouchArm, paintWallBoxes, shadeAlongWalls, standing, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel,
+  fillLeftFace, fillRightFace, fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel, wallX, wallY,
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { hash } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { BACK_RIGHT, COOLER, COUNTER, LAMP, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.cellar, O = C.outline, V = P.view;
@@ -250,18 +251,26 @@ const CLOCK: WallClock = { wall: 'right', a: 40, z: 80, radius: 6, tones: P.cloc
 function paintArchBulbs(grid: PixelGrid) {
   const L = P.bulb;
   for (const wall of ['left', 'right'] as const) for (const bay of BAYS[wall]) {
-    const ra = bay.half - 1.5, rz = bay.rise - 1.5, count = Math.max(3, Math.round(bay.half / 8));
+    const ra = bay.half - 1.5, rz = bay.rise - 1.5;
     for (let step = 0; step <= 60; step++) {
       const angle = Math.PI * (0.16 + (0.68 * step) / 60);
       wallPixel(grid, wall, Math.floor(bay.middle + Math.cos(angle) * ra), Math.floor(SPRING + Math.sin(angle) * rz), L.cord);
     }
-    for (let index = 0; index < count; index++) {
-      const angle = Math.PI * (0.2 + (0.6 * (index + 0.5)) / count), ba = Math.floor(bay.middle + Math.cos(angle) * ra), bz = Math.floor(SPRING + Math.sin(angle) * rz);
-      wallPixel(grid, wall, ba, bz - 1, L.cap);
-      wallPatch(grid, wall, ba - 1, ba + 1, bz - 4, bz - 1, L.glass); wallPixel(grid, wall, ba, bz - 3, L.filament);
-    }
+  }
+  for (const { wall, a: ba, z: bz } of ARCH_BULBS) {
+    wallPixel(grid, wall, ba, bz - 1, L.cap);
+    wallPatch(grid, wall, ba - 1, ba + 1, bz - 4, bz - 1, L.glass); wallPixel(grid, wall, ba, bz - 3, L.filament);
   }
 }
+
+/** Where the bulbs hang along the arches: under their cap at (a, z) on their wall, every few stones of each arch. */
+const ARCH_BULBS = (['left', 'right'] as const).flatMap((wall) => BAYS[wall].flatMap((bay) => {
+  const ra = bay.half - 1.5, rz = bay.rise - 1.5, count = Math.max(3, Math.round(bay.half / 8));
+  return Array.from({ length: count }, (_, index) => {
+    const angle = Math.PI * (0.2 + (0.6 * (index + 0.5)) / count);
+    return { wall, a: Math.floor(bay.middle + Math.cos(angle) * ra), z: Math.floor(SPRING + Math.sin(angle) * rz) };
+  });
+}));
 
 /** An Edison bulb hanging from the ceiling on its cord, in a little iron cage. */
 function paintPendant(grid: PixelGrid, u: number, v: number, z: number) {
@@ -520,6 +529,38 @@ const VIEW: readonly string[] = [
   V.sun, V.sunLow, V.sunLowLight, V.cloud, V.moon, V.moonShade, V.star, V.flower, V.flowerHeart, V.firefly,
 ];
 
+/** The candles of the stand where the offices' floor lamp is: their flame's foot on screen (paintCandleStand). */
+const STAND = iso(LAMP.u, LAMP.v), STAND_CANDLES = [[-6, 45], [0, 49], [6, 45]] as const;
+const PENDANT_BULBS = PENDANTS.map(([u, v, z]) => iso(u, v, z));
+
+/**
+ * While someone is there: now and then a bulb dimming for a moment, along the arches or over the counter (old wiring),
+ * and the candles of the stand flickering.
+ */
+const motion: AmbianceMotion = {
+  masks: { bulbs: [P.bulb.glass], flames: [P.candle.flame, P.candle.flameCore] },
+  paint({ bulbs, flames }, frame, { lit }) {
+    if (!lit) return;
+    const step = frame >> 1, L = P.bulb;
+    for (let index = 0; index < ARCH_BULBS.length; index++) {
+      if (hash(index, step) > 0.025) continue;
+      const { wall, a, z } = ARCH_BULBS[index];
+      for (let da = -1; da < 1; da++) for (let dz = 4; dz > 1; dz--) bulbs.set(wallX(wall, a + da), wallY(wall, a + da, z - dz), L.filament);
+    }
+    for (let index = 0; index < PENDANT_BULBS.length; index++) {
+      if (hash(index + 50, step) > 0.03) continue;
+      const { x, y } = PENDANT_BULBS[index];
+      for (let dy = -5; dy < 0; dy++) for (let dx = -2; dx <= 2; dx++) bulbs.set(x + dx, y + dy, L.filament);
+    }
+    // a candle's flame: its tip and its foot trading places, a step at a time
+    for (let index = 0; index < STAND_CANDLES.length; index++) {
+      if (hash(index + 90, step) > 0.35) continue;
+      const [dx, up] = STAND_CANDLES[index];
+      flames.set(STAND.x + dx, STAND.y - up, P.candle.flameCore); flames.set(STAND.x + dx, STAND.y - up - 1, P.candle.flame);
+    }
+  },
+};
+
 export const cellar: AmbianceDesign = {
   id: 'cellar',
   desks: office.desks,
@@ -578,4 +619,5 @@ export const cellar: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintCandleStand),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.candle.wax, P.candle.waxShade], glow: GLOW, sky: VIEW },
+  motion,
 };

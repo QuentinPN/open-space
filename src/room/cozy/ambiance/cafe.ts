@@ -12,7 +12,8 @@ import {
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { steam } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { BACK_RIGHT, COOLER, COUNTER, LAMP, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.cafe, O = C.outline;
@@ -310,6 +311,19 @@ const bookPile: Topper = (layer, x, y) => {
   layer.rect(x - 4, y - 2, 8, 2, P.books[0]); layer.rect(x - 4, y - 1, 8, 1, tint(P.books[0], 0.85)); layer.rect(x - 3, y - 4, 7, 2, P.books[2]); layer.rect(x - 3, y - 3, 7, 1, P.books[5]);
 };
 
+/** The cups warming on the espresso machine, on screen (paintBar). */
+const CUPS = iso(42, 4, 35);
+
+/** While someone is there, steam rising from the cups on the espresso machine, against the white tiles behind it. */
+const motion: AmbianceMotion = {
+  masks: { tiles: [P.tiles.tile, P.tiles.shade, P.tiles.grout] },
+  paint({ tiles }, frame, { lit }) {
+    if (!lit) return;
+    steam(tiles, CUPS.x - 2, CUPS.y - 4, frame, P.steam);
+    steam(tiles, CUPS.x + 3, CUPS.y - 4, frame + 11, P.steam);
+  },
+};
+
 export const cafe: AmbianceDesign = {
   id: 'cafe',
   desks: office.desks,
@@ -370,4 +384,5 @@ export const cafe: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintLamp),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lamp.bulb], glow: [P.pendant.bulb, P.counter.gauge], sky: [] },
+  motion,
 };

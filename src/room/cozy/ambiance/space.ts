@@ -8,11 +8,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintDrawers, paintMonstera, paintWallBoxes, shadeAlongWalls, standing, type Drawers, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, iso } from '../geometry.ts';
 import {
-  fillTop, fillWall, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel,
+  fillTop, fillWall, onLeftFace, outlined, outlinedBox, patchOnLeftFace, tint, wallEllipse, wallPatch, wallPixel, wallX, wallY,
   type Painter, type PixelGrid, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { hash, redraw } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.space, O = C.outline, V = P.view;
@@ -60,6 +61,13 @@ function paintHull(grid: PixelGrid) {
   wallPatch(grid, 'right', 4, 26, 52, 54, H.decal);
 }
 
+/** The stars in the porthole (`a` along the wall, `z` up): the first ones all the time, all of them at night. */
+const STARS = [[12, 10], [3, 13], [-9, 11], [-13, 2], [9, -4], [-4, 5], [14, -2], [-6, -11], [7, 2], [-1, 9], [11, 5], [-11, -5], [2, -13], [13, -8]]
+  .map(([da, dz]) => [PORTHOLE.a + da, PORTHOLE.z + dz] as const);
+const DAY_STARS = 8;
+/** A star's colour, white or blue, swapping now and then as the `frame`s go by (0 at rest). */
+const starOf = (index: number, frame: number) => ((index % 3 !== 0) !== (frame > 0 && hash(index, frame >> 2) < 0.16) ? V.star : V.starBlue);
+
 /** The view through the porthole at `time`: deep space, its stars and its nebula, a ringed planet, the sun low at dusk. */
 function paintView(grid: PixelGrid, time: CozyTime) {
   const wall: Wall = 'left', { a, z, glass } = PORTHOLE, sky = V[time], night = time === 'night';
@@ -71,9 +79,7 @@ function paintView(grid: PixelGrid, time: CozyTime) {
     const d = ((pa - (a + 6)) / 11) ** 2 + ((pz - (z + 7)) / 4) ** 2;
     return d < 0.35 && night ? V.nebula : d < 1 && (pa + pz) % 2 === 0 ? V.nebulaDeep : null;
   });
-  const stars = [[a + 12, z + 10], [a + 3, z + 13], [a - 9, z + 11], [a - 13, z + 2], [a + 9, z - 4], [a - 4, z + 5], [a + 14, z - 2], [a - 6, z - 11]];
-  const more = night ? [[a + 7, z + 2], [a - 1, z + 9], [a + 11, z + 5], [a - 11, z - 5], [a + 2, z - 13], [a + 13, z - 8]] : [];
-  for (const [index, [pa, pz]] of [...stars, ...more].entries()) if (inGlass(pa, pz)) wallPixel(grid, wall, pa, pz, index % 3 ? V.star : V.starBlue);
+  for (const [index, [pa, pz]] of STARS.entries()) if (index < (night ? STARS.length : DAY_STARS) && inGlass(pa, pz)) wallPixel(grid, wall, pa, pz, starOf(index, 0));
   if (time === 'dusk') { wallEllipse(grid, wall, a + 9, z - 9, 5.5, 5.5, V.sunGlow); wallEllipse(grid, wall, a + 9, z - 9, 3.6, 3.6, V.sun); }
   else if (!night) { wallEllipse(grid, wall, a + 11, z + 9, 2.6, 2.6, V.sunGlow); wallEllipse(grid, wall, a + 11, z + 9, 1.4, 1.4, V.sun); }
   // the planet, lower in the glass, its ring round it: the back of the ring, the planet, the front of the ring
@@ -262,6 +268,37 @@ const orb: Topper = (layer, x, y) => {
 const GLOW: readonly string[] = [P.hull.strip, P.hull.stripDim, P.galley.text, P.galley.led, P.door.light, P.door.slit, P.board.line, P.board.orbit, P.board.sun, ...P.board.dots, P.orb.glow, P.pot.led];
 const VIEW: readonly string[] = [...V.day, ...V.dusk, ...V.night, V.star, V.starBlue, V.nebula, V.nebulaDeep, V.planet, V.planetLight, V.planetShade, V.planetNight, V.band, V.ring, V.ringShade, V.sun, V.sunGlow];
 
+/** What the sky of the porthole is painted in at each mood: a shooting star crosses it only. */
+const SKY = { day: new Set<string>(V.day), dusk: new Set<string>(V.dusk), night: new Set<string>(V.night) } as const;
+
+/**
+ * The stars twinkling in the porthole, a shooting star crossing it now and then; while someone is there, a pulse of
+ * light running along the hull's light strip.
+ */
+const motion: AmbianceMotion = {
+  masks: { strip: [P.hull.strip] },
+  paint({ view, strip }, frame, { time, lit }) {
+    const count = time === 'night' ? STARS.length : DAY_STARS;
+    for (let index = 0; index < count; index++) redraw(view, 'left', STARS[index][0], STARS[index][1], starOf(index, 0), starOf(index, frame));
+    // a shooting star: a dozen frames out of every hundred and twenty, from the top towards the bottom left of the glass
+    const age = frame % 120, trip = Math.floor(frame / 120);
+    if (frame && age < 12) {
+      const from = PORTHOLE.a - 8 + Math.floor(hash(trip, 3) * 16), sky = SKY[time];
+      for (let tail = 0; tail < 4; tail++) {
+        const step = age - tail;
+        if (step < 0) continue;
+        const a = from + step * 2, z = PORTHOLE.z + 12 - step;
+        const x = wallX('left', a), y = wallY('left', a, z), colour = view.colourAt(x, y);
+        if (colour && sky.has(colour)) view.set(x, y, tail ? V.starBlue : V.star);
+      }
+    }
+    if (!lit) return;
+    const at = ((frame * 1.5) % (ROOM + 30)) - 15;
+    for (const wall of WALLS) for (let a = Math.floor(at) - 3; a <= at + 3; a++) for (let z = 34; z < 37; z++) strip.set(wallX(wall, a), wallY(wall, a, z), P.hull.stripDim);
+  },
+};
+const WALLS = ['left', 'right'] as const;
+
 export const space: AmbianceDesign = {
   ...office,
   id: 'space',
@@ -291,4 +328,6 @@ export const space: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintLightColumn),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lamp.tube, P.lamp.tubeLight, P.lamp.tubeShade], glow: GLOW, sky: VIEW },
+  glass: { wall: 'left', a0: PORTHOLE.a - PORTHOLE.glass, a1: PORTHOLE.a + PORTHOLE.glass, z0: PORTHOLE.z - PORTHOLE.glass, z1: PORTHOLE.z + PORTHOLE.glass },
+  motion,
 };

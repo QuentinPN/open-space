@@ -3,6 +3,8 @@ export const cafe = {
   wall: { left: '#7a9a7c', right: '#6c8d70', capTop: '#f3e6cf', capLeft: '#cdbb98', capRight: '#bfac88', top: '#8fae90', topShade: '#7d9c80' },
   wainscot: { left: '#8a5a3a', right: '#7a4e32', panel: '#6a4228', light: '#a8714a', rail: '#c9a24a', railLight: '#ecc96e', base: '#4a2e1e', baseLight: '#6a4228' },
   tiles: { tile: '#f4efe6', shade: '#e6dfd2', grout: '#cfc5b4' },
+  /** the espressos' steam against the white tiles: see-through, a warm grey so it shows on them */
+  steam: ['rgba(132, 112, 96, 0.6)', 'rgba(132, 112, 96, 0.32)'],
   parquet: { tones: ['#b98352', '#a8744a', '#c48e5c', '#ad7a4c'], seam: '#7a4e30', light: '#d39e6a' },
   window: { frame: '#2f4f3a', frameLight: '#4d7258', pane: '#f7f3ea', mullion: '#3f6249', sill: ['#b07a4e', '#97643e', '#7c4f30'], sillEdge: '#c99062' },
   curtain: ['#fffaf0', '#f1e6d2', '#dccdb2'],
