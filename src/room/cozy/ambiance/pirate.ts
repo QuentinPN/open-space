@@ -9,11 +9,12 @@ import type { WallClock } from '../clock.ts';
 import { DOOR, paintCouch, paintCouchArm, paintWallBoxes, shadeAlongWalls, standing, type Topper } from '../decor.ts';
 import { ROOM_UNITS as ROOM, WALL_HEIGHT, around, iso, onCouchAt } from '../geometry.ts';
 import {
-  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallEllipse, wallPixel, wallPoint,
+  fillTop, fillWall, onLeftFace, onRightFace, outlined, outlinedBox, patchOnLeftFace, patchOnRightFace, wallEllipse, wallPixel, wallPoint, wallY,
   type Painter, type PixelGrid, type PixelTarget, type Tones, type Wall,
 } from '../pixels.ts';
 import type { CozyTime } from '../time.ts';
-import type { AmbianceDesign } from './index.ts';
+import { glimmer, redraw } from '../motion.ts';
+import type { AmbianceDesign, AmbianceMotion } from './index.ts';
 import { COOLER, COUNTER, DRAWERS, LAMP, MONSTERA, office } from './office.ts';
 
 const P = COZY_AMBIANCE_PALETTE.pirate, O = C.outline, V = P.view;
@@ -92,13 +93,27 @@ function paintHull(grid: PixelGrid) {
   }
 }
 
+/** Which point of a row of the sea's crests a column of the glass shows, the row `depth` under the horizon; the nearer rows drift faster as the `frame`s go by (0 at rest). */
+function waveAt(pa: number, depth: number, frame: number): number {
+  const drift = Math.floor((frame * (2 + Math.floor((depth - 1) / 3))) / 12);
+  return (((pa + drift + ((depth * 5) % 9)) % 9) + 9) % 9;
+}
+
+/** The sea at `depth` pixels under the horizon in a column of the glass: rows of little crests every three, their tips foaming in the row above. */
+function seaAt(time: CozyTime, pa: number, depth: number, frame: number): string {
+  if (depth >= 2 && (depth - 2) % 3 === 0 && waveAt(pa, depth, frame) < 4) return V.crest[time];
+  if (depth >= 1 && (depth - 1) % 3 === 0) { const k = waveAt(pa, depth + 1, frame); if (k === 1 || k === 2) return V.foam[time]; }
+  const sea = V.sea[time];
+  return sea[Math.min(sea.length - 1, Math.floor((depth - 1) / 4))];
+}
+
 /**
  * The sea through the porthole at `time`: the sky and its sun, clouds or stars, the island and its palm, the waves.
  * The view is seen through the wall, not painted on it: its horizon and its waves run level on the screen, so each
  * point of the glass is placed by how high it is on the screen above the horizon (`up`), not along the wall.
  */
 function paintSea(grid: PixelGrid, time: CozyTime) {
-  const wall: Wall = 'left', { a, z, glass } = PORTHOLE, sky = V[time], sea = V.sea[time], night = time === 'night', dusk = time === 'dusk';
+  const wall: Wall = 'left', { a, z, glass } = PORTHOLE, sky = V[time], night = time === 'night', dusk = time === 'dusk';
   const foot = (pa: number) => wallPoint(wall, pa, 0)[1], horizon = foot(a) - (z - 2);
   /** how many pixels above the horizon a point of the glass shows, and the point of a column that many above it */
   const up = (pa: number, pz: number) => horizon - foot(pa) + pz;
@@ -112,16 +127,11 @@ function paintSea(grid: PixelGrid, time: CozyTime) {
       if ((pa + 0.5 - ca) ** 2 + (dz + 0.5) ** 2 <= radius * radius && rise + dz >= 0) level(pa, Math.round(rise + dz), colour);
     }
   };
-  const wave = (pa: number, depth: number) => ((pa + ((depth * 5) % 9)) % 9 + 9) % 9;
   fillWall(grid, wall, a - glass, a + glass, z - glass, z + glass, (pa, pz) => {
     if (!inGlass(pa, pz)) return null;
     const rise = up(pa, pz);
     if (rise >= 0) return sky[Math.max(0, sky.length - 1 - Math.floor((rise * sky.length) / (glass + 4)))];
-    // under the horizon, rows of little crests every three, their tips foaming in the row above
-    const depth = -rise;
-    if (depth >= 2 && (depth - 2) % 3 === 0 && wave(pa, depth) < 4) return V.crest[time];
-    if (depth >= 1 && (depth - 1) % 3 === 0) { const k = wave(pa, depth + 1); if (k === 1 || k === 2) return V.foam[time]; }
-    return sea[Math.min(sea.length - 1, Math.floor((depth - 1) / 4))];
+    return seaAt(time, pa, -rise, 0);
   });
   if (night) {
     for (const [pa, rise] of [[a + 9, 13], [a + 3, 16], [a - 4, 8], [a + 12, 6], [a - 11, 5], [a + 6, 8], [a - 1, 14]]) level(pa, rise, V.star);
@@ -564,6 +574,33 @@ const VIEW: readonly string[] = [
   V.sun, V.sunLight, V.sunLow, V.sunLowLight, V.glitter, V.moon, V.moonShade, V.star, V.cloud, V.cloudShade, V.island, V.palm, V.trunk, V.gull, V.silhouette, V.nightIsland, P.porthole.glint,
 ];
 
+/** The wall lantern's glass and the post lantern's, on screen: their top left corner (lantern's pattern). */
+const [WALL_LANTERN_X, WALL_LANTERN_Y] = wallPoint('left', 30, 74), POST = iso(LAMP.u, LAMP.v);
+
+/**
+ * The waves rolling past the porthole, on its sea only (what shines on it stays); the lanterns' flames glimmering in
+ * their glass while someone is there, the post's once it is lit, at dusk and at night.
+ */
+const motion: AmbianceMotion = {
+  masks: {
+    lantern: [P.wallLantern.glassShade, P.wallLantern.glass, P.wallLantern.glassLight],
+    post: [P.lamp.glassShade, P.lamp.glass, P.lamp.glassLight],
+  },
+  paint({ view, lantern, post }, frame, { time, lit }) {
+    const { a, z, glass } = PORTHOLE, horizon = wallY('left', a, 0) - (z - 2);
+    for (let pa = a - glass; pa < a + glass; pa++) {
+      const foot = wallY('left', pa, 0);
+      for (let pz = z - glass; pz < z + glass; pz++) {
+        const depth = foot - horizon - pz;
+        if (depth > 0) redraw(view, 'left', pa, pz, seaAt(time, pa, depth, 0), seaAt(time, pa, depth, frame));
+      }
+    }
+    if (!lit) return;
+    glimmer(lantern, WALL_LANTERN_X - 2, WALL_LANTERN_Y + 3, 7, 9, frame, 1);
+    if (time !== 'day') glimmer(post, POST.x + 3, POST.y - 39, 7, 9, frame, 2);
+  },
+};
+
 export const pirate: AmbianceDesign = {
   ...office,
   id: 'pirate',
@@ -607,4 +644,6 @@ export const pirate: AmbianceDesign = {
     standing(LAMP.u, LAMP.u, LAMP.v, LAMP.v, paintLanternPost),
   ],
   light: { lamp: LAMP, lampColour: P.light.lamp, ambient: P.light, lampGlow: [P.lamp.glass, P.lamp.glassLight, P.lamp.glassShade], glow: GLOW, sky: VIEW },
+  glass: { wall: 'left', a0: PORTHOLE.a - PORTHOLE.glass, a1: PORTHOLE.a + PORTHOLE.glass, z0: PORTHOLE.z - PORTHOLE.glass, z1: PORTHOLE.z + PORTHOLE.glass },
+  motion,
 };
